@@ -2,7 +2,10 @@ package engine
 
 import (
 	"fmt"
+	"image"
+	"image/color"
 	"log"
+	"raycaster-go/engine/raycaster"
 	"runtime"
 
 	"github.com/hajimehoshi/ebiten"
@@ -10,49 +13,68 @@ import (
 )
 
 const (
-	screenWidth   = 640
-	screenHeight  = 480
-	fontSize      = 32
-	smallFontSize = fontSize / 2
-)
+	// ebiten constants
+	screenWidth  = 1024
+	screenHeight = 700
 
-type Mode int
-
-const (
-	ModeTitle Mode = iota
-	ModeGame
-	ModeGameOver
+	//--RaycastEngine constants
+	//--set constant, texture size to be the wall (and sprite) texture size--//
+	texSize = 256
 )
 
 type Game struct {
-	mode          Mode
-	ui            *UI
-	gameoverCount int
+	//--create slicer and declare slices--//
+	slicer *raycaster.TextureHandler
+	slices []*image.Rectangle
+
+	//--viewport and width / height--//
+	view   *ebiten.Image
+	width  int
+	height int
+
+	//--define camera--//
+	camera *raycaster.Camera
+
+	//--graphics manager and sprite batch--//
+	//private GraphicsDeviceManager graphics;
+	//private SpriteBatch spriteBatch;
+
+	textures [5]*ebiten.Image
+
+	//--test texture--//
+	floor *ebiten.Image
+	sky   *ebiten.Image
+
+	//-test effect--//
+	//Effect effect;
+
+	//test sprite
+	sprite *ebiten.Image
+
+	//--array of levels, levels reffer to "floors" of the world--//
+	levels []*Level
 }
 
-type UI struct {
-	// render screen
-	screen *ebiten.Image
+type Level struct {
+	//--struct to represent rects and tints of a level--//
+	Sv  []*image.Rectangle
+	Cts []*image.Rectangle
 
-	// Camera
-	cameraX int
-	cameraY int
-}
-
-type Point struct {
-	X, Y float64
+	//--current slice tint (for lighting)--//
+	St         []*color.Color
+	CurrTexNum []int
 }
 
 func NewGame() *Game {
-	g := &Game{}
-	g.init()
-	return g
-}
+	// initialize Game object
+	g := new(Game)
 
-func (g *Game) init() {
-	g.ui = &UI{}
-	g.ui.SetCamera(-240, 0)
-	g.ui.Init()
+	g.width = screenWidth
+	g.height = screenHeight
+
+	g.slicer = raycaster.NewTextureHandler(texSize)
+
+	return g
 }
 
 func (g *Game) Run() {
@@ -62,15 +84,25 @@ func (g *Game) Run() {
 		ebiten.SetFullscreen(true)
 	}
 
-	if err := ebiten.Run(g.Update, screenWidth, screenHeight, 1, "PixelMek-Go"); err != nil {
+	if err := ebiten.Run(g.Update, g.width, g.height, 1, "Raycaster-Go"); err != nil {
 		log.Fatal(err)
 	}
 }
 
 func (g *Game) Update(screen *ebiten.Image) error {
+	g.view = screen
 
 	// Perform logical updates
-	g.ui.Update(screen)
+	mx, my := ebiten.CursorPosition()
+
+	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
+		fmt.Printf("mouse left clicked: (%v, %v)\n", mx, my)
+	}
+
+	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonRight) {
+		mx, my := ebiten.CursorPosition()
+		fmt.Printf("mouse right clicked: (%v, %v)\n", mx, my)
+	}
 
 	if ebiten.IsDrawingSkipped() {
 		// When the game is running slowly, the rendering result
@@ -79,51 +111,9 @@ func (g *Game) Update(screen *ebiten.Image) error {
 	}
 
 	// Render game to screen
-	g.ui.Draw(screen)
-
-	return nil
-}
-
-func (ui *UI) Init() {
-	// setup test sprite
-}
-
-func (ui *UI) SetCamera(x int, y int) {
-	ui.cameraX = x
-	ui.cameraY = y
-}
-
-func (ui *UI) Update(screen *ebiten.Image) error {
-	ui.screen = screen
-
-	mx, my := ebiten.CursorPosition()
-
-	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
-		fmt.Printf("mouse left clicked: (%v, %v)\n", mx, my)
-		// gPoint := Point{float64(mx + ui.cameraX), float64(my + ui.cameraY)}
-	}
-
-	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonRight) {
-		mx, my := ebiten.CursorPosition()
-		fmt.Printf("mouse right clicked: (%v, %v)\n", mx, my)
-		// gPoint := Point{float64(mx + ui.cameraX), float64(my + ui.cameraY)}
-	}
-
-	// Update sprite positions
-	// Update()
-
-	return nil
-}
-
-func (ui *UI) Draw(screen *ebiten.Image) error {
-	ui.screen = screen
-
-	// Render sprites
-	// Draw(ui)
-
 	// TPS counter
 	fps := fmt.Sprintf("TPS: %f/%v", ebiten.CurrentTPS(), ebiten.MaxTPS())
-	ebitenutil.DebugPrint(screen, fps)
+	ebitenutil.DebugPrint(g.view, fps)
 
 	return nil
 }
