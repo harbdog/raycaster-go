@@ -22,6 +22,7 @@ const (
 	texSize = 256
 )
 
+// Game - This is the main type for your game.
 type Game struct {
 	//--create slicer and declare slices--//
 	slicer *raycaster.TextureHandler
@@ -52,19 +53,13 @@ type Game struct {
 	sprite *ebiten.Image
 
 	//--array of levels, levels reffer to "floors" of the world--//
-	levels []*Level
+	levels []*raycaster.Level
 }
 
-type Level struct {
-	//--struct to represent rects and tints of a level--//
-	Sv  []*image.Rectangle
-	Cts []*image.Rectangle
-
-	//--current slice tint (for lighting)--//
-	St         []*color.Color
-	CurrTexNum []int
-}
-
+// NewGame - Allows the game to perform any initialization it needs to before starting to run.
+// This is where it can query for any required services and load any non-graphic
+// related content.  Calling base.Initialize will enumerate through any components
+// and initialize them as well.
 func NewGame() *Game {
 	// initialize Game object
 	g := new(Game)
@@ -80,9 +75,13 @@ func NewGame() *Game {
 	//--inits the levels--//
 	g.levels = g.createLevels(4)
 
+	//--init camera--//
+	g.camera = raycaster.NewCamera(g.width, g.height, texSize, g.slices, g.levels)
+
 	return g
 }
 
+// Run is the Ebiten Run loop caller
 func (g *Game) Run() {
 	// On browsers, let's use fullscreen so that this is playable on any browsers.
 	// It is planned to ignore the given 'scale' apply fullscreen automatically on browsers (#571).
@@ -125,12 +124,12 @@ func (g *Game) Update(screen *ebiten.Image) error {
 }
 
 //returns an initialised Level struct
-func (g *Game) createLevels(numLevels int) []*Level {
-	var arr []*Level
-	arr = make([]*Level, numLevels)
+func (g *Game) createLevels(numLevels int) []*raycaster.Level {
+	var arr []*raycaster.Level
+	arr = make([]*raycaster.Level, numLevels)
 
 	for i := 0; i < numLevels; i++ {
-		arr[i] = new(Level)
+		arr[i] = new(raycaster.Level)
 		arr[i].Sv = g.sliceView()
 		arr[i].Cts = make([]*image.Rectangle, g.width)
 		arr[i].St = make([]*color.Color, g.width)
