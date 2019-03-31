@@ -75,10 +75,10 @@ func NewCamera(width int, height int, texWid int, slices []*image.Rectangle, lev
 	c.camX = make([]float64, c.w)
 	c.preCalcCamX()
 
-	// map = new Map();
-	// worldMap = map.getGrid();
-	// upMap = map.getGridUp();
-	// midMap = map.getGridMid();
+	c.mapObj = NewMap()
+	c.worldMap = c.mapObj.getGrid()
+	c.upMap = c.mapObj.getGridUp()
+	c.midMap = c.mapObj.getGridMid()
 
 	// raycast();//do an initial raycast
 
