@@ -88,6 +88,49 @@ func NewCamera(width int, height int, texWid int, slices []*image.Rectangle, lev
 	return c
 }
 
+func (c *Camera) Update() {
+	//--do raycast--//
+	c.raycast()
+
+	//=========================//
+	//=====take user input=====//
+	//=========================//
+
+	// KeyboardState state = Keyboard.GetState();
+
+	// bool lArrowKeyDown = state.IsKeyDown(Keys.Left) || state.IsKeyDown(Keys.A);
+
+	// if (lArrowKeyDown)
+	// {
+	// 	rotate(rotSpeed);
+	// }
+
+	// bool rArrowKeyDown = state.IsKeyDown(Keys.Right) || state.IsKeyDown(Keys.D);
+
+	// if (rArrowKeyDown)
+	// {
+	// 	rotate(-rotSpeed);
+	// }
+
+	// bool uArrowKeyDown = state.IsKeyDown(Keys.Up) || state.IsKeyDown(Keys.W);
+
+	// if (uArrowKeyDown)
+	// {
+	// 	move(moveSpeed);
+	// }
+
+	// bool dArrowKeyDown = state.IsKeyDown(Keys.Down) || state.IsKeyDown(Keys.S);
+
+	// if (dArrowKeyDown)
+	// {
+	// 	move(-moveSpeed);
+	// }
+
+	//=========================//
+	//=====user input end======//
+	//=========================//
+}
+
 // precalculates camera x coordinate
 func (c *Camera) preCalcCamX() {
 	for x := 0; x < c.w; x++ {
@@ -291,6 +334,25 @@ func (c *Camera) castLevel(x int, grid [][]int, _cts []*image.Rectangle, _sv []*
 	_st[x].G = byte(Clamp(int(float64(_st[x].G)+shadowDepth+sunLight), 0, 255))
 	_st[x].B = byte(Clamp(int(float64(_st[x].B)+shadowDepth+sunLight), 0, 255))
 }
+
+// Moves camera by move speed
+// public void move(double mSpeed)
+// {
+// 	if (worldMap[(int)(pos.X + dir.X * mSpeed * 12), (int)pos.Y] > 0 == false) pos.X += (float)(dir.X * mSpeed);
+// 	if (worldMap[(int)pos.X, (int)(pos.Y + dir.Y * mSpeed * 12)] > 0 == false) pos.Y += (float)(dir.Y * mSpeed);
+// }
+
+// Rotates camera by rotate speed
+// public void rotate(double rSpeed)
+// {
+// 	//both camera direction and camera plane must be rotated
+// 	double oldDirX = dir.X;
+// 	dir.X = (float)(dir.X * Math.Cos(rSpeed) - dir.Y * Math.Sin(rSpeed));
+// 	dir.Y = (float)(oldDirX * Math.Sin(rSpeed) + dir.Y * Math.Cos(rSpeed));
+// 	double oldPlaneX = plane.X;
+// 	plane.X = (float)(plane.X * Math.Cos(rSpeed) - plane.Y * Math.Sin(rSpeed));
+// 	plane.Y = (float)(oldPlaneX * Math.Sin(rSpeed) + plane.Y * Math.Cos(rSpeed));
+// }
 
 // Clamp - converted C# method MathHelper.Clamp
 // Restricts a value to be within a specified range.
