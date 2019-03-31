@@ -115,7 +115,7 @@ func (c *Camera) raycast() {
 
 // credit : Raycast loop and setting up of vectors for matrix calculations
 // courtesy - http://lodev.org/cgtutor/raycasting.html
-func (c *Camera) castLevel(x int, grid [][]int, _cts []*image.Rectangle, _sv []*image.Rectangle, _st []*color.Color, levelNum int) {
+func (c *Camera) castLevel(x int, grid [][]int, _cts []*image.Rectangle, _sv []*image.Rectangle, _st []*color.RGBA, levelNum int) {
 	//calculate ray position and direction
 	cameraX := c.camX[x] //x-coordinate in camera space
 	rayDirX := c.dir.X + c.plane.X*cameraX
@@ -238,54 +238,68 @@ func (c *Camera) castLevel(x int, grid [][]int, _cts []*image.Rectangle, _sv []*
 		texX = c.texWidth - texX - 1
 	}
 
-	// TODO: finish the rest of this conversion below:
-
 	//--some supid hacks to make the houses render correctly--//
-	// if (side == 0)
-	// {
-	// 	if (texNum == 3)
-	// 		lvls[levelNum].currTexNum[x]++;
-	// 	else if (texNum == 4)
-	// 		lvls[levelNum].currTexNum[x]--;
+	if side == 0 {
+		if texNum == 3 {
+			c.lvls[levelNum].CurrTexNum[x]++
+		} else if texNum == 4 {
+			c.lvls[levelNum].CurrTexNum[x]--
+		}
 
-	// 	if (texNum == 1)
-	// 		lvls[levelNum].currTexNum[x] = 4;
-	// 	else if (texNum == 2)
-	// 		lvls[levelNum].currTexNum[x] = 3;
-	// }
+		if texNum == 1 {
+			c.lvls[levelNum].CurrTexNum[x] = 4
+		} else if texNum == 2 {
+			c.lvls[levelNum].CurrTexNum[x] = 3
+		}
+	}
 
 	//--set current texture slice to be slice x--//
-	// _cts[x] = s[texX];
+	_cts[x] = c.s[texX]
 
 	//--set height of slice--//
-	// _sv[x].Height = lineHeight;
+	_sv[x].Max.Y = lineHeight
 
 	//--set draw start of slice--//
-	// _sv[x].Y = drawStart - lineHeight * levelNum;
+	_sv[x].Min.Y = drawStart - lineHeight*levelNum
 
 	//--due to modern way of drawing using quads this should be down here to ovoid glitches at the edges--//
-	// if (drawStart < 0) drawStart = 0;
+	if drawStart < 0 {
+		drawStart = 0
+	}
 
 	//--add a bit of tint to differentiate between walls of a corner--//
-	// _st[x] = Color.White;
-	// if (side == 1)
-	// {
-	// 	int wallDiff = 12;
-	// 	_st[x].R -= (byte)wallDiff;
-	// 	_st[x].G -= (byte)wallDiff;
-	// 	_st[x].B -= (byte)wallDiff;
-	// }
+	_st[x] = &color.RGBA{255, 255, 255, 255}
+	if side == 1 {
+		wallDiff := 12
+		_st[x].R -= byte(wallDiff)
+		_st[x].G -= byte(wallDiff)
+		_st[x].B -= byte(wallDiff)
+	}
 
 	//--simulates torch light, as if player was carrying a radial light--//
-	// float lightFalloff = -100; //decrease value to make torch dimmer
+	var lightFalloff float64
+	lightFalloff = -100 //decrease value to make torch dimmer
 
 	//--sun brightness, illuminates whole level--//
-	// float sunLight = 300;//global illuminaion
+	var sunLight float64
+	sunLight = 300 //global illuminaion
 
 	//--distance based dimming of light--//
-	// float shadowDepth = (float)Math.Sqrt(perpWallDist) * lightFalloff;
-	// _st[x].R = (byte)MathHelper.Clamp(_st[x].R + shadowDepth + sunLight, 0, 255);
-	// _st[x].G = (byte)MathHelper.Clamp(_st[x].G + shadowDepth + sunLight, 0, 255);
-	// _st[x].B = (byte)MathHelper.Clamp(_st[x].B + shadowDepth + sunLight, 0, 255);
+	var shadowDepth float64
+	shadowDepth = math.Sqrt(perpWallDist) * lightFalloff
+	_st[x].R = byte(Clamp(int(float64(_st[x].R)+shadowDepth+sunLight), 0, 255))
+	_st[x].G = byte(Clamp(int(float64(_st[x].G)+shadowDepth+sunLight), 0, 255))
+	_st[x].B = byte(Clamp(int(float64(_st[x].B)+shadowDepth+sunLight), 0, 255))
+}
 
+// Clamp - converted C# method MathHelper.Clamp
+// Restricts a value to be within a specified range.
+func Clamp(value int, min int, max int) int {
+	if value < min {
+		return min
+	} else if value > max {
+		return max
+	}
+
+	return value
 }

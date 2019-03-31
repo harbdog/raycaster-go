@@ -132,7 +132,7 @@ func (g *Game) createLevels(numLevels int) []*raycaster.Level {
 		arr[i] = new(raycaster.Level)
 		arr[i].Sv = g.sliceView()
 		arr[i].Cts = make([]*image.Rectangle, g.width)
-		arr[i].St = make([]*color.Color, g.width)
+		arr[i].St = make([]*color.RGBA, g.width)
 		arr[i].CurrTexNum = make([]int, g.width)
 
 		for j := 0; j < cap(arr[i].CurrTexNum); j++ {

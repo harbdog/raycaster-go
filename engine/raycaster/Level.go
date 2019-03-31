@@ -11,6 +11,6 @@ type Level struct {
 	Cts []*image.Rectangle
 
 	//--current slice tint (for lighting)--//
-	St         []*color.Color
+	St         []*color.RGBA
 	CurrTexNum []int
 }
