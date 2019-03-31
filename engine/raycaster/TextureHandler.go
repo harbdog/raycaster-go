@@ -27,6 +27,6 @@ func NewTextureHandler(texWidth int) *TextureHandler {
 	return t
 }
 
-func (t *TextureHandler) getSlices() []*image.Rectangle {
+func (t *TextureHandler) GetSlices() []*image.Rectangle {
 	return t.slices
 }

@@ -74,6 +74,12 @@ func NewGame() *Game {
 
 	g.slicer = raycaster.NewTextureHandler(texSize)
 
+	//--init texture slices--//
+	g.slices = g.slicer.GetSlices()
+
+	//--inits the levels--//
+	g.levels = g.createLevels(4)
+
 	return g
 }
 
@@ -116,4 +122,37 @@ func (g *Game) Update(screen *ebiten.Image) error {
 	ebitenutil.DebugPrint(g.view, fps)
 
 	return nil
+}
+
+//returns an initialised Level struct
+func (g *Game) createLevels(numLevels int) []*Level {
+	var arr []*Level
+	arr = make([]*Level, numLevels)
+
+	for i := 0; i < numLevels; i++ {
+		arr[i] = new(Level)
+		arr[i].Sv = g.sliceView()
+		arr[i].Cts = make([]*image.Rectangle, g.width)
+		arr[i].St = make([]*color.Color, g.width)
+		arr[i].CurrTexNum = make([]int, g.width)
+
+		for j := 0; j < cap(arr[i].CurrTexNum); j++ {
+			arr[i].CurrTexNum[j] = 1
+		}
+	}
+
+	return arr
+}
+
+// Creates rectangle slices for each x in width.
+func (g *Game) sliceView() []*image.Rectangle {
+	var arr []*image.Rectangle
+	arr = make([]*image.Rectangle, g.width)
+
+	for x := 0; x < g.width; x++ {
+		thisRect := image.Rect(x, 0, x+1, g.height)
+		arr[x] = &thisRect
+	}
+
+	return arr
 }
