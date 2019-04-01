@@ -178,7 +178,7 @@ func (g *Game) draw() {
 	//    new Rectangle(0, (int)(height * 0.5f), width, (int)(height * 0.5f)),
 	//    new Rectangle(0, 0, texSize, texSize),
 	//    Color.White);
-	floorRect := image.Rect(0, int(float64(g.height)*0.5), g.width, int(float64(g.height)*0.5))
+	floorRect := image.Rect(0, int(float64(g.height)*0.5), g.width, 2*int(float64(g.height)*0.5))
 	g.spriteBatch.draw(g.floor, &floorRect, &texRect, whiteRGBA)
 
 	// spriteBatch.Draw(sky,
@@ -241,11 +241,24 @@ func (s *SpriteBatch) draw(texture *ebiten.Image, destinationRectangle *image.Re
 	op := &ebiten.DrawImageOptions{}
 	op.Filter = ebiten.FilterLinear
 
-	// TODO: if destinationRectangle is not the same size as sourceRectangle, scale to fit
+	// if destinationRectangle is not the same size as sourceRectangle, scale to fit
+	var scaleX, scaleY float64 = 1.0, 1.0
+	if !destinationRectangle.Eq(*sourceRectangle) {
+		sSize := sourceRectangle.Size()
+		dSize := destinationRectangle.Size()
+
+		scaleX = float64(dSize.X) / float64(sSize.X)
+		scaleY = float64(dSize.Y) / float64(sSize.Y)
+	}
+
+	op.GeoM.Scale(scaleX, scaleY)
 	op.GeoM.Translate(float64(destinationRectangle.Min.X), float64(destinationRectangle.Min.Y))
+
+	var destTexture *ebiten.Image
+	destTexture = texture.SubImage(*sourceRectangle).(*ebiten.Image)
 
 	// TODO: color channel modulation/tinting
 
 	view := s.g.view
-	view.DrawImage(texture, op)
+	view.DrawImage(destTexture, op)
 }
