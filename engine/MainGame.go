@@ -139,11 +139,13 @@ func (g *Game) Update(screen *ebiten.Image) error {
 
 	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
 		fmt.Printf("mouse left clicked: (%v, %v)\n", mx, my)
+		g.camera.Move(0.06)
 	}
 
 	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonRight) {
 		mx, my := ebiten.CursorPosition()
 		fmt.Printf("mouse right clicked: (%v, %v)\n", mx, my)
+		g.camera.Rotate(-0.03)
 	}
 
 	// TODO: Add your update logic here

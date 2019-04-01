@@ -255,6 +255,19 @@ func (c *Camera) castLevel(x int, grid [][]int, _cts []*image.Rectangle, _sv []*
 
 	//calculate lowest and highest pixel to fill in current stripe
 	drawStart := (-lineHeight/2 + c.h/2)
+	drawEnd := (lineHeight/2 + c.h/2)
+	//--due to modern way of drawing using quads this is removed to avoid glitches at the edges--//
+	// if drawStart < 0 {
+	// 	drawStart = 0
+	// }
+	// if drawEnd >= c.h {
+	// 	drawEnd = c.h - 1
+	// }
+
+	// TODO: figure out why this works from the lodev raycasting tutorial, but clips distances and upper levels
+	// but using the OwlRaycastEngine way messes up the projection entirely at the distant objects
+	// drawStart = lineHeight
+	// drawEnd = drawStart - lineHeight*levelNum
 
 	//texturing calculations
 	texNum := grid[mapX][mapY] - 1 //1 subtracted from it so that texture 0 can be used
@@ -301,15 +314,10 @@ func (c *Camera) castLevel(x int, grid [][]int, _cts []*image.Rectangle, _sv []*
 	_cts[x] = c.s[texX]
 
 	//--set height of slice--//
-	_sv[x].Max.Y = lineHeight
+	_sv[x].Max.Y = drawStart
 
 	//--set draw start of slice--//
-	_sv[x].Min.Y = drawStart - lineHeight*levelNum
-
-	//--due to modern way of drawing using quads this should be down here to ovoid glitches at the edges--//
-	if drawStart < 0 {
-		drawStart = 0
-	}
+	_sv[x].Min.Y = drawEnd
 
 	//--add a bit of tint to differentiate between walls of a corner--//
 	_st[x] = &color.RGBA{255, 255, 255, 255}
@@ -337,13 +345,26 @@ func (c *Camera) castLevel(x int, grid [][]int, _cts []*image.Rectangle, _sv []*
 }
 
 // Moves camera by move speed
-// public void move(double mSpeed)
-// {
-// 	if (worldMap[(int)(pos.X + dir.X * mSpeed * 12), (int)pos.Y] > 0 == false) pos.X += (float)(dir.X * mSpeed);
-// 	if (worldMap[(int)pos.X, (int)(pos.Y + dir.Y * mSpeed * 12)] > 0 == false) pos.Y += (float)(dir.Y * mSpeed);
-// }
+func (c *Camera) Move(mSpeed float64) {
+	if c.worldMap[int(c.pos.X+c.dir.X*mSpeed*12)][int(c.pos.Y)] > 0 == false {
+		c.pos.X += (c.dir.X * mSpeed)
+	}
+	if c.worldMap[int(c.pos.X)][int(c.pos.Y+c.dir.Y*mSpeed*12)] > 0 == false {
+		c.pos.Y += (c.dir.Y * mSpeed)
+	}
+}
 
 // Rotates camera by rotate speed
+func (c *Camera) Rotate(rSpeed float64) {
+	//both camera direction and camera plane must be rotated
+	oldDirX := c.dir.X
+	c.dir.X = (c.dir.X*math.Cos(rSpeed) - c.dir.Y*math.Sin(rSpeed))
+	c.dir.Y = (oldDirX*math.Sin(rSpeed) + c.dir.Y*math.Cos(rSpeed))
+	oldPlaneX := c.plane.X
+	c.plane.X = (c.plane.X*math.Cos(rSpeed) - c.plane.Y*math.Sin(rSpeed))
+	c.plane.Y = (oldPlaneX*math.Sin(rSpeed) + c.plane.Y*math.Cos(rSpeed))
+}
+
 // public void rotate(double rSpeed)
 // {
 // 	//both camera direction and camera plane must be rotated
