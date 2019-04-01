@@ -172,8 +172,6 @@ func (g *Game) draw() {
 	texRect := image.Rect(0, 0, texSize, texSize)
 	whiteRGBA := &color.RGBA{0, 0, 0, 255}
 
-	// spriteBatch.Begin();
-
 	// spriteBatch.Draw(floor,
 	//    new Rectangle(0, (int)(height * 0.5f), width, (int)(height * 0.5f)),
 	//    new Rectangle(0, 0, texSize, texSize),
@@ -188,20 +186,12 @@ func (g *Game) draw() {
 	skyRect := image.Rect(0, 0, g.width, int(float64(g.height)*0.5))
 	g.spriteBatch.draw(g.sky, &skyRect, &texRect, whiteRGBA)
 
-	// spriteBatch.End();
-
-	// //--draw walls--//
-	// spriteBatch.Begin();
-
-	// for (int x = 0; x < width; x++)
-	// {
-	// 	for (int i = levels.Length - 1; i >= 0; i--)
-	// 	{
-	// 		spriteBatch.Draw(textures[levels[i].currTexNum[x]], levels[i].sv[x], levels[i].cts[x], levels[i].st[x]);
-	// 	}
-	// }
-
-	// spriteBatch.End();
+	//--draw walls--//
+	for x := 0; x < g.width; x++ {
+		for i := cap(g.levels) - 1; i >= 0; i-- {
+			g.spriteBatch.draw(g.textures[g.levels[i].CurrTexNum[x]], g.levels[i].Sv[x], g.levels[i].Cts[x], g.levels[i].St[x])
+		}
+	}
 }
 
 //returns an initialised Level struct
