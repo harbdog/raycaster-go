@@ -60,11 +60,11 @@ type Vector2 struct {
 func NewCamera(width int, height int, texWid int, slices []*image.Rectangle, levels []*Level) *Camera {
 	c := &Camera{}
 
-	//private static Vector2 pos = new Vector2(22.5f, 11.5f);
+	//--camera position, init to start position--//
 	c.pos = &Vector2{X: 22.5, Y: 11.5}
-	//private static Vector2 dir = new Vector2(-1.0f, 0.0f);
+	//--current facing direction, init to values coresponding to FOV--//
 	c.dir = &Vector2{X: -1.0, Y: 0.0}
-	//private static Vector2 plane = new Vector2(0.0f, 0.66f);
+	//--the 2d raycaster version of camera plane, adjust y component to change FOV (ratio between this and dir x resizes FOV)--//
 	c.plane = &Vector2{X: 0.0, Y: 0.66}
 
 	c.w = width
@@ -88,6 +88,7 @@ func NewCamera(width int, height int, texWid int, slices []*image.Rectangle, lev
 	return c
 }
 
+// Update - updates the camera view
 func (c *Camera) Update() {
 	//--do raycast--//
 	c.raycast()
@@ -134,7 +135,7 @@ func (c *Camera) Update() {
 // precalculates camera x coordinate
 func (c *Camera) preCalcCamX() {
 	for x := 0; x < c.w; x++ {
-		c.camX[x] = float64(2)*float64(x)/float64(c.w) - float64(1)
+		c.camX[x] = (2.0 * float64(x) / float64(c.w)) - 1.0
 	}
 }
 
@@ -244,9 +245,9 @@ func (c *Camera) castLevel(x int, grid [][]int, _cts []*image.Rectangle, _sv []*
 
 	//Calculate distance of perpendicular ray (oblique distance will give fisheye effect!)
 	if side == 0 {
-		perpWallDist = (float64(mapX) - rayPosX + (1-float64(stepX))/2) / rayDirX
+		perpWallDist = (float64(mapX) - rayPosX + (1.0-float64(stepX))/2.0) / rayDirX
 	} else {
-		perpWallDist = (float64(mapY) - rayPosY + (1-float64(stepY))/2) / rayDirY
+		perpWallDist = (float64(mapY) - rayPosY + (1.0-float64(stepY))/2.0) / rayDirY
 	}
 
 	//Calculate height of line to draw on screen
