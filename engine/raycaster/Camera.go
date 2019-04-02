@@ -256,6 +256,7 @@ func (c *Camera) castLevel(x int, grid [][]int, _cts []*image.Rectangle, _sv []*
 	//calculate lowest and highest pixel to fill in current stripe
 	drawStart := (-lineHeight/2 + c.h/2)
 	drawEnd := (lineHeight/2 + c.h/2)
+
 	//--due to modern way of drawing using quads this is removed to avoid glitches at the edges--//
 	// if drawStart < 0 {
 	// 	drawStart = 0
@@ -268,6 +269,10 @@ func (c *Camera) castLevel(x int, grid [][]int, _cts []*image.Rectangle, _sv []*
 	// but using the OwlRaycastEngine way messes up the projection entirely at the distant objects
 	// drawStart = lineHeight
 	// drawEnd = drawStart - lineHeight*levelNum
+
+	// this is the closest I've gotten it to display correctly, but doesn't distance projections
+	// drawStart = (-lineHeight/2 + c.h/2) - lineHeight*levelNum - 1
+	// drawEnd = (lineHeight/2 + c.h/2) - lineHeight*levelNum + 1
 
 	//texturing calculations
 	texNum := grid[mapX][mapY] - 1 //1 subtracted from it so that texture 0 can be used

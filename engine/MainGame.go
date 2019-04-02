@@ -135,21 +135,31 @@ func (g *Game) Update(screen *ebiten.Image) error {
 	g.view = screen
 
 	// Perform logical updates
+	g.camera.Update()
+
+	// TODO: Add your update logic here
 	mx, my := ebiten.CursorPosition()
 
+	mLeft := false
+	mRight := false
 	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
 		fmt.Printf("mouse left clicked: (%v, %v)\n", mx, my)
-		g.camera.Move(0.06)
+		mLeft = true
 	}
 
 	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonRight) {
 		mx, my := ebiten.CursorPosition()
 		fmt.Printf("mouse right clicked: (%v, %v)\n", mx, my)
-		g.camera.Rotate(-0.03)
+		mRight = true
 	}
 
-	// TODO: Add your update logic here
-	g.camera.Update()
+	if mLeft && mRight {
+		g.camera.Move(0.06)
+	} else if mLeft {
+		g.camera.Rotate(0.03)
+	} else if mRight {
+		g.camera.Rotate(-0.03)
+	}
 
 	if ebiten.IsDrawingSkipped() {
 		// When the game is running slowly, the rendering result
