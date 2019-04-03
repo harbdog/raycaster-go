@@ -182,7 +182,7 @@ func (g *Game) draw() {
 
 	//--draw sky and floor--//
 	texRect := image.Rect(0, 0, texSize, texSize)
-	whiteRGBA := &color.RGBA{0, 0, 0, 255}
+	whiteRGBA := &color.RGBA{255, 255, 255, 255}
 
 	// spriteBatch.Draw(floor,
 	//    new Rectangle(0, (int)(height * 0.5f), width, (int)(height * 0.5f)),
@@ -259,7 +259,8 @@ func (s *SpriteBatch) draw(texture *ebiten.Image, destinationRectangle *image.Re
 	var destTexture *ebiten.Image
 	destTexture = texture.SubImage(*sourceRectangle).(*ebiten.Image)
 
-	// TODO: color channel modulation/tinting
+	// color channel modulation/tinting
+	op.ColorM.Scale(float64(color.R)/255, float64(color.G)/255, float64(color.B)/255, float64(color.A)/255)
 
 	view := s.g.view
 	view.DrawImage(destTexture, op)
