@@ -254,8 +254,8 @@ func (c *Camera) castLevel(x int, grid [][]int, _cts []*image.Rectangle, _sv []*
 	lineHeight := int(float64(c.h) / perpWallDist)
 
 	//calculate lowest and highest pixel to fill in current stripe
-	drawStart := (-lineHeight/2 + c.h/2)
-	drawEnd := (lineHeight/2 + c.h/2)
+	drawStart := (-lineHeight/2 + c.h/2) - lineHeight*levelNum
+	drawEnd := drawStart + lineHeight
 
 	//--due to modern way of drawing using quads this is removed to avoid glitches at the edges--//
 	// if drawStart < 0 {
@@ -264,15 +264,6 @@ func (c *Camera) castLevel(x int, grid [][]int, _cts []*image.Rectangle, _sv []*
 	// if drawEnd >= c.h {
 	// 	drawEnd = c.h - 1
 	// }
-
-	// TODO: figure out why this works from the lodev raycasting tutorial, but clips distances and upper levels
-	// but using the OwlRaycastEngine way messes up the projection entirely at the distant objects
-	// drawStart = lineHeight
-	// drawEnd = (-lineHeight/2 + c.h/2) - lineHeight*levelNum
-
-	// this is the closest I've gotten it to display correctly, but doesn't distance projections
-	// drawStart = (-lineHeight/2 + c.h/2) - lineHeight*levelNum - 1
-	// drawEnd = (lineHeight/2 + c.h/2) - lineHeight*levelNum + 1
 
 	//texturing calculations
 	texNum := grid[mapX][mapY] - 1 //1 subtracted from it so that texture 0 can be used
