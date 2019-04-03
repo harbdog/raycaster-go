@@ -268,7 +268,7 @@ func (c *Camera) castLevel(x int, grid [][]int, _cts []*image.Rectangle, _sv []*
 	// TODO: figure out why this works from the lodev raycasting tutorial, but clips distances and upper levels
 	// but using the OwlRaycastEngine way messes up the projection entirely at the distant objects
 	// drawStart = lineHeight
-	// drawEnd = drawStart - lineHeight*levelNum
+	// drawEnd = (-lineHeight/2 + c.h/2) - lineHeight*levelNum
 
 	// this is the closest I've gotten it to display correctly, but doesn't distance projections
 	// drawStart = (-lineHeight/2 + c.h/2) - lineHeight*levelNum - 1
@@ -319,10 +319,10 @@ func (c *Camera) castLevel(x int, grid [][]int, _cts []*image.Rectangle, _sv []*
 	_cts[x] = c.s[texX]
 
 	//--set height of slice--//
-	_sv[x].Max.Y = drawStart
+	_sv[x].Min.Y = drawStart
 
 	//--set draw start of slice--//
-	_sv[x].Min.Y = drawEnd
+	_sv[x].Max.Y = drawEnd
 
 	//--add a bit of tint to differentiate between walls of a corner--//
 	_st[x] = &color.RGBA{255, 255, 255, 255}
@@ -334,12 +334,10 @@ func (c *Camera) castLevel(x int, grid [][]int, _cts []*image.Rectangle, _sv []*
 	}
 
 	//--simulates torch light, as if player was carrying a radial light--//
-	var lightFalloff float64
-	lightFalloff = -100 //decrease value to make torch dimmer
+	var lightFalloff float64 = -100 //decrease value to make torch dimmer
 
 	//--sun brightness, illuminates whole level--//
-	var sunLight float64
-	sunLight = 300 //global illuminaion
+	var sunLight float64 = 300 //global illuminaion
 
 	//--distance based dimming of light--//
 	var shadowDepth float64
