@@ -5,6 +5,7 @@ import (
 	"image"
 	"image/color"
 	"log"
+	"math"
 	"path/filepath"
 	"raycaster-go/engine/raycaster"
 	"runtime"
@@ -17,6 +18,7 @@ const (
 	// ebiten constants
 	screenWidth  = 1024
 	screenHeight = 700
+	screenScale  = 1.0
 
 	//--RaycastEngine constants
 	//--set constant, texture size to be the wall (and sprite) texture size--//
@@ -70,8 +72,9 @@ func NewGame() *Game {
 	// initialize Game object
 	g := new(Game)
 
-	g.width = screenWidth
-	g.height = screenHeight
+	// use scale to keep the desired window width and height
+	g.width = int(math.Floor(float64(screenWidth) / screenScale))
+	g.height = int(math.Floor(float64(screenHeight) / screenScale))
 
 	g.slicer = raycaster.NewTextureHandler(texSize)
 
@@ -124,7 +127,7 @@ func (g *Game) Run() {
 		ebiten.SetFullscreen(true)
 	}
 
-	if err := ebiten.Run(g.Update, g.width, g.height, 1, "Raycaster-Go"); err != nil {
+	if err := ebiten.Run(g.Update, g.width, g.height, screenScale, "Raycaster-Go"); err != nil {
 		log.Fatal(err)
 	}
 }

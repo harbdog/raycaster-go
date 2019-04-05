@@ -258,12 +258,8 @@ func (c *Camera) castLevel(x int, grid [][]int, _cts []*image.Rectangle, _sv []*
 	drawEnd := drawStart + lineHeight
 
 	//--due to modern way of drawing using quads this is removed to avoid glitches at the edges--//
-	// if drawStart < 0 {
-	// 	drawStart = 0
-	// }
-	// if drawEnd >= c.h {
-	// 	drawEnd = c.h - 1
-	// }
+	// if drawStart < 0 { drawStart = 0 }
+	// if drawEnd >= c.h { drawEnd = c.h - 1 }
 
 	//texturing calculations
 	texNum := grid[mapX][mapY] - 1 //1 subtracted from it so that texture 0 can be used
@@ -292,6 +288,7 @@ func (c *Camera) castLevel(x int, grid [][]int, _cts []*image.Rectangle, _sv []*
 	}
 
 	//--some supid hacks to make the houses render correctly--//
+	// TODO: figure out what causes the house textures to be off to not need this specific hack
 	if side == 0 {
 		if texNum == 3 {
 			c.lvls[levelNum].CurrTexNum[x]++
