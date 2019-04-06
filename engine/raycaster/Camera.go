@@ -92,44 +92,6 @@ func NewCamera(width int, height int, texWid int, slices []*image.Rectangle, lev
 func (c *Camera) Update() {
 	//--do raycast--//
 	c.raycast()
-
-	//=========================//
-	//=====take user input=====//
-	//=========================//
-
-	// KeyboardState state = Keyboard.GetState();
-
-	// bool lArrowKeyDown = state.IsKeyDown(Keys.Left) || state.IsKeyDown(Keys.A);
-
-	// if (lArrowKeyDown)
-	// {
-	// 	rotate(rotSpeed);
-	// }
-
-	// bool rArrowKeyDown = state.IsKeyDown(Keys.Right) || state.IsKeyDown(Keys.D);
-
-	// if (rArrowKeyDown)
-	// {
-	// 	rotate(-rotSpeed);
-	// }
-
-	// bool uArrowKeyDown = state.IsKeyDown(Keys.Up) || state.IsKeyDown(Keys.W);
-
-	// if (uArrowKeyDown)
-	// {
-	// 	move(moveSpeed);
-	// }
-
-	// bool dArrowKeyDown = state.IsKeyDown(Keys.Down) || state.IsKeyDown(Keys.S);
-
-	// if (dArrowKeyDown)
-	// {
-	// 	move(-moveSpeed);
-	// }
-
-	//=========================//
-	//=====user input end======//
-	//=========================//
 }
 
 // precalculates camera x coordinate
@@ -337,10 +299,10 @@ func (c *Camera) castLevel(x int, grid [][]int, _cts []*image.Rectangle, _sv []*
 
 // Moves camera by move speed
 func (c *Camera) Move(mSpeed float64) {
-	if c.worldMap[int(c.pos.X+c.dir.X*mSpeed*12)][int(c.pos.Y)] > 0 == false {
+	if c.worldMap[int(c.pos.X+c.dir.X*mSpeed*12)][int(c.pos.Y)] <= 0 {
 		c.pos.X += (c.dir.X * mSpeed)
 	}
-	if c.worldMap[int(c.pos.X)][int(c.pos.Y+c.dir.Y*mSpeed*12)] > 0 == false {
+	if c.worldMap[int(c.pos.X)][int(c.pos.Y+c.dir.Y*mSpeed*12)] <= 0 {
 		c.pos.Y += (c.dir.Y * mSpeed)
 	}
 }

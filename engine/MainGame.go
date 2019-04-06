@@ -141,28 +141,7 @@ func (g *Game) Update(screen *ebiten.Image) error {
 	g.camera.Update()
 
 	// TODO: Add your update logic here
-	mx, my := ebiten.CursorPosition()
-
-	mLeft := false
-	mRight := false
-	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
-		fmt.Printf("mouse left clicked: (%v, %v)\n", mx, my)
-		mLeft = true
-	}
-
-	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonRight) {
-		mx, my := ebiten.CursorPosition()
-		fmt.Printf("mouse right clicked: (%v, %v)\n", mx, my)
-		mRight = true
-	}
-
-	if mLeft && mRight {
-		g.camera.Move(0.06)
-	} else if mLeft {
-		g.camera.Rotate(0.03)
-	} else if mRight {
-		g.camera.Rotate(-0.03)
-	}
+	g.handleInput()
 
 	if ebiten.IsDrawingSkipped() {
 		// When the game is running slowly, the rendering result
@@ -178,6 +157,50 @@ func (g *Game) Update(screen *ebiten.Image) error {
 	ebitenutil.DebugPrint(g.view, fps)
 
 	return nil
+}
+
+func (g *Game) handleInput() {
+	mx, my := ebiten.CursorPosition()
+
+	forward := false
+	backward := false
+	rotLeft := false
+	rotRight := false
+
+	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
+		fmt.Printf("mouse left clicked: (%v, %v)\n", mx, my)
+	}
+
+	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonRight) {
+		mx, my := ebiten.CursorPosition()
+		fmt.Printf("mouse right clicked: (%v, %v)\n", mx, my)
+	}
+
+	if ebiten.IsKeyPressed(ebiten.KeyA) || ebiten.IsKeyPressed(ebiten.KeyLeft) {
+		rotLeft = true
+	}
+	if ebiten.IsKeyPressed(ebiten.KeyD) || ebiten.IsKeyPressed(ebiten.KeyRight) {
+		rotRight = true
+	}
+
+	if ebiten.IsKeyPressed(ebiten.KeyW) || ebiten.IsKeyPressed(ebiten.KeyUp) {
+		forward = true
+	}
+	if ebiten.IsKeyPressed(ebiten.KeyS) || ebiten.IsKeyPressed(ebiten.KeyDown) {
+		backward = true
+	}
+
+	if forward {
+		g.camera.Move(0.06)
+	} else if backward {
+		g.camera.Move(-0.06)
+	}
+
+	if rotLeft {
+		g.camera.Rotate(0.03)
+	} else if rotRight {
+		g.camera.Rotate(-0.03)
+	}
 }
 
 func (g *Game) draw() {
