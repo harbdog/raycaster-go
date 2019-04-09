@@ -97,7 +97,7 @@ func (c *Camera) Update() {
 // precalculates camera x coordinate
 func (c *Camera) preCalcCamX() {
 	for x := 0; x < c.w; x++ {
-		c.camX[x] = (2.0 * float64(x) / float64(c.w)) - 1.0
+		c.camX[x] = 2.0*float64(x)/float64(c.w) - 1.0
 	}
 }
 
@@ -140,8 +140,8 @@ func (c *Camera) castLevel(x int, grid [][]int, _cts []*image.Rectangle, _sv []*
 	var sideDistY float64
 
 	//length of ray from one x or y-side to next x or y-side
-	deltaDistX := math.Sqrt(1 + (rayDirY*rayDirY)/(rayDirX*rayDirX))
-	deltaDistY := math.Sqrt(1 + (rayDirX*rayDirX)/(rayDirY*rayDirY))
+	deltaDistX := math.Abs(1 / rayDirX)
+	deltaDistY := math.Abs(1 / rayDirY)
 	var perpWallDist float64
 
 	//what direction to step in x or y-direction (either +1 or -1)
