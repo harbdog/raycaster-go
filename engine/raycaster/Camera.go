@@ -318,17 +318,6 @@ func (c *Camera) Rotate(rSpeed float64) {
 	c.plane.Y = (oldPlaneX*math.Sin(rSpeed) + c.plane.Y*math.Cos(rSpeed))
 }
 
-// public void rotate(double rSpeed)
-// {
-// 	//both camera direction and camera plane must be rotated
-// 	double oldDirX = dir.X;
-// 	dir.X = (float)(dir.X * Math.Cos(rSpeed) - dir.Y * Math.Sin(rSpeed));
-// 	dir.Y = (float)(oldDirX * Math.Sin(rSpeed) + dir.Y * Math.Cos(rSpeed));
-// 	double oldPlaneX = plane.X;
-// 	plane.X = (float)(plane.X * Math.Cos(rSpeed) - plane.Y * Math.Sin(rSpeed));
-// 	plane.Y = (float)(oldPlaneX * Math.Sin(rSpeed) + plane.Y * Math.Cos(rSpeed));
-// }
-
 // Clamp - converted C# method MathHelper.Clamp
 // Restricts a value to be within a specified range.
 func Clamp(value int, min int, max int) int {

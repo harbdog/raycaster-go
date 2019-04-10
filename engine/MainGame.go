@@ -307,6 +307,12 @@ func (s *SpriteBatch) draw(texture *ebiten.Image, destinationRectangle *image.Re
 	op := &ebiten.DrawImageOptions{}
 	op.Filter = ebiten.FilterLinear
 
+	if sourceRectangle.Min.X == 0 {
+		// fixes subImage from clipping at edges of textures which can cause gaps
+		sourceRectangle.Min.X++
+		sourceRectangle.Max.X++
+	}
+
 	// if destinationRectangle is not the same size as sourceRectangle, scale to fit
 	var scaleX, scaleY float64 = 1.0, 1.0
 	if !destinationRectangle.Eq(*sourceRectangle) {
