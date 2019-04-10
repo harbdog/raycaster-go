@@ -250,12 +250,12 @@ func (c *Camera) castLevel(x int, grid [][]int, _cts []*image.Rectangle, _sv []*
 	}
 
 	//--some supid hacks to make the houses render correctly--//
-	// TODO: figure out what causes the house textures to be off to not need this specific hack
+	// this corrects textures on two sides of house since the textures are not symmetrical
 	if side == 0 {
 		if texNum == 3 {
-			c.lvls[levelNum].CurrTexNum[x]++
+			c.lvls[levelNum].CurrTexNum[x] = 4
 		} else if texNum == 4 {
-			c.lvls[levelNum].CurrTexNum[x]--
+			c.lvls[levelNum].CurrTexNum[x] = 3
 		}
 
 		if texNum == 1 {

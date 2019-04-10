@@ -56,6 +56,11 @@ type Game struct {
 
 	//--array of levels, levels reffer to "floors" of the world--//
 	levels []*raycaster.Level
+
+	// for debugging
+	DebugX    int
+	DebugY    int
+	DebugOnce bool
 }
 
 // SpriteBatch - converted C# method Graphics.SpriteBatch
@@ -86,6 +91,10 @@ func NewGame() *Game {
 
 	//--init camera--//
 	g.camera = raycaster.NewCamera(g.width, g.height, texSize, g.slices, g.levels)
+
+	// for debugging
+	g.DebugX = -1
+	g.DebugY = -1
 
 	return g
 }
@@ -169,11 +178,23 @@ func (g *Game) handleInput() {
 
 	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
 		fmt.Printf("mouse left clicked: (%v, %v)\n", mx, my)
+
+		// using left click for debugging graphical issues
+		if g.DebugX == -1 && g.DebugY == -1 {
+			// only allow setting once between clears to debounce
+			g.DebugX = mx
+			g.DebugY = my
+			g.DebugOnce = true
+		}
 	}
 
 	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonRight) {
-		mx, my := ebiten.CursorPosition()
 		fmt.Printf("mouse right clicked: (%v, %v)\n", mx, my)
+
+		// using right click to clear the debugging flag
+		g.DebugX = -1
+		g.DebugY = -1
+		g.DebugOnce = false
 	}
 
 	if ebiten.IsKeyPressed(ebiten.KeyA) || ebiten.IsKeyPressed(ebiten.KeyLeft) {
@@ -229,6 +250,23 @@ func (g *Game) draw() {
 		for i := cap(g.levels) - 1; i >= 0; i-- {
 			g.spriteBatch.draw(g.textures[g.levels[i].CurrTexNum[x]], g.levels[i].Sv[x], g.levels[i].Cts[x], g.levels[i].St[x])
 		}
+	}
+
+	if g.DebugOnce {
+		// end DebugOnce after one loop
+		g.DebugOnce = false
+	}
+
+	// draw for debugging
+	if g.DebugX >= 0 && g.DebugY >= 0 {
+		fX := float64(g.DebugX)
+		fY := float64(g.DebugY)
+		// draw a red translucent dot at the debug point
+		ebitenutil.DrawLine(g.view, fX-0.5, fY-0.5, fX+0.5, fY+0.5, color.RGBA{255, 0, 0, 150})
+
+		// draw two red vertical lines focusing on point
+		ebitenutil.DrawLine(g.view, fX-0.5, fY+5, fX+0.5, fY+25, color.RGBA{255, 0, 0, 150})
+		ebitenutil.DrawLine(g.view, fX-0.5, fY-25, fX+0.5, fY-5, color.RGBA{255, 0, 0, 150})
 	}
 }
 
@@ -288,6 +326,22 @@ func (s *SpriteBatch) draw(texture *ebiten.Image, destinationRectangle *image.Re
 	// color channel modulation/tinting
 	op.ColorM.Scale(float64(color.R)/255, float64(color.G)/255, float64(color.B)/255, float64(color.A)/255)
 
+	if s.g.DebugX > destinationRectangle.Min.X && s.g.DebugX <= destinationRectangle.Max.X {
+		for texNum, tex := range s.g.textures {
+			if tex == texture {
+				s.g.DebugPrintfOnce("[debug@%v,%v]: %v | %v < %v * %v,%v\n", s.g.DebugX, s.g.DebugY, destinationRectangle, texNum, sourceRectangle, scaleX, scaleY)
+				return
+			}
+		}
+	}
+
 	view := s.g.view
 	view.DrawImage(destTexture, op)
+}
+
+// DebugPrintfOnce prints info to screen only one time until g.DebugFlag cleared again
+func (g *Game) DebugPrintfOnce(format string, a ...interface{}) {
+	if g.DebugOnce {
+		fmt.Printf(format, a...)
+	}
 }
