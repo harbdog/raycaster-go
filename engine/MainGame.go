@@ -2,12 +2,12 @@ package engine
 
 import (
 	"fmt"
+	"github.com/harbdog/raycaster-go/engine/raycaster"
 	"image"
 	"image/color"
 	"log"
 	"math"
 	"path/filepath"
-	"raycaster-go/engine/raycaster"
 	"runtime"
 
 	"github.com/hajimehoshi/ebiten"
