@@ -48,6 +48,8 @@ type Camera struct {
 
 	//--structs that contain rects and tints for each level or "floor" renderered--//
 	lvls []*Level
+
+	horLvl *HorLevel
 }
 
 // Vector2 converted struct from C#
@@ -57,7 +59,7 @@ type Vector2 struct {
 }
 
 // NewCamera initalizes a Camera object
-func NewCamera(width int, height int, texWid int, slices []*image.Rectangle, levels []*Level) *Camera {
+func NewCamera(width int, height int, texWid int, slices []*image.Rectangle, levels []*Level, horizontalLevel *HorLevel) *Camera {
 	c := &Camera{}
 
 	//--camera position, init to start position--//
@@ -72,6 +74,8 @@ func NewCamera(width int, height int, texWid int, slices []*image.Rectangle, lev
 	c.texWidth = texWid
 	c.s = slices
 	c.lvls = levels
+
+	c.horLvl = horizontalLevel
 
 	//--init cam pre calc array--//
 	c.camX = make([]float64, c.w)
@@ -90,6 +94,13 @@ func NewCamera(width int, height int, texWid int, slices []*image.Rectangle, lev
 
 // Update - updates the camera view
 func (c *Camera) Update() {
+	// clear horizontal buffer (reset all TexNum pointers to -1)
+	for y := 0; y < c.h; y++ {
+		for x := 0; x < c.w; x++ {
+			c.horLvl.HorBuffer[y][x].TexNum = -1
+		}
+	}
+
 	//--do raycast--//
 	c.raycast()
 }
@@ -114,14 +125,21 @@ func (c *Camera) raycast() {
 			}
 
 			lvl := c.lvls[i]
-			c.castLevel(x, rMap, lvl.Cts, lvl.Sv, lvl.St, i)
+			c.castLevel(x, rMap, lvl, i) // TODO: calculate more levels simultaneously using go routine (use # cores)
 		}
 	}
 }
 
 // credit : Raycast loop and setting up of vectors for matrix calculations
 // courtesy - http://lodev.org/cgtutor/raycasting.html
-func (c *Camera) castLevel(x int, grid [][]int, _cts []*image.Rectangle, _sv []*image.Rectangle, _st []*color.RGBA, levelNum int) {
+func (c *Camera) castLevel(x int, grid [][]int, lvl *Level, levelNum int) {
+	var _cts, _sv []*image.Rectangle
+	var _st []*color.RGBA
+
+	_cts = lvl.Cts
+	_sv = lvl.Sv
+	_st = lvl.St
+
 	//calculate ray position and direction
 	cameraX := c.camX[x] //x-coordinate in camera space
 	rayDirX := c.dir.X + c.plane.X*cameraX
@@ -283,6 +301,7 @@ func (c *Camera) castLevel(x int, grid [][]int, _cts []*image.Rectangle, _sv []*
 		_st[x].B -= byte(wallDiff)
 	}
 
+	//// LIGHTING ////
 	//--simulates torch light, as if player was carrying a radial light--//
 	var lightFalloff float64 = -100 //decrease value to make torch dimmer
 
@@ -295,6 +314,70 @@ func (c *Camera) castLevel(x int, grid [][]int, _cts []*image.Rectangle, _sv []*
 	_st[x].R = byte(Clamp(int(float64(_st[x].R)+shadowDepth+sunLight), 0, 255))
 	_st[x].G = byte(Clamp(int(float64(_st[x].G)+shadowDepth+sunLight), 0, 255))
 	_st[x].B = byte(Clamp(int(float64(_st[x].B)+shadowDepth+sunLight), 0, 255))
+
+	//// FLOOR CASTING ////
+	if levelNum == 0 {
+		var floorXWall, floorYWall float64
+
+		//4 different wall directions possible
+		if side == 0 && rayDirX > 0 {
+			floorXWall = float64(mapX)
+			floorYWall = float64(mapY) + wallX
+		} else if side == 0 && rayDirX < 0 {
+			floorXWall = float64(mapX) + 1.0
+			floorYWall = float64(mapY) + wallX
+		} else if side == 1 && rayDirY > 0 {
+			floorXWall = float64(mapX) + wallX
+			floorYWall = float64(mapY)
+		} else {
+			floorXWall = float64(mapX) + wallX
+			floorYWall = float64(mapY) + 1.0
+		}
+
+		var distWall, distPlayer, currentDist float64
+
+		distWall = perpWallDist
+		distPlayer = 0.0
+
+		if drawEnd < 0 {
+			drawEnd = c.h //becomes < 0 when the integer overflows
+		}
+
+		//draw the floor from drawEnd to the bottom of the screen
+		for y := drawEnd + 1; y < c.h; y++ {
+			currentDist = float64(c.h) / (2.0*float64(y) - float64(c.h)) //you could make a small lookup table for this instead
+
+			weight := (currentDist - distPlayer) / (distWall - distPlayer)
+
+			currentFloorX := weight*floorXWall + (1.0-weight)*rayPosX
+			currentFloorY := weight*floorYWall + (1.0-weight)*rayPosY
+
+			var floorTexX, floorTexY int
+			floorTexX = int(currentFloorX*float64(c.texWidth)) % c.texWidth
+			floorTexY = int(currentFloorY*float64(c.texWidth)) % c.texWidth
+
+			if floorTexX < 0 || floorTexY < 0 {
+				// just here for debugging
+			}
+
+			//floor
+			// buffer[y][x] = (texture[3][texWidth * floorTexY + floorTexX] >> 1) & 8355711;
+			// the same vertical slice method cannot be used for floor rendering
+			//		 because floor rendering cannot use vertical strips, must be done horizontally instead.
+			// FIXME: needs optimization, drops FPS sometimes by ~5
+			pixel := c.horLvl.HorBuffer[y][x]
+			pixel.TexNum = 9
+			pixel.TexX = floorTexX
+			pixel.TexY = floorTexY
+
+			// lighting
+			// FIXME: needs optimization, drops FPS by half!
+			// pixel.St = &color.RGBA{255, 255, 255, 255}
+			// pixel.St.R = byte(Clamp(int(float64(pixel.St.R)+shadowDepth+sunLight), 0, 255))
+			// pixel.St.G = byte(Clamp(int(float64(pixel.St.G)+shadowDepth+sunLight), 0, 255))
+			// pixel.St.B = byte(Clamp(int(float64(pixel.St.B)+shadowDepth+sunLight), 0, 255))
+		}
+	}
 }
 
 // Moves camera by move speed

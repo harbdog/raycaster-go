@@ -42,7 +42,7 @@ type Game struct {
 	//--graphics manager and sprite batch--//
 	spriteBatch *SpriteBatch
 
-	textures [5]*ebiten.Image
+	textures [10]*ebiten.Image
 
 	//--test texture--//
 	floor *ebiten.Image
@@ -55,7 +55,8 @@ type Game struct {
 	sprite *ebiten.Image
 
 	//--array of levels, levels reffer to "floors" of the world--//
-	levels []*raycaster.Level
+	levels   []*raycaster.Level
+	floorLvl *raycaster.HorLevel
 
 	// for debugging
 	DebugX    int
@@ -81,16 +82,19 @@ func NewGame() *Game {
 	g.width = int(math.Floor(float64(screenWidth) / screenScale))
 	g.height = int(math.Floor(float64(screenHeight) / screenScale))
 
+	// load content once when first run
+	g.loadContent()
+
 	g.slicer = raycaster.NewTextureHandler(texSize)
 
 	//--init texture slices--//
 	g.slices = g.slicer.GetSlices()
 
 	//--inits the levels--//
-	g.levels = g.createLevels(4)
+	g.levels, g.floorLvl = g.createLevels(4)
 
 	//--init camera--//
-	g.camera = raycaster.NewCamera(g.width, g.height, texSize, g.slices, g.levels)
+	g.camera = raycaster.NewCamera(g.width, g.height, texSize, g.slices, g.levels, g.floorLvl)
 
 	// for debugging
 	g.DebugX = -1
@@ -105,12 +109,15 @@ func (g *Game) loadContent() {
 	// Create a new SpriteBatch, which can be used to draw textures.
 	g.spriteBatch = &SpriteBatch{g: g}
 
-	// TODO: use this.Content to load your game content here
+	// TODO: use loadContent to load your game content here
 	g.textures[0], _, _ = getTextureFromFile("stone.png")
 	g.textures[1], _, _ = getTextureFromFile("left_bot_house.png")
 	g.textures[2], _, _ = getTextureFromFile("right_bot_house.png")
 	g.textures[3], _, _ = getTextureFromFile("left_top_house.png")
 	g.textures[4], _, _ = getTextureFromFile("right_top_house.png")
+
+	// just setting the ground texture apart from the rest since it gets special handling
+	g.textures[9], _, _ = getTextureFromFile("grass.png")
 
 	g.floor, _, _ = getTextureFromFile("floor.png")
 	g.sky, _, _ = getTextureFromFile("sky.png")
@@ -127,9 +134,6 @@ func getTextureFromFile(texFile string) (*ebiten.Image, image.Image, error) {
 
 // Run is the Ebiten Run loop caller
 func (g *Game) Run() {
-	// load content once when first run
-	g.loadContent()
-
 	// On browsers, let's use fullscreen so that this is playable on any browsers.
 	// It is planned to ignore the given 'scale' apply fullscreen automatically on browsers (#571).
 	if runtime.GOARCH == "js" || runtime.GOOS == "js" {
@@ -227,7 +231,7 @@ func (g *Game) handleInput() {
 func (g *Game) draw() {
 	g.view.Clear()
 
-	//--draw sky and floor--//
+	//--draw basic sky and floor--//
 	texRect := image.Rect(0, 0, texSize, texSize)
 	whiteRGBA := &color.RGBA{255, 255, 255, 255}
 
@@ -252,6 +256,51 @@ func (g *Game) draw() {
 		}
 	}
 
+	// draw textured floor
+	for y := 0; y < g.height; y++ {
+		// for each row, determine and draw contiguous horizontal strips that match the same texture in sequence
+		var currRowPixelObj *raycaster.HorPixel
+		currRowTexNum := -1
+		currRowStartX := -1
+
+		for x := 0; x < g.width; x++ {
+			pixel := g.floorLvl.HorBuffer[y][x]
+			if pixel.TexNum < 0 {
+				if currRowTexNum != -1 && currRowStartX != -1 {
+					// draw the previous strip if one was started before reaching the gap
+					g.drawFromHorizontalBuffer(currRowPixelObj, currRowStartX, y, x-currRowStartX)
+				}
+
+				// found a gap, reset horizontal strip
+				currRowTexNum = -1
+				currRowStartX = -1
+				continue
+
+			} else if pixel.TexNum == currRowTexNum {
+				// continue the horizontal strip, not drawing until its finished this sequence
+				if currRowPixelObj.TexX+(x-currRowStartX) < texSize {
+					// only continue if strip start + strip width does not exceed texture width
+					continue
+				}
+			}
+
+			if currRowTexNum != -1 && currRowStartX != -1 {
+				// draw the previous strip before starting a new horizontal strip
+				g.drawFromHorizontalBuffer(currRowPixelObj, currRowStartX, y, x-currRowStartX)
+			}
+
+			currRowPixelObj = pixel
+			currRowTexNum = pixel.TexNum
+			currRowStartX = x
+		}
+
+		if currRowTexNum != -1 && currRowStartX != -1 {
+			x := g.width
+			// draw the last strip of this horizontal slice
+			g.drawFromHorizontalBuffer(currRowPixelObj, currRowStartX, y, x-currRowStartX)
+		}
+	}
+
 	if g.DebugOnce {
 		// end DebugOnce after one loop
 		g.DebugOnce = false
@@ -270,24 +319,34 @@ func (g *Game) draw() {
 	}
 }
 
-//returns an initialised Level struct
-func (g *Game) createLevels(numLevels int) []*raycaster.Level {
-	var arr []*raycaster.Level
-	arr = make([]*raycaster.Level, numLevels)
+//returns initialised Level structs
+func (g *Game) createLevels(numLevels int) ([]*raycaster.Level, *raycaster.HorLevel) {
+	var levelArr []*raycaster.Level
+	levelArr = make([]*raycaster.Level, numLevels)
 
 	for i := 0; i < numLevels; i++ {
-		arr[i] = new(raycaster.Level)
-		arr[i].Sv = g.sliceView()
-		arr[i].Cts = make([]*image.Rectangle, g.width)
-		arr[i].St = make([]*color.RGBA, g.width)
-		arr[i].CurrTexNum = make([]int, g.width)
+		levelArr[i] = new(raycaster.Level)
+		levelArr[i].Sv = g.sliceView()
+		levelArr[i].Cts = make([]*image.Rectangle, g.width)
+		levelArr[i].St = make([]*color.RGBA, g.width)
+		levelArr[i].CurrTexNum = make([]int, g.width)
 
-		for j := 0; j < cap(arr[i].CurrTexNum); j++ {
-			arr[i].CurrTexNum[j] = 1
+		for j := 0; j < cap(levelArr[i].CurrTexNum); j++ {
+			levelArr[i].CurrTexNum[j] = 1
 		}
 	}
 
-	return arr
+	horizontalLevel := new(raycaster.HorLevel)
+	horizontalLevel.HorBuffer = make([][]*raycaster.HorPixel, g.height)
+	for y := 0; y < g.height; y++ {
+		horizontalLevel.HorBuffer[y] = make([]*raycaster.HorPixel, g.width)
+
+		for x := 0; x < g.width; x++ {
+			horizontalLevel.HorBuffer[y][x] = new(raycaster.HorPixel)
+		}
+	}
+
+	return levelArr, horizontalLevel
 }
 
 // Creates rectangle slices for each x in width.
@@ -303,7 +362,27 @@ func (g *Game) sliceView() []*image.Rectangle {
 	return arr
 }
 
+func (g *Game) drawFromHorizontalBuffer(rowPixel *raycaster.HorPixel, x0 int, y0 int, sectionWidth int) {
+	// FIXME: still not right, because drawing long horizontal strips won't work when viewed at an angle other than perpendicular!
+	// Only drawing pixel by pixel looks right but is too slow using this method
+	destRect := image.Rect(x0, y0, x0+sectionWidth, y0+1)
+	srcRect := image.Rect(rowPixel.TexX, rowPixel.TexY, rowPixel.TexX+sectionWidth, rowPixel.TexY+1)
+
+	if g.DebugX > destRect.Min.X && g.DebugX <= destRect.Max.X &&
+		g.DebugY > destRect.Min.Y && g.DebugY <= destRect.Max.Y {
+
+		g.DebugPrintfOnce("[dFromHorBuf@%v,%v]: %v | %v < %v\n", g.DebugX, g.DebugY, destRect, rowPixel.TexNum, srcRect)
+		return
+	}
+
+	g.spriteBatch.draw(g.textures[rowPixel.TexNum], &destRect, &srcRect, nil) // rowPixel.St)
+}
+
 func (s *SpriteBatch) draw(texture *ebiten.Image, destinationRectangle *image.Rectangle, sourceRectangle *image.Rectangle, color *color.RGBA) {
+	if texture == nil || destinationRectangle == nil || sourceRectangle == nil {
+		return
+	}
+
 	op := &ebiten.DrawImageOptions{}
 	op.Filter = ebiten.FilterLinear
 
@@ -329,13 +408,17 @@ func (s *SpriteBatch) draw(texture *ebiten.Image, destinationRectangle *image.Re
 	var destTexture *ebiten.Image
 	destTexture = texture.SubImage(*sourceRectangle).(*ebiten.Image)
 
-	// color channel modulation/tinting
-	op.ColorM.Scale(float64(color.R)/255, float64(color.G)/255, float64(color.B)/255, float64(color.A)/255)
+	if color != nil {
+		// color channel modulation/tinting
+		op.ColorM.Scale(float64(color.R)/255, float64(color.G)/255, float64(color.B)/255, float64(color.A)/255)
+	}
 
-	if s.g.DebugX > destinationRectangle.Min.X && s.g.DebugX <= destinationRectangle.Max.X {
+	if s.g.DebugX > destinationRectangle.Min.X && s.g.DebugX <= destinationRectangle.Max.X &&
+		s.g.DebugY > destinationRectangle.Min.Y && s.g.DebugY <= destinationRectangle.Max.Y {
+
 		for texNum, tex := range s.g.textures {
 			if tex == texture {
-				s.g.DebugPrintfOnce("[debug@%v,%v]: %v | %v < %v * %v,%v\n", s.g.DebugX, s.g.DebugY, destinationRectangle, texNum, sourceRectangle, scaleX, scaleY)
+				s.g.DebugPrintfOnce("[draw@%v,%v]: %v | %v < %v * %v,%v\n", s.g.DebugX, s.g.DebugY, destinationRectangle, texNum, sourceRectangle, scaleX, scaleY)
 				return
 			}
 		}
