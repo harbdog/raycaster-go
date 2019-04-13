@@ -1,5 +1,5 @@
 # raycaster-go
-Golang conversion of raycaster engine [OwlRaycastEngine](https://github.com/Owlzy/OwlRaycastEngine) using the [Ebiten 2D Game Library](https://github.com/hajimehoshi/ebiten).
+Golang conversion of raycaster engine [OwlRaycastEngine](https://github.com/Owlzy/OwlRaycastEngine) using the [Ebiten 2D Game Library](https://github.com/hajimehoshi/ebiten). To see it in action visit the [YouTube playlist](https://www.youtube.com/playlist?list=PLOINtzQqJWIh8OQsvYAahr2yuAF5VLk38).
 
 ## Developer setup
 To install and run from source the following are required:
