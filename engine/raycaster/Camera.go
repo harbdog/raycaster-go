@@ -368,15 +368,33 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *Level, levelNum int) {
 			//floor
 			// buffer[y][x] = (texture[3][texWidth * floorTexY + floorTexX] >> 1) & 8355711;
 			// the same vertical slice method cannot be used for floor rendering
-			pixel := &color.RGBA{0, 255, 0, 255}
-			c.horLvl.HorBuffer.Set(x, y, pixel)
+			floorTexNum := 0
+			floorTex := c.horLvl.TexRGBA[floorTexNum]
+
+			//pixel := floorTex.RGBAAt(floorTexX, floorTexY)
+			pxOffset := floorTex.PixOffset(floorTexX, floorTexY)
+			pixel := color.RGBA{floorTex.Pix[pxOffset],
+				floorTex.Pix[pxOffset+1],
+				floorTex.Pix[pxOffset+2],
+				floorTex.Pix[pxOffset+3]}
 
 			// lighting
-			// FIXME: needs optimization, drops FPS by half!
-			// pixel.St = &color.RGBA{255, 255, 255, 255}
-			// pixel.St.R = byte(Clamp(int(float64(pixel.St.R)+shadowDepth+sunLight), 0, 255))
-			// pixel.St.G = byte(Clamp(int(float64(pixel.St.G)+shadowDepth+sunLight), 0, 255))
-			// pixel.St.B = byte(Clamp(int(float64(pixel.St.B)+shadowDepth+sunLight), 0, 255))
+			// FIXME: needs optimization, drops FPS by ~10-15
+			// shadowDepth = math.Sqrt(currentDist) * lightFalloff
+			// pixelSt := &color.RGBA{255, 255, 255, 255}
+			// pixelSt.R = byte(Clamp(int(float64(pixelSt.R)+shadowDepth+sunLight), 0, 255))
+			// pixelSt.G = byte(Clamp(int(float64(pixelSt.G)+shadowDepth+sunLight), 0, 255))
+			// pixelSt.B = byte(Clamp(int(float64(pixelSt.B)+shadowDepth+sunLight), 0, 255))
+			// pixel.R = uint8(float64(pixel.R) * float64(pixelSt.R) / 256)
+			// pixel.G = uint8(float64(pixel.G) * float64(pixelSt.G) / 256)
+			// pixel.B = uint8(float64(pixel.B) * float64(pixelSt.B) / 256)
+
+			//c.horLvl.HorBuffer.SetRGBA(x, y, pixel)
+			pxOffset = c.horLvl.HorBuffer.PixOffset(x, y)
+			c.horLvl.HorBuffer.Pix[pxOffset] = pixel.R
+			c.horLvl.HorBuffer.Pix[pxOffset+1] = pixel.G
+			c.horLvl.HorBuffer.Pix[pxOffset+2] = pixel.B
+			c.horLvl.HorBuffer.Pix[pxOffset+3] = pixel.A
 		}
 	}
 }

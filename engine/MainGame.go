@@ -42,7 +42,7 @@ type Game struct {
 	//--graphics manager and sprite batch--//
 	spriteBatch *SpriteBatch
 
-	textures [10]*ebiten.Image
+	textures [5]*ebiten.Image
 
 	//--test texture--//
 	floor *ebiten.Image
@@ -82,9 +82,6 @@ func NewGame() *Game {
 	g.width = int(math.Floor(float64(screenWidth) / screenScale))
 	g.height = int(math.Floor(float64(screenHeight) / screenScale))
 
-	// load content once when first run
-	g.loadContent()
-
 	g.slicer = raycaster.NewTextureHandler(texSize)
 
 	//--init texture slices--//
@@ -92,6 +89,9 @@ func NewGame() *Game {
 
 	//--inits the levels--//
 	g.levels, g.floorLvl = g.createLevels(4)
+
+	// load content once when first run
+	g.loadContent()
 
 	//--init camera--//
 	g.camera = raycaster.NewCamera(g.width, g.height, texSize, g.slices, g.levels, g.floorLvl)
@@ -116,11 +116,32 @@ func (g *Game) loadContent() {
 	g.textures[3], _, _ = getTextureFromFile("left_top_house.png")
 	g.textures[4], _, _ = getTextureFromFile("right_top_house.png")
 
-	// just setting the ground texture apart from the rest since it gets special handling
-	g.textures[9], _, _ = getTextureFromFile("grass.png")
-
 	g.floor, _, _ = getTextureFromFile("floor.png")
 	g.sky, _, _ = getTextureFromFile("sky.png")
+
+	// just setting the grass texture apart from the rest since it gets special handling
+	g.floorLvl.TexRGBA = make([]*image.RGBA, 1)
+	g.floorLvl.TexRGBA[0], _ = getRGBAFromFile("grass.png")
+}
+
+func getRGBAFromFile(texFile string) (*image.RGBA, error) {
+	var rgba *image.RGBA
+	_, tex, err := getTextureFromFile(texFile)
+	if err != nil {
+		return rgba, err
+	}
+	if tex != nil {
+		rgba = image.NewRGBA(image.Rect(0, 0, texSize, texSize))
+		// convert into RGBA format
+		for x := 0; x < texSize; x++ {
+			for y := 0; y < texSize; y++ {
+				clr := tex.At(x, y).(color.RGBA)
+				rgba.SetRGBA(x, y, clr)
+			}
+		}
+	}
+
+	return rgba, err
 }
 
 func getTextureFromFile(texFile string) (*ebiten.Image, image.Image, error) {

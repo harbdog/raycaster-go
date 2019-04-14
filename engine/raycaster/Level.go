@@ -22,8 +22,11 @@ type Level struct {
 
 // HorLevel is for handling horizontal renders that cannot use vertical slices (e.g. floor, ceiling)
 type HorLevel struct {
-	// HorBuffer has row or 'y' as first index, col or 'x' as second index
+	// HorBuffer is the image representing the pixels to render during the update
 	HorBuffer *image.RGBA
+
+	// TexRGBA contains image.RGBA textures used as sources for the HorBuffer
+	TexRGBA []*image.RGBA
 }
 
 func (h *HorLevel) Clear(width, height int) {
