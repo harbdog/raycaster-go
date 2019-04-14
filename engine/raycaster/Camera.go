@@ -43,8 +43,9 @@ type Camera struct {
 	//--slices--//
 	s []*image.Rectangle
 
-	//--cam x pre calc--//
+	//--cam x/y pre calc--//
 	camX []float64
+	camY []float64
 
 	//--structs that contain rects and tints for each level or "floor" renderered--//
 	lvls []*Level
@@ -78,8 +79,8 @@ func NewCamera(width int, height int, texWid int, slices []*image.Rectangle, lev
 	c.horLvl = horizontalLevel
 
 	//--init cam pre calc array--//
-	c.camX = make([]float64, c.w)
 	c.preCalcCamX()
+	c.preCalcCamY()
 
 	c.mapObj = NewMap()
 	c.worldMap = c.mapObj.getGrid()
@@ -94,12 +95,8 @@ func NewCamera(width int, height int, texWid int, slices []*image.Rectangle, lev
 
 // Update - updates the camera view
 func (c *Camera) Update() {
-	// clear horizontal buffer (reset all TexNum pointers to -1)
-	for y := 0; y < c.h; y++ {
-		for x := 0; x < c.w; x++ {
-			c.horLvl.HorBuffer[y][x].TexNum = -1
-		}
-	}
+	// clear horizontal buffer by making a new one
+	c.horLvl.Clear(c.w, c.h)
 
 	//--do raycast--//
 	c.raycast()
@@ -107,8 +104,17 @@ func (c *Camera) Update() {
 
 // precalculates camera x coordinate
 func (c *Camera) preCalcCamX() {
+	c.camX = make([]float64, c.w)
 	for x := 0; x < c.w; x++ {
 		c.camX[x] = 2.0*float64(x)/float64(c.w) - 1.0
+	}
+}
+
+// precalculates camera y coordinate
+func (c *Camera) preCalcCamY() {
+	c.camY = make([]float64, c.h)
+	for y := 0; y < c.h; y++ {
+		c.camY[y] = float64(c.h) / (2.0*float64(y) - float64(c.h))
 	}
 }
 
@@ -124,8 +130,7 @@ func (c *Camera) raycast() {
 				rMap = c.upMap //if above lvl2 just keep extending up
 			}
 
-			lvl := c.lvls[i]
-			c.castLevel(x, rMap, lvl, i) // TODO: calculate more levels simultaneously using go routine (use # cores)
+			c.castLevel(x, rMap, c.lvls[i], i)
 		}
 	}
 }
@@ -345,7 +350,7 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *Level, levelNum int) {
 
 		//draw the floor from drawEnd to the bottom of the screen
 		for y := drawEnd + 1; y < c.h; y++ {
-			currentDist = float64(c.h) / (2.0*float64(y) - float64(c.h)) //you could make a small lookup table for this instead
+			currentDist = c.camY[y] //float64(c.h) / (2.0*float64(y) - float64(c.h))
 
 			weight := (currentDist - distPlayer) / (distWall - distPlayer)
 
@@ -363,12 +368,8 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *Level, levelNum int) {
 			//floor
 			// buffer[y][x] = (texture[3][texWidth * floorTexY + floorTexX] >> 1) & 8355711;
 			// the same vertical slice method cannot be used for floor rendering
-			//		 because floor rendering cannot use vertical strips, must be done horizontally instead.
-			// FIXME: needs optimization, drops FPS sometimes by ~5
-			pixel := c.horLvl.HorBuffer[y][x]
-			pixel.TexNum = 9
-			pixel.TexX = floorTexX
-			pixel.TexY = floorTexY
+			pixel := &color.RGBA{0, 255, 0, 255}
+			c.horLvl.HorBuffer.Set(x, y, pixel)
 
 			// lighting
 			// FIXME: needs optimization, drops FPS by half!

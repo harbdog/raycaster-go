@@ -257,48 +257,13 @@ func (g *Game) draw() {
 	}
 
 	// draw textured floor
-	for y := 0; y < g.height; y++ {
-		// for each row, determine and draw contiguous horizontal strips that match the same texture in sequence
-		var currRowPixelObj *raycaster.HorPixel
-		currRowTexNum := -1
-		currRowStartX := -1
-
-		for x := 0; x < g.width; x++ {
-			pixel := g.floorLvl.HorBuffer[y][x]
-			if pixel.TexNum < 0 {
-				if currRowTexNum != -1 && currRowStartX != -1 {
-					// draw the previous strip if one was started before reaching the gap
-					g.drawFromHorizontalBuffer(currRowPixelObj, currRowStartX, y, x-currRowStartX)
-				}
-
-				// found a gap, reset horizontal strip
-				currRowTexNum = -1
-				currRowStartX = -1
-				continue
-
-			} else if pixel.TexNum == currRowTexNum {
-				// continue the horizontal strip, not drawing until its finished this sequence
-				if currRowPixelObj.TexX+(x-currRowStartX) < texSize {
-					// only continue if strip start + strip width does not exceed texture width
-					continue
-				}
-			}
-
-			if currRowTexNum != -1 && currRowStartX != -1 {
-				// draw the previous strip before starting a new horizontal strip
-				g.drawFromHorizontalBuffer(currRowPixelObj, currRowStartX, y, x-currRowStartX)
-			}
-
-			currRowPixelObj = pixel
-			currRowTexNum = pixel.TexNum
-			currRowStartX = x
-		}
-
-		if currRowTexNum != -1 && currRowStartX != -1 {
-			x := g.width
-			// draw the last strip of this horizontal slice
-			g.drawFromHorizontalBuffer(currRowPixelObj, currRowStartX, y, x-currRowStartX)
-		}
+	floorImg, err := ebiten.NewImageFromImage(g.floorLvl.HorBuffer, ebiten.FilterLinear)
+	if err != nil || floorImg == nil {
+		log.Fatal(err)
+	} else {
+		op := &ebiten.DrawImageOptions{}
+		op.Filter = ebiten.FilterLinear
+		g.view.DrawImage(floorImg, op)
 	}
 
 	if g.DebugOnce {
@@ -337,14 +302,7 @@ func (g *Game) createLevels(numLevels int) ([]*raycaster.Level, *raycaster.HorLe
 	}
 
 	horizontalLevel := new(raycaster.HorLevel)
-	horizontalLevel.HorBuffer = make([][]*raycaster.HorPixel, g.height)
-	for y := 0; y < g.height; y++ {
-		horizontalLevel.HorBuffer[y] = make([]*raycaster.HorPixel, g.width)
-
-		for x := 0; x < g.width; x++ {
-			horizontalLevel.HorBuffer[y][x] = new(raycaster.HorPixel)
-		}
-	}
+	horizontalLevel.Clear(g.width, g.height)
 
 	return levelArr, horizontalLevel
 }
@@ -360,22 +318,6 @@ func (g *Game) sliceView() []*image.Rectangle {
 	}
 
 	return arr
-}
-
-func (g *Game) drawFromHorizontalBuffer(rowPixel *raycaster.HorPixel, x0 int, y0 int, sectionWidth int) {
-	// FIXME: still not right, because drawing long horizontal strips won't work when viewed at an angle other than perpendicular!
-	// Only drawing pixel by pixel looks right but is too slow using this method
-	destRect := image.Rect(x0, y0, x0+sectionWidth, y0+1)
-	srcRect := image.Rect(rowPixel.TexX, rowPixel.TexY, rowPixel.TexX+sectionWidth, rowPixel.TexY+1)
-
-	if g.DebugX > destRect.Min.X && g.DebugX <= destRect.Max.X &&
-		g.DebugY > destRect.Min.Y && g.DebugY <= destRect.Max.Y {
-
-		g.DebugPrintfOnce("[dFromHorBuf@%v,%v]: %v | %v < %v\n", g.DebugX, g.DebugY, destRect, rowPixel.TexNum, srcRect)
-		return
-	}
-
-	g.spriteBatch.draw(g.textures[rowPixel.TexNum], &destRect, &srcRect, nil) // rowPixel.St)
 }
 
 func (s *SpriteBatch) draw(texture *ebiten.Image, destinationRectangle *image.Rectangle, sourceRectangle *image.Rectangle, color *color.RGBA) {

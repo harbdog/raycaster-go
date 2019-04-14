@@ -20,20 +20,16 @@ type Level struct {
 	CurrTexNum []int
 }
 
-// HorLevel is for handling horizontal slices (e.g. floors, ceiling)
+// HorLevel is for handling horizontal renders that cannot use vertical slices (e.g. floor, ceiling)
 type HorLevel struct {
 	// HorBuffer has row or 'y' as first index, col or 'x' as second index
-	HorBuffer [][]*HorPixel
+	HorBuffer *image.RGBA
 }
 
-// HorPixel is for representing individual horizontal buffer pixel requests
-type HorPixel struct {
-	// TexNum --the texture index to use as source
-	TexNum int
+func (h *HorLevel) Clear(width, height int) {
+	h.HorBuffer = image.NewRGBA(image.Rect(0, 0, width, height))
+}
 
-	// TexX, TexY --texture source point
-	TexX, TexY int
-
-	// St --current slice tint (for lighting/shading)--//
-	St *color.RGBA
+func (h *HorLevel) Set(x, y int, c color.Color) {
+	h.HorBuffer.Set(x, y, c)
 }
