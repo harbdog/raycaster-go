@@ -47,7 +47,7 @@ type Camera struct {
 	camX []float64
 	camY []float64
 
-	//--structs that contain rects and tints for each level or "floor" renderered--//
+	//--structs that contain rects and tints for each level render--//
 	lvls []*Level
 
 	horLvl *HorLevel
