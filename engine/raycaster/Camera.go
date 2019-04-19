@@ -134,20 +134,32 @@ func (c *Camera) preCalcCamY() {
 }
 
 func (c *Camera) raycast() {
-	for x := 0; x < c.w; x++ {
-		for i := 0; i < cap(c.lvls); i++ {
-			var rMap [][]int
-			if i == 0 {
-				rMap = c.worldMap
-			} else if i == 1 {
-				rMap = c.midMap
-			} else {
-				rMap = c.upMap //if above lvl2 just keep extending up
-			}
-
-			c.castLevel(x, rMap, c.lvls[i], i)
-		}
+	numLevels := cap(c.lvls)
+	done := make(chan bool, numLevels)
+	for i := 0; i < numLevels; i++ {
+		go c.asyncCastLevels(i, done)
 	}
+
+	for d := 0; d < numLevels; d++ {
+		<-done
+	}
+}
+
+func (c *Camera) asyncCastLevels(levelNum int, done chan bool) {
+	var rMap [][]int
+	if levelNum == 0 {
+		rMap = c.worldMap
+	} else if levelNum == 1 {
+		rMap = c.midMap
+	} else {
+		rMap = c.upMap //if above lvl2 just keep extending up
+	}
+
+	for x := 0; x < c.w; x++ {
+		c.castLevel(x, rMap, c.lvls[levelNum], levelNum)
+	}
+
+	done <- true
 }
 
 // credit : Raycast loop and setting up of vectors for matrix calculations
@@ -490,7 +502,7 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *Level, levelNum int) {
 			// 	// 		texY := ((d * c.texWidth) / spriteHeight) / 256
 
 			// 	// 		if texX < 0 || texY < 0 {
-			// 	// 			// teting
+			// 	// 			// testing
 			// 	// 		}
 			// 	// 		// Uint32 color = texture[sprite[spriteOrder[i]].texture][texWidth * texY + texX] //get current color from the texture
 			// 	// 		// if((color & 0x00FFFFFF) != 0) buffer[y][stripe] = color //paint pixel if it isn't black, black is the invisible color
@@ -498,7 +510,7 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *Level, levelNum int) {
 			// 	// }
 
 			// 	if texX < 0 {
-
+			// 		// testing
 			// 	}
 			// }
 		}
