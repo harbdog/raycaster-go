@@ -42,7 +42,7 @@ type Game struct {
 	//--graphics manager and sprite batch--//
 	spriteBatch *SpriteBatch
 
-	textures [5]*ebiten.Image
+	textures [11]*ebiten.Image
 
 	//--test texture--//
 	floor *ebiten.Image
@@ -115,6 +115,9 @@ func (g *Game) loadContent() {
 	g.textures[2], _, _ = getTextureFromFile("right_bot_house.png")
 	g.textures[3], _, _ = getTextureFromFile("left_top_house.png")
 	g.textures[4], _, _ = getTextureFromFile("right_top_house.png")
+
+	// separating sprites out a bit from wall textures
+	g.textures[10], _, _ = getTextureFromFile("tree_10.png")
 
 	g.floor, _, _ = getTextureFromFile("floor.png")
 	g.sky, _, _ = getTextureFromFile("sky.png")
