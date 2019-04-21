@@ -4,6 +4,7 @@ import (
 	"image"
 	"image/color"
 	"math"
+	"sync"
 )
 
 const (
@@ -140,14 +141,13 @@ func (c *Camera) raycast() {
 
 	// cast level
 	numLevels := cap(c.lvls)
-	done := make(chan bool, numLevels)
+	var wg sync.WaitGroup
 	for i := 0; i < numLevels; i++ {
-		go c.asyncCastLevel(i, done)
+		wg.Add(1)
+		go c.asyncCastLevel(i, &wg)
 	}
 
-	for d := 0; d < numLevels; d++ {
-		<-done
-	}
+	wg.Wait()
 
 	//SPRITE CASTING
 	//sort sprites from far to close
@@ -157,18 +157,19 @@ func (c *Camera) raycast() {
 		c.spriteDistance[i] = ((c.pos.X-c.sprite[i].X)*(c.pos.X-c.sprite[i].X) + (c.pos.Y-c.sprite[i].Y)*(c.pos.Y-c.sprite[i].Y)) //sqrt not taken, unneeded
 	}
 	combSort(c.spriteOrder, c.spriteDistance, numSprites)
+
 	//after sorting the sprites, do the projection and draw them
-	done = make(chan bool, numSprites)
 	for i := 0; i < numSprites; i++ {
-		go c.asyncCastSprite(i, done)
+		wg.Add(1)
+		go c.asyncCastSprite(i, &wg)
 	}
 
-	for d := 0; d < numSprites; d++ {
-		<-done
-	}
+	wg.Wait()
 }
 
-func (c *Camera) asyncCastLevel(levelNum int, done chan bool) {
+func (c *Camera) asyncCastLevel(levelNum int, wg *sync.WaitGroup) {
+	defer wg.Done()
+
 	var rMap [][]int
 	if levelNum == 0 {
 		rMap = c.worldMap
@@ -178,29 +179,20 @@ func (c *Camera) asyncCastLevel(levelNum int, done chan bool) {
 		rMap = c.upMap //if above lvl2 just keep extending up
 	}
 
-	floorDone := make(chan bool, c.w)
-
 	for x := 0; x < c.w; x++ {
-		c.castLevel(x, rMap, c.lvls[levelNum], levelNum, floorDone)
+		c.castLevel(x, rMap, c.lvls[levelNum], levelNum, wg)
 	}
-
-	// wait for floor casting to finish first
-	for x := 0; x < c.w; x++ {
-		<-floorDone
-	}
-
-	done <- true
 }
 
-func (c *Camera) asyncCastSprite(spriteNum int, done chan bool) {
-	c.castSprite(spriteNum)
+func (c *Camera) asyncCastSprite(spriteNum int, wg *sync.WaitGroup) {
+	defer wg.Done()
 
-	done <- true
+	c.castSprite(spriteNum)
 }
 
 // credit : Raycast loop and setting up of vectors for matrix calculations
 // courtesy - http://lodev.org/cgtutor/raycasting.html
-func (c *Camera) castLevel(x int, grid [][]int, lvl *Level, levelNum int, floorDone chan bool) {
+func (c *Camera) castLevel(x int, grid [][]int, lvl *Level, levelNum int, wg *sync.WaitGroup) {
 	var _cts, _sv []*image.Rectangle
 	var _st []*color.RGBA
 
@@ -394,7 +386,7 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *Level, levelNum int, floorD
 		if drawEnd < 0 {
 			drawEnd = c.h //becomes < 0 when the integer overflows
 		}
-
+		wg.Add(1)
 		go func() {
 			var floorXWall, floorYWall float64
 
@@ -463,11 +455,8 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *Level, levelNum int, floorD
 				c.horLvl.HorBuffer.Pix[pxOffset+3] = pixel.A
 			}
 
-			floorDone <- true
+			wg.Done()
 		}()
-	} else {
-		// assuming no need to render floor on higher levels, for now
-		floorDone <- true
 	}
 }
 
