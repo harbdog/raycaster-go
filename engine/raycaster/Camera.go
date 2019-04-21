@@ -1,9 +1,13 @@
 package raycaster
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"math"
+	"sync"
+
+	"github.com/hajimehoshi/ebiten"
 )
 
 const (
@@ -12,6 +16,12 @@ const (
 
 	//--rotate speed--//
 	rotSpeed = 0.03
+
+	// maximum number of concurrent tasks for large task sets (e.g. floor and sprite casting)
+	maxConcurrent = 100
+
+	// constant used for movement target framerate to prevent higher framerates from moving too fast
+	movementTPS = 60.0
 )
 
 // Camera Class that represents a camera in terms of raycasting.
@@ -31,6 +41,9 @@ type Camera struct {
 	w int
 	h int
 
+	// target framerate reference
+	targetTPS int
+
 	//--world map--//
 	mapObj   *Map
 	worldMap [][]int
@@ -43,11 +56,28 @@ type Camera struct {
 	//--slices--//
 	s []*image.Rectangle
 
-	//--cam x pre calc--//
+	//--cam x/y pre calc--//
 	camX []float64
+	camY []float64
 
 	//--structs that contain rects and tints for each level render--//
 	lvls []*Level
+
+	// zbuffer for sprite casting
+	zBuffer []float64
+	// sprites
+	sprite []*Sprite
+	//arrays used to sort the sprites
+	spriteOrder    []int
+	spriteDistance []float64
+
+	spriteLvls []*Level
+	textures   []*ebiten.Image
+
+	horLvl *HorLevel
+
+	// used for concurrency
+	semaphore chan struct{}
 }
 
 // Vector2 converted struct from C#
@@ -57,8 +87,16 @@ type Vector2 struct {
 }
 
 // NewCamera initalizes a Camera object
-func NewCamera(width int, height int, texWid int, slices []*image.Rectangle, levels []*Level) *Camera {
+func NewCamera(width int, height int, texWid int, mapObj *Map, slices []*image.Rectangle,
+	levels []*Level, horizontalLevel *HorLevel, spriteLvls []*Level, textures []*ebiten.Image) *Camera {
+
+	fmt.Printf("Initializing Camera\n")
+
 	c := &Camera{}
+
+	// set target FPS (TPS)
+	c.targetTPS = 60
+	ebiten.SetMaxTPS(c.targetTPS)
 
 	//--camera position, init to start position--//
 	c.pos = &Vector2{X: 22.5, Y: 11.5}
@@ -73,14 +111,30 @@ func NewCamera(width int, height int, texWid int, slices []*image.Rectangle, lev
 	c.s = slices
 	c.lvls = levels
 
-	//--init cam pre calc array--//
-	c.camX = make([]float64, c.w)
-	c.preCalcCamX()
+	c.horLvl = horizontalLevel
+	c.spriteLvls = spriteLvls
 
-	c.mapObj = NewMap()
+	//--init cam pre calc array--//
+	c.preCalcCamX()
+	c.preCalcCamY()
+
+	// set zbuffer based on screen width
+	c.zBuffer = make([]float64, width)
+
+	c.mapObj = mapObj
 	c.worldMap = c.mapObj.getGrid()
 	c.upMap = c.mapObj.getGridUp()
 	c.midMap = c.mapObj.getGridMid()
+
+	c.sprite = c.mapObj.getSprites()
+	c.spriteOrder = make([]int, c.mapObj.numSprites)
+	c.spriteDistance = make([]float64, c.mapObj.numSprites)
+
+	c.textures = textures
+
+	// initialize a pool of channels to limit concurrent floor and sprite casting
+	// from https://pocketgophers.com/limit-concurrent-use/
+	c.semaphore = make(chan struct{}, maxConcurrent)
 
 	//do an initial raycast
 	c.raycast()
@@ -90,38 +144,89 @@ func NewCamera(width int, height int, texWid int, slices []*image.Rectangle, lev
 
 // Update - updates the camera view
 func (c *Camera) Update() {
+	// clear horizontal buffer by making a new one
+	c.horLvl.Clear(c.w, c.h)
+
 	//--do raycast--//
 	c.raycast()
 }
 
 // precalculates camera x coordinate
 func (c *Camera) preCalcCamX() {
+	c.camX = make([]float64, c.w)
 	for x := 0; x < c.w; x++ {
 		c.camX[x] = 2.0*float64(x)/float64(c.w) - 1.0
 	}
 }
 
-func (c *Camera) raycast() {
-	for x := 0; x < c.w; x++ {
-		for i := 0; i < cap(c.lvls); i++ {
-			var rMap [][]int
-			if i == 0 {
-				rMap = c.worldMap
-			} else if i == 1 {
-				rMap = c.midMap
-			} else {
-				rMap = c.upMap //if above lvl2 just keep extending up
-			}
-
-			lvl := c.lvls[i]
-			c.castLevel(x, rMap, lvl, i) // TODO: calculate more levels simultaneously using go routine (use # cores)
-		}
+// precalculates camera y coordinate
+func (c *Camera) preCalcCamY() {
+	c.camY = make([]float64, c.h)
+	for y := 0; y < c.h; y++ {
+		c.camY[y] = float64(c.h) / (2.0*float64(y) - float64(c.h))
 	}
+}
+
+func (c *Camera) raycast() {
+	// cast level
+	numLevels := cap(c.lvls)
+	var wg sync.WaitGroup
+	for i := 0; i < numLevels; i++ {
+		wg.Add(1)
+		go c.asyncCastLevel(i, &wg)
+	}
+
+	wg.Wait()
+
+	//SPRITE CASTING
+	//sort sprites from far to close
+	numSprites := c.mapObj.numSprites
+	for i := 0; i < numSprites; i++ {
+		c.spriteOrder[i] = i
+		c.spriteDistance[i] = ((c.pos.X-c.sprite[i].X)*(c.pos.X-c.sprite[i].X) + (c.pos.Y-c.sprite[i].Y)*(c.pos.Y-c.sprite[i].Y)) //sqrt not taken, unneeded
+	}
+	combSort(c.spriteOrder, c.spriteDistance, numSprites)
+
+	//after sorting the sprites, do the projection and draw them
+	for i := 0; i < numSprites; i++ {
+		wg.Add(1)
+		go c.asyncCastSprite(i, &wg)
+	}
+
+	wg.Wait()
+}
+
+func (c *Camera) asyncCastLevel(levelNum int, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	var rMap [][]int
+	if levelNum == 0 {
+		rMap = c.worldMap
+	} else if levelNum == 1 {
+		rMap = c.midMap
+	} else {
+		rMap = c.upMap //if above lvl2 just keep extending up
+	}
+
+	for x := 0; x < c.w; x++ {
+		c.castLevel(x, rMap, c.lvls[levelNum], levelNum, wg)
+	}
+}
+
+func (c *Camera) asyncCastSprite(spriteNum int, wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	c.semaphore <- struct{}{} // Lock
+	defer func() {
+		<-c.semaphore // Unlock
+	}()
+
+	c.castSprite(spriteNum)
 }
 
 // credit : Raycast loop and setting up of vectors for matrix calculations
 // courtesy - http://lodev.org/cgtutor/raycasting.html
-func (c *Camera) castLevel(x int, grid [][]int, lvl *Level, levelNum int) {
+func (c *Camera) castLevel(x int, grid [][]int, lvl *Level, levelNum int, wg *sync.WaitGroup) {
 	var _cts, _sv []*image.Rectangle
 	var _st []*color.RGBA
 
@@ -303,10 +408,256 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *Level, levelNum int) {
 	_st[x].R = byte(Clamp(int(float64(_st[x].R)+shadowDepth+sunLight), 0, 255))
 	_st[x].G = byte(Clamp(int(float64(_st[x].G)+shadowDepth+sunLight), 0, 255))
 	_st[x].B = byte(Clamp(int(float64(_st[x].B)+shadowDepth+sunLight), 0, 255))
+
+	//SET THE ZBUFFER FOR THE SPRITE CASTING
+	if levelNum == 0 {
+		// for now only rendering sprites on first level
+		c.zBuffer[x] = perpWallDist //perpendicular distance is used
+	}
+
+	//// FLOOR CASTING ////
+	if levelNum == 0 {
+		// for now only rendering floor on first level
+		if drawEnd < 0 {
+			drawEnd = c.h //becomes < 0 when the integer overflows
+		}
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+
+			c.semaphore <- struct{}{} // Lock
+			defer func() {
+				<-c.semaphore // Unlock
+			}()
+
+			var floorXWall, floorYWall float64
+
+			//4 different wall directions possible
+			if side == 0 && rayDirX > 0 {
+				floorXWall = float64(mapX)
+				floorYWall = float64(mapY) + wallX
+			} else if side == 0 && rayDirX < 0 {
+				floorXWall = float64(mapX) + 1.0
+				floorYWall = float64(mapY) + wallX
+			} else if side == 1 && rayDirY > 0 {
+				floorXWall = float64(mapX) + wallX
+				floorYWall = float64(mapY)
+			} else {
+				floorXWall = float64(mapX) + wallX
+				floorYWall = float64(mapY) + 1.0
+			}
+
+			var distWall, distPlayer, currentDist float64
+
+			distWall = perpWallDist
+			distPlayer = 0.0
+
+			//draw the floor from drawEnd to the bottom of the screen
+			for y := drawEnd + 1; y < c.h; y++ {
+				currentDist = c.camY[y] //float64(c.h) / (2.0*float64(y) - float64(c.h))
+
+				weight := (currentDist - distPlayer) / (distWall - distPlayer)
+
+				currentFloorX := weight*floorXWall + (1.0-weight)*rayPosX
+				currentFloorY := weight*floorYWall + (1.0-weight)*rayPosY
+
+				var floorTexX, floorTexY int
+				floorTexX = int(currentFloorX*float64(c.texWidth)) % c.texWidth
+				floorTexY = int(currentFloorY*float64(c.texWidth)) % c.texWidth
+
+				//floor
+				// buffer[y][x] = (texture[3][texWidth * floorTexY + floorTexX] >> 1) & 8355711;
+				// the same vertical slice method cannot be used for floor rendering
+				floorTexNum := 0
+				floorTex := c.horLvl.TexRGBA[floorTexNum]
+
+				//pixel := floorTex.RGBAAt(floorTexX, floorTexY)
+				pxOffset := floorTex.PixOffset(floorTexX, floorTexY)
+				pixel := color.RGBA{floorTex.Pix[pxOffset],
+					floorTex.Pix[pxOffset+1],
+					floorTex.Pix[pxOffset+2],
+					floorTex.Pix[pxOffset+3]}
+
+				// lighting
+				shadowDepth = math.Sqrt(currentDist) * lightFalloff
+				pixelSt := &color.RGBA{255, 255, 255, 255}
+				pixelSt.R = byte(Clamp(int(float64(pixelSt.R)+shadowDepth+sunLight), 0, 255))
+				pixelSt.G = byte(Clamp(int(float64(pixelSt.G)+shadowDepth+sunLight), 0, 255))
+				pixelSt.B = byte(Clamp(int(float64(pixelSt.B)+shadowDepth+sunLight), 0, 255))
+				pixel.R = uint8(float64(pixel.R) * float64(pixelSt.R) / 256)
+				pixel.G = uint8(float64(pixel.G) * float64(pixelSt.G) / 256)
+				pixel.B = uint8(float64(pixel.B) * float64(pixelSt.B) / 256)
+
+				//c.horLvl.HorBuffer.SetRGBA(x, y, pixel)
+				pxOffset = c.horLvl.HorBuffer.PixOffset(x, y)
+				c.horLvl.HorBuffer.Pix[pxOffset] = pixel.R
+				c.horLvl.HorBuffer.Pix[pxOffset+1] = pixel.G
+				c.horLvl.HorBuffer.Pix[pxOffset+2] = pixel.B
+				c.horLvl.HorBuffer.Pix[pxOffset+3] = pixel.A
+			}
+		}()
+	}
+}
+
+func (c *Camera) castSprite(spriteOrdIndex int) {
+	// track whether the sprite actually needs to draw
+	renderSprite := false
+
+	rayPosX := c.pos.X
+	rayPosY := c.pos.Y
+
+	//translate sprite position to relative to camera
+	spriteX := c.sprite[c.spriteOrder[spriteOrdIndex]].X - rayPosX
+	spriteY := c.sprite[c.spriteOrder[spriteOrdIndex]].Y - rayPosY
+
+	texNum := c.sprite[c.spriteOrder[spriteOrdIndex]].Texture
+
+	//transform sprite with the inverse camera matrix
+	// [ planeX   dirX ] -1                                       [ dirY      -dirX ]
+	// [               ]       =  1/(planeX*dirY-dirX*planeY) *   [                 ]
+	// [ planeY   dirY ]                                          [ -planeY  planeX ]
+
+	invDet := 1.0 / (c.plane.X*c.dir.Y - c.dir.X*c.plane.Y) //required for correct matrix multiplication
+
+	transformX := invDet * (c.dir.Y*spriteX - c.dir.X*spriteY)
+	transformY := invDet * (-c.plane.Y*spriteX + c.plane.X*spriteY) //this is actually the depth inside the screen, that what Z is in 3D
+
+	spriteScreenX := int(float64(c.w) / 2 * (1 + transformX/transformY))
+
+	//parameters for scaling and moving the sprites
+	var uDiv = 1
+	var vDiv = 1
+	var vMove = 0.0
+	vMoveScreen := int(vMove / transformY)
+
+	//calculate height of the sprite on screen
+	spriteHeight := int(math.Abs(float64(c.h)/transformY) / float64(vDiv)) //using "transformY" instead of the real distance prevents fisheye
+	//calculate lowest and highest pixel to fill in current stripe
+	drawStartY := -spriteHeight/2 + c.h/2 + vMoveScreen
+	if drawStartY < 0 {
+		drawStartY = 0
+	}
+	drawEndY := spriteHeight/2 + c.h/2 + vMoveScreen
+	if drawEndY >= c.h {
+		drawEndY = c.h - 1
+	}
+
+	//calculate width of the sprite
+	spriteWidth := int(math.Abs(float64(c.h)/transformY) / float64(uDiv))
+	drawStartX := -spriteWidth/2 + spriteScreenX
+	drawEndX := spriteWidth/2 + spriteScreenX
+
+	if drawStartX < 0 {
+		drawStartX = 0
+	}
+	if drawEndX >= c.w {
+		drawEndX = c.w - 1
+	}
+
+	var spriteSlices []*image.Rectangle
+
+	//loop through every vertical stripe of the sprite on screen
+	for stripe := drawStartX; stripe < drawEndX; stripe++ {
+		//the conditions in the if are:
+		//1) it's in front of camera plane so you don't see things behind you
+		//2) it's on the screen (left)
+		//3) it's on the screen (right)
+		//4) ZBuffer, with perpendicular distance
+		if transformY > 0 && stripe > 0 && stripe < c.w && transformY < c.zBuffer[stripe] {
+			var spriteLvl *Level
+			if !renderSprite {
+				renderSprite = true
+				spriteLvl = c.makeSpriteLevel(spriteOrdIndex)
+				spriteImage := c.textures[c.sprite[c.spriteOrder[spriteOrdIndex]].Texture]
+				spriteW, spriteH := spriteImage.Size()
+				spriteSlices = MakeSlices(spriteW, spriteH)
+			} else {
+				spriteLvl = c.spriteLvls[spriteOrdIndex]
+			}
+
+			texX := int(256*(stripe-(-spriteWidth/2+spriteScreenX))*c.texWidth/spriteWidth) / 256
+
+			if texX < 0 || texX >= cap(spriteSlices) {
+				continue
+			}
+
+			//--set current texture slice--//
+			spriteLvl.Cts[stripe] = spriteSlices[texX]
+
+			spriteLvl.CurrTexNum[stripe] = texNum
+
+			//--set height of slice--//
+			spriteLvl.Sv[stripe].Min.Y = drawStartY + 1
+
+			//--set draw start of slice--//
+			spriteLvl.Sv[stripe].Max.Y = drawEndY
+
+			// TODO: distance based lighting/shading
+			spriteLvl.St[stripe] = &color.RGBA{255, 255, 255, 255}
+		}
+	}
+
+	if !renderSprite {
+		c.clearSpriteLevel(spriteOrdIndex)
+	}
+}
+
+func (c *Camera) makeSpriteLevel(spriteOrdIndex int) *Level {
+	spriteLvl := new(Level)
+	spriteLvl.Sv = SliceView(c.w, c.h)
+	spriteLvl.Cts = make([]*image.Rectangle, c.w)
+	spriteLvl.St = make([]*color.RGBA, c.w)
+	spriteLvl.CurrTexNum = make([]int, c.w)
+
+	for j := 0; j < cap(spriteLvl.CurrTexNum); j++ {
+		spriteLvl.CurrTexNum[j] = -1
+	}
+
+	c.spriteLvls[spriteOrdIndex] = spriteLvl
+
+	return spriteLvl
+}
+
+func (c *Camera) clearSpriteLevel(spriteOrdIndex int) {
+	c.spriteLvls[spriteOrdIndex] = nil
+}
+
+//sort algorithm
+func combSort(order []int, dist []float64, amount int) {
+	gap := amount
+	swapped := false
+	for gap > 1 || swapped {
+		//shrink factor 1.3
+		gap = (gap * 10) / 13
+		if gap == 9 || gap == 10 {
+			gap = 11
+		}
+		if gap < 1 {
+			gap = 1
+		}
+
+		swapped = false
+		for i := 0; i < amount-gap; i++ {
+			j := i + gap
+			if dist[i] < dist[j] {
+				// std::swap implementation for go:
+				dist[i], dist[j] = dist[j], dist[i]
+				order[i], order[j] = order[j], order[i]
+				swapped = true
+			}
+		}
+	}
+}
+
+// normalize speed based on a constant input rate
+func (c *Camera) getNormalSpeed(speed float64) float64 {
+	return speed * movementTPS / float64(c.targetTPS)
 }
 
 // Moves camera by move speed
 func (c *Camera) Move(mSpeed float64) {
+	mSpeed = c.getNormalSpeed(mSpeed)
+
 	if c.worldMap[int(c.pos.X+c.dir.X*mSpeed*12)][int(c.pos.Y)] <= 0 {
 		c.pos.X += (c.dir.X * mSpeed)
 	}
@@ -317,6 +668,8 @@ func (c *Camera) Move(mSpeed float64) {
 
 // Rotates camera by rotate speed
 func (c *Camera) Rotate(rSpeed float64) {
+	rSpeed = c.getNormalSpeed(rSpeed)
+
 	//both camera direction and camera plane must be rotated
 	oldDirX := c.dir.X
 	c.dir.X = (c.dir.X*math.Cos(rSpeed) - c.dir.Y*math.Sin(rSpeed))

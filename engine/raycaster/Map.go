@@ -4,6 +4,14 @@ type Map struct {
 	worldMap [][]int
 	midMap   [][]int
 	upMap    [][]int
+
+	sprite     []*Sprite
+	numSprites int
+}
+
+type Sprite struct {
+	X, Y    float64
+	Texture int
 }
 
 func NewMap() *Map {
@@ -90,7 +98,20 @@ func NewMap() *Map {
 		{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
 	}
 
+	m.sprite = []*Sprite{
+		{19.5, 11.5, 10},
+	}
+	m.numSprites = len(m.sprite)
+
 	return m
+}
+
+func (m *Map) getSprites() []*Sprite {
+	return m.sprite
+}
+
+func (m *Map) GetNumSprites() int {
+	return m.numSprites
 }
 
 func (m *Map) getGrid() [][]int {
