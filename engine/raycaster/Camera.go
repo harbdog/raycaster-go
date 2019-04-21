@@ -13,6 +13,9 @@ const (
 
 	//--rotate speed--//
 	rotSpeed = 0.03
+
+	// maximum number of concurrent tasks for large task sets (e.g. floor and sprite casting)
+	maxConcurrent = 100
 )
 
 // Camera Class that represents a camera in terms of raycasting.
@@ -60,6 +63,9 @@ type Camera struct {
 	spriteDistance []float64
 
 	horLvl *HorLevel
+
+	// used for concurrency
+	semaphore chan struct{}
 }
 
 // Vector2 converted struct from C#
@@ -103,6 +109,10 @@ func NewCamera(width int, height int, texWid int, slices []*image.Rectangle, lev
 	c.spriteOrder = make([]int, c.mapObj.getNumSprites())
 	c.spriteDistance = make([]float64, c.mapObj.getNumSprites())
 
+	// initialize a pool of channels to limit concurrent floor and sprite casting
+	// from https://pocketgophers.com/limit-concurrent-use/
+	c.semaphore = make(chan struct{}, maxConcurrent)
+
 	//do an initial raycast
 	c.raycast()
 
@@ -135,10 +145,6 @@ func (c *Camera) preCalcCamY() {
 }
 
 func (c *Camera) raycast() {
-	// TODO: use a pool of channels to limit concurrent floor and sprite casting
-	// maybe https://golangbot.com/buffered-channels-worker-pools/
-	// or https://pocketgophers.com/limit-concurrent-use/
-
 	// cast level
 	numLevels := cap(c.lvls)
 	var wg sync.WaitGroup
@@ -186,6 +192,11 @@ func (c *Camera) asyncCastLevel(levelNum int, wg *sync.WaitGroup) {
 
 func (c *Camera) asyncCastSprite(spriteNum int, wg *sync.WaitGroup) {
 	defer wg.Done()
+
+	c.semaphore <- struct{}{} // Lock
+	defer func() {
+		<-c.semaphore // Unlock
+	}()
 
 	c.castSprite(spriteNum)
 }
@@ -388,6 +399,13 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *Level, levelNum int, wg *sy
 		}
 		wg.Add(1)
 		go func() {
+			defer wg.Done()
+
+			c.semaphore <- struct{}{} // Lock
+			defer func() {
+				<-c.semaphore // Unlock
+			}()
+
 			var floorXWall, floorYWall float64
 
 			//4 different wall directions possible
@@ -454,8 +472,6 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *Level, levelNum int, wg *sy
 				c.horLvl.HorBuffer.Pix[pxOffset+2] = pixel.B
 				c.horLvl.HorBuffer.Pix[pxOffset+3] = pixel.A
 			}
-
-			wg.Done()
 		}()
 	}
 }
