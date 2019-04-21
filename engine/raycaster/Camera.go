@@ -134,6 +134,10 @@ func (c *Camera) preCalcCamY() {
 }
 
 func (c *Camera) raycast() {
+	// TODO: use a pool of channels to limit concurrent floor and sprite casting
+	// maybe https://golangbot.com/buffered-channels-worker-pools/
+	// or https://pocketgophers.com/limit-concurrent-use/
+
 	// cast level
 	numLevels := cap(c.lvls)
 	done := make(chan bool, numLevels)
@@ -174,8 +178,15 @@ func (c *Camera) asyncCastLevel(levelNum int, done chan bool) {
 		rMap = c.upMap //if above lvl2 just keep extending up
 	}
 
+	floorDone := make(chan bool, c.w)
+
 	for x := 0; x < c.w; x++ {
-		c.castLevel(x, rMap, c.lvls[levelNum], levelNum)
+		c.castLevel(x, rMap, c.lvls[levelNum], levelNum, floorDone)
+	}
+
+	// wait for floor casting to finish first
+	for x := 0; x < c.w; x++ {
+		<-floorDone
 	}
 
 	done <- true
@@ -189,7 +200,7 @@ func (c *Camera) asyncCastSprite(spriteNum int, done chan bool) {
 
 // credit : Raycast loop and setting up of vectors for matrix calculations
 // courtesy - http://lodev.org/cgtutor/raycasting.html
-func (c *Camera) castLevel(x int, grid [][]int, lvl *Level, levelNum int) {
+func (c *Camera) castLevel(x int, grid [][]int, lvl *Level, levelNum int, floorDone chan bool) {
 	var _cts, _sv []*image.Rectangle
 	var _st []*color.RGBA
 
@@ -380,80 +391,83 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *Level, levelNum int) {
 
 	//// FLOOR CASTING ////
 	if levelNum == 0 {
-		var floorXWall, floorYWall float64
-
-		//4 different wall directions possible
-		if side == 0 && rayDirX > 0 {
-			floorXWall = float64(mapX)
-			floorYWall = float64(mapY) + wallX
-		} else if side == 0 && rayDirX < 0 {
-			floorXWall = float64(mapX) + 1.0
-			floorYWall = float64(mapY) + wallX
-		} else if side == 1 && rayDirY > 0 {
-			floorXWall = float64(mapX) + wallX
-			floorYWall = float64(mapY)
-		} else {
-			floorXWall = float64(mapX) + wallX
-			floorYWall = float64(mapY) + 1.0
-		}
-
-		var distWall, distPlayer, currentDist float64
-
-		distWall = perpWallDist
-		distPlayer = 0.0
-
 		if drawEnd < 0 {
 			drawEnd = c.h //becomes < 0 when the integer overflows
 		}
 
-		//draw the floor from drawEnd to the bottom of the screen
-		for y := drawEnd + 1; y < c.h; y++ {
-			currentDist = c.camY[y] //float64(c.h) / (2.0*float64(y) - float64(c.h))
+		go func() {
+			var floorXWall, floorYWall float64
 
-			weight := (currentDist - distPlayer) / (distWall - distPlayer)
-
-			currentFloorX := weight*floorXWall + (1.0-weight)*rayPosX
-			currentFloorY := weight*floorYWall + (1.0-weight)*rayPosY
-
-			var floorTexX, floorTexY int
-			floorTexX = int(currentFloorX*float64(c.texWidth)) % c.texWidth
-			floorTexY = int(currentFloorY*float64(c.texWidth)) % c.texWidth
-
-			if floorTexX < 0 || floorTexY < 0 {
-				// just here for debugging
+			//4 different wall directions possible
+			if side == 0 && rayDirX > 0 {
+				floorXWall = float64(mapX)
+				floorYWall = float64(mapY) + wallX
+			} else if side == 0 && rayDirX < 0 {
+				floorXWall = float64(mapX) + 1.0
+				floorYWall = float64(mapY) + wallX
+			} else if side == 1 && rayDirY > 0 {
+				floorXWall = float64(mapX) + wallX
+				floorYWall = float64(mapY)
+			} else {
+				floorXWall = float64(mapX) + wallX
+				floorYWall = float64(mapY) + 1.0
 			}
 
-			//floor
-			// buffer[y][x] = (texture[3][texWidth * floorTexY + floorTexX] >> 1) & 8355711;
-			// the same vertical slice method cannot be used for floor rendering
-			floorTexNum := 0
-			floorTex := c.horLvl.TexRGBA[floorTexNum]
+			var distWall, distPlayer, currentDist float64
 
-			//pixel := floorTex.RGBAAt(floorTexX, floorTexY)
-			pxOffset := floorTex.PixOffset(floorTexX, floorTexY)
-			pixel := color.RGBA{floorTex.Pix[pxOffset],
-				floorTex.Pix[pxOffset+1],
-				floorTex.Pix[pxOffset+2],
-				floorTex.Pix[pxOffset+3]}
+			distWall = perpWallDist
+			distPlayer = 0.0
 
-			// lighting
-			// FIXME: needs optimization, drops FPS by ~10-15
-			// shadowDepth = math.Sqrt(currentDist) * lightFalloff
-			// pixelSt := &color.RGBA{255, 255, 255, 255}
-			// pixelSt.R = byte(Clamp(int(float64(pixelSt.R)+shadowDepth+sunLight), 0, 255))
-			// pixelSt.G = byte(Clamp(int(float64(pixelSt.G)+shadowDepth+sunLight), 0, 255))
-			// pixelSt.B = byte(Clamp(int(float64(pixelSt.B)+shadowDepth+sunLight), 0, 255))
-			// pixel.R = uint8(float64(pixel.R) * float64(pixelSt.R) / 256)
-			// pixel.G = uint8(float64(pixel.G) * float64(pixelSt.G) / 256)
-			// pixel.B = uint8(float64(pixel.B) * float64(pixelSt.B) / 256)
+			//draw the floor from drawEnd to the bottom of the screen
+			for y := drawEnd + 1; y < c.h; y++ {
+				currentDist = c.camY[y] //float64(c.h) / (2.0*float64(y) - float64(c.h))
 
-			//c.horLvl.HorBuffer.SetRGBA(x, y, pixel)
-			pxOffset = c.horLvl.HorBuffer.PixOffset(x, y)
-			c.horLvl.HorBuffer.Pix[pxOffset] = pixel.R
-			c.horLvl.HorBuffer.Pix[pxOffset+1] = pixel.G
-			c.horLvl.HorBuffer.Pix[pxOffset+2] = pixel.B
-			c.horLvl.HorBuffer.Pix[pxOffset+3] = pixel.A
-		}
+				weight := (currentDist - distPlayer) / (distWall - distPlayer)
+
+				currentFloorX := weight*floorXWall + (1.0-weight)*rayPosX
+				currentFloorY := weight*floorYWall + (1.0-weight)*rayPosY
+
+				var floorTexX, floorTexY int
+				floorTexX = int(currentFloorX*float64(c.texWidth)) % c.texWidth
+				floorTexY = int(currentFloorY*float64(c.texWidth)) % c.texWidth
+
+				//floor
+				// buffer[y][x] = (texture[3][texWidth * floorTexY + floorTexX] >> 1) & 8355711;
+				// the same vertical slice method cannot be used for floor rendering
+				floorTexNum := 0
+				floorTex := c.horLvl.TexRGBA[floorTexNum]
+
+				//pixel := floorTex.RGBAAt(floorTexX, floorTexY)
+				pxOffset := floorTex.PixOffset(floorTexX, floorTexY)
+				pixel := color.RGBA{floorTex.Pix[pxOffset],
+					floorTex.Pix[pxOffset+1],
+					floorTex.Pix[pxOffset+2],
+					floorTex.Pix[pxOffset+3]}
+
+				// lighting
+				// FIXME: needs optimization, drops FPS by ~10-15
+				shadowDepth = math.Sqrt(currentDist) * lightFalloff
+				pixelSt := &color.RGBA{255, 255, 255, 255}
+				pixelSt.R = byte(Clamp(int(float64(pixelSt.R)+shadowDepth+sunLight), 0, 255))
+				pixelSt.G = byte(Clamp(int(float64(pixelSt.G)+shadowDepth+sunLight), 0, 255))
+				pixelSt.B = byte(Clamp(int(float64(pixelSt.B)+shadowDepth+sunLight), 0, 255))
+				pixel.R = uint8(float64(pixel.R) * float64(pixelSt.R) / 256)
+				pixel.G = uint8(float64(pixel.G) * float64(pixelSt.G) / 256)
+				pixel.B = uint8(float64(pixel.B) * float64(pixelSt.B) / 256)
+
+				//c.horLvl.HorBuffer.SetRGBA(x, y, pixel)
+				pxOffset = c.horLvl.HorBuffer.PixOffset(x, y)
+				c.horLvl.HorBuffer.Pix[pxOffset] = pixel.R
+				c.horLvl.HorBuffer.Pix[pxOffset+1] = pixel.G
+				c.horLvl.HorBuffer.Pix[pxOffset+2] = pixel.B
+				c.horLvl.HorBuffer.Pix[pxOffset+3] = pixel.A
+			}
+
+			floorDone <- true
+		}()
+	} else {
+		// assuming no need to render floor on higher levels, for now
+		floorDone <- true
 	}
 }
 
