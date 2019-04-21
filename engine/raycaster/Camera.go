@@ -5,6 +5,8 @@ import (
 	"image/color"
 	"math"
 	"sync"
+
+	"github.com/hajimehoshi/ebiten"
 )
 
 const (
@@ -16,6 +18,9 @@ const (
 
 	// maximum number of concurrent tasks for large task sets (e.g. floor and sprite casting)
 	maxConcurrent = 100
+
+	// constant used for movement target framerate to prevent higher framerates from moving too fast
+	movementTPS = 60.0
 )
 
 // Camera Class that represents a camera in terms of raycasting.
@@ -34,6 +39,9 @@ type Camera struct {
 	//--viewport width and height--//
 	w int
 	h int
+
+	// target framerate reference
+	targetTPS int
 
 	//--world map--//
 	mapObj   *Map
@@ -77,6 +85,10 @@ type Vector2 struct {
 // NewCamera initalizes a Camera object
 func NewCamera(width int, height int, texWid int, slices []*image.Rectangle, levels []*Level, horizontalLevel *HorLevel) *Camera {
 	c := &Camera{}
+
+	// set target FPS (TPS)
+	c.targetTPS = 60
+	ebiten.SetMaxTPS(c.targetTPS)
 
 	//--camera position, init to start position--//
 	c.pos = &Vector2{X: 22.5, Y: 11.5}
@@ -575,8 +587,21 @@ func combSort(order []int, dist []float64, amount int) {
 	}
 }
 
+// normalize speed based on a constant input rate
+func (c *Camera) getNormalSpeed(speed float64) float64 {
+	currentTPS := ebiten.CurrentTPS()
+	if currentTPS <= 0 {
+		// current TPS may not have been calculated yet, set to target for now
+		currentTPS = float64(c.targetTPS)
+	}
+
+	return speed * movementTPS / currentTPS
+}
+
 // Moves camera by move speed
 func (c *Camera) Move(mSpeed float64) {
+	mSpeed = c.getNormalSpeed(mSpeed)
+
 	if c.worldMap[int(c.pos.X+c.dir.X*mSpeed*12)][int(c.pos.Y)] <= 0 {
 		c.pos.X += (c.dir.X * mSpeed)
 	}
@@ -587,6 +612,8 @@ func (c *Camera) Move(mSpeed float64) {
 
 // Rotates camera by rotate speed
 func (c *Camera) Rotate(rSpeed float64) {
+	rSpeed = c.getNormalSpeed(rSpeed)
+
 	//both camera direction and camera plane must be rotated
 	oldDirX := c.dir.X
 	c.dir.X = (c.dir.X*math.Cos(rSpeed) - c.dir.Y*math.Sin(rSpeed))
