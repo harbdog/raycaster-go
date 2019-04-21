@@ -529,23 +529,22 @@ func (c *Camera) castSprite(spriteIndex int) {
 	//calculate width of the sprite
 	spriteWidth := int(math.Abs(float64(c.h)/transformY) / float64(uDiv))
 	drawStartX := -spriteWidth/2 + spriteScreenX
-	if drawStartX < 0 {
-		drawStartX = 0
-	}
 	drawEndX := spriteWidth/2 + spriteScreenX
-	if drawEndX >= c.w {
-		drawEndX = c.w - 1
-	}
+
+	//--due to modern way of drawing using quads this is removed to avoid glitches at the edges--//
+	// if drawStartX < 0 { drawStartX = 0 }
+	// if drawEndX >= c.w { drawEndX = c.w - 1 }
 
 	//loop through every vertical stripe of the sprite on screen
 	for stripe := drawStartX; stripe < drawEndX; stripe++ {
-		texX := int((stripe - (-spriteWidth/2 + spriteScreenX)) * c.texWidth / spriteWidth)
 		//the conditions in the if are:
 		//1) it's in front of camera plane so you don't see things behind you
 		//2) it's on the screen (left)
 		//3) it's on the screen (right)
 		//4) ZBuffer, with perpendicular distance
 		if transformY > 0 && stripe > 0 && stripe < c.w && transformY < c.zBuffer[stripe] {
+			texX := int(256*(stripe-(-spriteWidth/2+spriteScreenX))*c.texWidth/spriteWidth) / 256
+
 			for y := drawStartY; y < drawEndY; y++ { //for every pixel of the current stripe
 				d := (y-vMoveScreen)*256 - c.h*128 + spriteHeight*128 //256 and 128 factors to avoid floats
 				texY := ((d * c.texWidth) / spriteHeight) / 256
@@ -589,13 +588,7 @@ func combSort(order []int, dist []float64, amount int) {
 
 // normalize speed based on a constant input rate
 func (c *Camera) getNormalSpeed(speed float64) float64 {
-	currentTPS := ebiten.CurrentTPS()
-	if currentTPS <= 0 {
-		// current TPS may not have been calculated yet, set to target for now
-		currentTPS = float64(c.targetTPS)
-	}
-
-	return speed * movementTPS / currentTPS
+	return speed * movementTPS / float64(c.targetTPS)
 }
 
 // Moves camera by move speed
