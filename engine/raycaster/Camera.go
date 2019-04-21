@@ -134,18 +134,37 @@ func (c *Camera) preCalcCamY() {
 }
 
 func (c *Camera) raycast() {
+	// cast level
 	numLevels := cap(c.lvls)
 	done := make(chan bool, numLevels)
 	for i := 0; i < numLevels; i++ {
-		go c.asyncCastLevels(i, done)
+		go c.asyncCastLevel(i, done)
 	}
 
 	for d := 0; d < numLevels; d++ {
 		<-done
 	}
+
+	//SPRITE CASTING
+	//sort sprites from far to close
+	numSprites := c.mapObj.getNumSprites()
+	for i := 0; i < numSprites; i++ {
+		c.spriteOrder[i] = i
+		c.spriteDistance[i] = ((c.pos.X-c.sprite[i].X)*(c.pos.X-c.sprite[i].X) + (c.pos.Y-c.sprite[i].Y)*(c.pos.Y-c.sprite[i].Y)) //sqrt not taken, unneeded
+	}
+	combSort(c.spriteOrder, c.spriteDistance, numSprites)
+	//after sorting the sprites, do the projection and draw them
+	done = make(chan bool, numSprites)
+	for i := 0; i < numSprites; i++ {
+		go c.asyncCastSprite(i, done)
+	}
+
+	for d := 0; d < numSprites; d++ {
+		<-done
+	}
 }
 
-func (c *Camera) asyncCastLevels(levelNum int, done chan bool) {
+func (c *Camera) asyncCastLevel(levelNum int, done chan bool) {
 	var rMap [][]int
 	if levelNum == 0 {
 		rMap = c.worldMap
@@ -158,6 +177,12 @@ func (c *Camera) asyncCastLevels(levelNum int, done chan bool) {
 	for x := 0; x < c.w; x++ {
 		c.castLevel(x, rMap, c.lvls[levelNum], levelNum)
 	}
+
+	done <- true
+}
+
+func (c *Camera) asyncCastSprite(spriteNum int, done chan bool) {
+	c.castSprite(spriteNum)
 
 	done <- true
 }
@@ -348,7 +373,10 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *Level, levelNum int) {
 	_st[x].B = byte(Clamp(int(float64(_st[x].B)+shadowDepth+sunLight), 0, 255))
 
 	//SET THE ZBUFFER FOR THE SPRITE CASTING
-	c.zBuffer[x] = perpWallDist //perpendicular distance is used
+	if levelNum == 0 {
+		// for now only rendering sprites on first level
+		c.zBuffer[x] = perpWallDist //perpendicular distance is used
+	}
 
 	//// FLOOR CASTING ////
 	if levelNum == 0 {
@@ -427,92 +455,76 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *Level, levelNum int) {
 			c.horLvl.HorBuffer.Pix[pxOffset+3] = pixel.A
 		}
 	}
+}
 
-	//SPRITE CASTING
-	if levelNum == 0 {
-		//sort sprites from far to close
-		numSprites := c.mapObj.getNumSprites()
-		for i := 0; i < numSprites; i++ {
-			c.spriteOrder[i] = i
-			c.spriteDistance[i] = ((rayPosX-c.sprite[i].X)*(rayPosX-c.sprite[i].X) + (rayPosY-c.sprite[i].Y)*(rayPosY-c.sprite[i].Y)) //sqrt not taken, unneeded
-		}
-		combSort(c.spriteOrder, c.spriteDistance, numSprites)
+func (c *Camera) castSprite(spriteIndex int) {
+	rayPosX := c.pos.X
+	rayPosY := c.pos.Y
 
-		//after sorting the sprites, do the projection and draw them
-		for i := 0; i < numSprites; i++ {
-			//translate sprite position to relative to camera
-			spriteX := c.sprite[c.spriteOrder[i]].X - rayPosX
-			spriteY := c.sprite[c.spriteOrder[i]].Y - rayPosY
+	//translate sprite position to relative to camera
+	spriteX := c.sprite[c.spriteOrder[spriteIndex]].X - rayPosX
+	spriteY := c.sprite[c.spriteOrder[spriteIndex]].Y - rayPosY
 
-			//transform sprite with the inverse camera matrix
-			// [ planeX   dirX ] -1                                       [ dirY      -dirX ]
-			// [               ]       =  1/(planeX*dirY-dirX*planeY) *   [                 ]
-			// [ planeY   dirY ]                                          [ -planeY  planeX ]
+	//transform sprite with the inverse camera matrix
+	// [ planeX   dirX ] -1                                       [ dirY      -dirX ]
+	// [               ]       =  1/(planeX*dirY-dirX*planeY) *   [                 ]
+	// [ planeY   dirY ]                                          [ -planeY  planeX ]
 
-			invDet := 1.0 / (c.plane.X*c.dir.Y - c.dir.X*c.plane.Y) //required for correct matrix multiplication
+	invDet := 1.0 / (c.plane.X*c.dir.Y - c.dir.X*c.plane.Y) //required for correct matrix multiplication
 
-			transformX := invDet * (c.dir.Y*spriteX - c.dir.X*spriteY)
-			transformY := invDet * (-c.plane.Y*spriteX + c.plane.X*spriteY) //this is actually the depth inside the screen, that what Z is in 3D
+	transformX := invDet * (c.dir.Y*spriteX - c.dir.X*spriteY)
+	transformY := invDet * (-c.plane.Y*spriteX + c.plane.X*spriteY) //this is actually the depth inside the screen, that what Z is in 3D
 
-			spriteScreenX := int(float64(c.w) / 2 * (1 + transformX/transformY))
+	spriteScreenX := int(float64(c.w) / 2 * (1 + transformX/transformY))
 
-			//parameters for scaling and moving the sprites
-			var uDiv = 1
-			var vDiv = 1
-			var vMove = 0.0
-			vMoveScreen := int(vMove / transformY)
+	//parameters for scaling and moving the sprites
+	var uDiv = 1
+	var vDiv = 1
+	var vMove = 0.0
+	vMoveScreen := int(vMove / transformY)
 
-			//calculate height of the sprite on screen
-			spriteHeight := int(math.Abs(float64(c.h)/transformY) / float64(vDiv)) //using "transformY" instead of the real distance prevents fisheye
-			//calculate lowest and highest pixel to fill in current stripe
-			drawStartY := -spriteHeight/2 + c.h/2 + vMoveScreen
-			if drawStartY < 0 {
-				drawStartY = 0
+	//calculate height of the sprite on screen
+	spriteHeight := int(math.Abs(float64(c.h)/transformY) / float64(vDiv)) //using "transformY" instead of the real distance prevents fisheye
+	//calculate lowest and highest pixel to fill in current stripe
+	drawStartY := -spriteHeight/2 + c.h/2 + vMoveScreen
+	if drawStartY < 0 {
+		drawStartY = 0
+	}
+	drawEndY := spriteHeight/2 + c.h/2 + vMoveScreen
+	if drawEndY >= c.h {
+		drawEndY = c.h - 1
+	}
+
+	//calculate width of the sprite
+	spriteWidth := int(math.Abs(float64(c.h)/transformY) / float64(uDiv))
+	drawStartX := -spriteWidth/2 + spriteScreenX
+	if drawStartX < 0 {
+		drawStartX = 0
+	}
+	drawEndX := spriteWidth/2 + spriteScreenX
+	if drawEndX >= c.w {
+		drawEndX = c.w - 1
+	}
+
+	//loop through every vertical stripe of the sprite on screen
+	for stripe := drawStartX; stripe < drawEndX; stripe++ {
+		texX := int((stripe - (-spriteWidth/2 + spriteScreenX)) * c.texWidth / spriteWidth)
+		//the conditions in the if are:
+		//1) it's in front of camera plane so you don't see things behind you
+		//2) it's on the screen (left)
+		//3) it's on the screen (right)
+		//4) ZBuffer, with perpendicular distance
+		if transformY > 0 && stripe > 0 && stripe < c.w && transformY < c.zBuffer[stripe] {
+			for y := drawStartY; y < drawEndY; y++ { //for every pixel of the current stripe
+				d := (y-vMoveScreen)*256 - c.h*128 + spriteHeight*128 //256 and 128 factors to avoid floats
+				texY := ((d * c.texWidth) / spriteHeight) / 256
+
+				if texX < 0 || texY < 0 {
+					// testing
+				}
+				// Uint32 color = texture[sprite[spriteOrder[i]].texture][texWidth * texY + texX] //get current color from the texture
+				// if((color & 0x00FFFFFF) != 0) buffer[y][stripe] = color //paint pixel if it isn't black, black is the invisible color
 			}
-			drawEndY := spriteHeight/2 + c.h/2 + vMoveScreen
-			if drawEndY >= c.h {
-				drawEndY = c.h - 1
-			}
-
-			//calculate width of the sprite
-			spriteWidth := int(math.Abs(float64(c.h)/transformY) / float64(uDiv))
-			drawStartX := -spriteWidth/2 + spriteScreenX
-			if drawStartX < 0 {
-				drawStartX = 0
-			}
-			drawEndX := spriteWidth/2 + spriteScreenX
-			if drawEndX >= c.w {
-				drawEndX = c.w - 1
-			}
-
-			// FIXME: the following for loop drops the FPS from 50 to 0.5????
-			// just the first texX part drops the FPS to 25 or so
-
-			//loop through every vertical stripe of the sprite on screen
-			// for stripe := drawStartX; stripe < drawEndX; stripe++ {
-			// 	texX := int((stripe - (-spriteWidth/2 + spriteScreenX)) * c.texWidth / spriteWidth)
-			// 	//the conditions in the if are:
-			// 	//1) it's in front of camera plane so you don't see things behind you
-			// 	//2) it's on the screen (left)
-			// 	//3) it's on the screen (right)
-			// 	//4) ZBuffer, with perpendicular distance
-			// 	// if transformY > 0 && stripe > 0 && stripe < c.w && transformY < c.zBuffer[stripe] {
-			// 	// 	for y := drawStartY; y < drawEndY; y++ { //for every pixel of the current stripe
-			// 	// 		d := (y-vMoveScreen)*256 - c.h*128 + spriteHeight*128 //256 and 128 factors to avoid floats
-			// 	// 		texY := ((d * c.texWidth) / spriteHeight) / 256
-
-			// 	// 		if texX < 0 || texY < 0 {
-			// 	// 			// testing
-			// 	// 		}
-			// 	// 		// Uint32 color = texture[sprite[spriteOrder[i]].texture][texWidth * texY + texX] //get current color from the texture
-			// 	// 		// if((color & 0x00FFFFFF) != 0) buffer[y][stripe] = color //paint pixel if it isn't black, black is the invisible color
-			// 	// 	}
-			// 	// }
-
-			// 	if texX < 0 {
-			// 		// testing
-			// 	}
-			// }
 		}
 	}
 }
