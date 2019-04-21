@@ -42,21 +42,17 @@ type Game struct {
 	//--graphics manager and sprite batch--//
 	spriteBatch *SpriteBatch
 
-	textures [11]*ebiten.Image
+	textures []*ebiten.Image
 
 	//--test texture--//
 	floor *ebiten.Image
 	sky   *ebiten.Image
 
-	//-test effect--//
-	//Effect effect;
-
-	//test sprite
-	sprite *ebiten.Image
-
 	//--array of levels, levels reffer to "floors" of the world--//
-	levels   []*raycaster.Level
-	floorLvl *raycaster.HorLevel
+	mapObj     *raycaster.Map
+	levels     []*raycaster.Level
+	spriteLvls []*raycaster.Level
+	floorLvl   *raycaster.HorLevel
 
 	// for debugging
 	DebugX    int
@@ -75,6 +71,8 @@ type SpriteBatch struct {
 // related content.  Calling base.Initialize will enumerate through any components
 // and initialize them as well.
 func NewGame() *Game {
+	fmt.Printf("Initializing Game\n")
+
 	// initialize Game object
 	g := new(Game)
 
@@ -87,14 +85,18 @@ func NewGame() *Game {
 	//--init texture slices--//
 	g.slices = g.slicer.GetSlices()
 
+	// load map
+	g.mapObj = raycaster.NewMap()
+
 	//--inits the levels--//
 	g.levels, g.floorLvl = g.createLevels(4)
+	g.spriteLvls = g.createSpriteLevels()
 
 	// load content once when first run
 	g.loadContent()
 
 	//--init camera--//
-	g.camera = raycaster.NewCamera(g.width, g.height, texSize, g.slices, g.levels, g.floorLvl)
+	g.camera = raycaster.NewCamera(g.width, g.height, texSize, g.mapObj, g.slices, g.levels, g.floorLvl, g.spriteLvls, g.textures)
 
 	// for debugging
 	g.DebugX = -1
@@ -110,6 +112,8 @@ func (g *Game) loadContent() {
 	g.spriteBatch = &SpriteBatch{g: g}
 
 	// TODO: use loadContent to load your game content here
+	g.textures = make([]*ebiten.Image, 11)
+
 	g.textures[0], _, _ = getTextureFromFile("stone.png")
 	g.textures[1], _, _ = getTextureFromFile("left_bot_house.png")
 	g.textures[2], _, _ = getTextureFromFile("right_bot_house.png")
@@ -290,6 +294,22 @@ func (g *Game) draw() {
 		g.view.DrawImage(floorImg, op)
 	}
 
+	// draw sprites
+	for x := 0; x < g.width; x++ {
+		for i := cap(g.spriteLvls) - 1; i >= 0; i-- {
+			spriteLvl := g.spriteLvls[i]
+			if spriteLvl == nil {
+				continue
+			}
+
+			texNum := spriteLvl.CurrTexNum[x]
+			if texNum >= 0 {
+				texture := g.textures[texNum]
+				g.spriteBatch.draw(texture, spriteLvl.Sv[x], spriteLvl.Cts[x], spriteLvl.St[x])
+			}
+		}
+	}
+
 	if g.DebugOnce {
 		// end DebugOnce after one loop
 		g.DebugOnce = false
@@ -315,14 +335,10 @@ func (g *Game) createLevels(numLevels int) ([]*raycaster.Level, *raycaster.HorLe
 
 	for i := 0; i < numLevels; i++ {
 		levelArr[i] = new(raycaster.Level)
-		levelArr[i].Sv = g.sliceView()
+		levelArr[i].Sv = raycaster.SliceView(g.width, g.height)
 		levelArr[i].Cts = make([]*image.Rectangle, g.width)
 		levelArr[i].St = make([]*color.RGBA, g.width)
 		levelArr[i].CurrTexNum = make([]int, g.width)
-
-		for j := 0; j < cap(levelArr[i].CurrTexNum); j++ {
-			levelArr[i].CurrTexNum[j] = 1
-		}
 	}
 
 	horizontalLevel := new(raycaster.HorLevel)
@@ -331,17 +347,14 @@ func (g *Game) createLevels(numLevels int) ([]*raycaster.Level, *raycaster.HorLe
 	return levelArr, horizontalLevel
 }
 
-// Creates rectangle slices for each x in width.
-func (g *Game) sliceView() []*image.Rectangle {
-	var arr []*image.Rectangle
-	arr = make([]*image.Rectangle, g.width)
+func (g *Game) createSpriteLevels() []*raycaster.Level {
+	// create empty "level" for all sprites to render using similar slice methods as walls
+	numSprites := g.mapObj.GetNumSprites()
 
-	for x := 0; x < g.width; x++ {
-		thisRect := image.Rect(x, 0, x+1, g.height)
-		arr[x] = &thisRect
-	}
+	var spriteArr []*raycaster.Level
+	spriteArr = make([]*raycaster.Level, numSprites)
 
-	return arr
+	return spriteArr
 }
 
 func (s *SpriteBatch) draw(texture *ebiten.Image, destinationRectangle *image.Rectangle, sourceRectangle *image.Rectangle, color *color.RGBA) {

@@ -99,7 +99,7 @@ func NewMap() *Map {
 	}
 
 	m.sprite = []*Sprite{
-		{20.5, 11.5, 10},
+		{19.5, 11.5, 10},
 	}
 	m.numSprites = len(m.sprite)
 
@@ -110,7 +110,7 @@ func (m *Map) getSprites() []*Sprite {
 	return m.sprite
 }
 
-func (m *Map) getNumSprites() int {
+func (m *Map) GetNumSprites() int {
 	return m.numSprites
 }
 

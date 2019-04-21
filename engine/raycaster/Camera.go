@@ -1,6 +1,7 @@
 package raycaster
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"math"
@@ -70,6 +71,9 @@ type Camera struct {
 	spriteOrder    []int
 	spriteDistance []float64
 
+	spriteLvls []*Level
+	textures   []*ebiten.Image
+
 	horLvl *HorLevel
 
 	// used for concurrency
@@ -83,7 +87,11 @@ type Vector2 struct {
 }
 
 // NewCamera initalizes a Camera object
-func NewCamera(width int, height int, texWid int, slices []*image.Rectangle, levels []*Level, horizontalLevel *HorLevel) *Camera {
+func NewCamera(width int, height int, texWid int, mapObj *Map, slices []*image.Rectangle,
+	levels []*Level, horizontalLevel *HorLevel, spriteLvls []*Level, textures []*ebiten.Image) *Camera {
+
+	fmt.Printf("Initializing Camera\n")
+
 	c := &Camera{}
 
 	// set target FPS (TPS)
@@ -104,6 +112,7 @@ func NewCamera(width int, height int, texWid int, slices []*image.Rectangle, lev
 	c.lvls = levels
 
 	c.horLvl = horizontalLevel
+	c.spriteLvls = spriteLvls
 
 	//--init cam pre calc array--//
 	c.preCalcCamX()
@@ -112,14 +121,16 @@ func NewCamera(width int, height int, texWid int, slices []*image.Rectangle, lev
 	// set zbuffer based on screen width
 	c.zBuffer = make([]float64, width)
 
-	c.mapObj = NewMap()
+	c.mapObj = mapObj
 	c.worldMap = c.mapObj.getGrid()
 	c.upMap = c.mapObj.getGridUp()
 	c.midMap = c.mapObj.getGridMid()
 
 	c.sprite = c.mapObj.getSprites()
-	c.spriteOrder = make([]int, c.mapObj.getNumSprites())
-	c.spriteDistance = make([]float64, c.mapObj.getNumSprites())
+	c.spriteOrder = make([]int, c.mapObj.numSprites)
+	c.spriteDistance = make([]float64, c.mapObj.numSprites)
+
+	c.textures = textures
 
 	// initialize a pool of channels to limit concurrent floor and sprite casting
 	// from https://pocketgophers.com/limit-concurrent-use/
@@ -169,7 +180,7 @@ func (c *Camera) raycast() {
 
 	//SPRITE CASTING
 	//sort sprites from far to close
-	numSprites := c.mapObj.getNumSprites()
+	numSprites := c.mapObj.numSprites
 	for i := 0; i < numSprites; i++ {
 		c.spriteOrder[i] = i
 		c.spriteDistance[i] = ((c.pos.X-c.sprite[i].X)*(c.pos.X-c.sprite[i].X) + (c.pos.Y-c.sprite[i].Y)*(c.pos.Y-c.sprite[i].Y)) //sqrt not taken, unneeded
@@ -406,6 +417,7 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *Level, levelNum int, wg *sy
 
 	//// FLOOR CASTING ////
 	if levelNum == 0 {
+		// for now only rendering floor on first level
 		if drawEnd < 0 {
 			drawEnd = c.h //becomes < 0 when the integer overflows
 		}
@@ -467,7 +479,6 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *Level, levelNum int, wg *sy
 					floorTex.Pix[pxOffset+3]}
 
 				// lighting
-				// FIXME: needs optimization, drops FPS by ~10-15
 				shadowDepth = math.Sqrt(currentDist) * lightFalloff
 				pixelSt := &color.RGBA{255, 255, 255, 255}
 				pixelSt.R = byte(Clamp(int(float64(pixelSt.R)+shadowDepth+sunLight), 0, 255))
@@ -488,13 +499,18 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *Level, levelNum int, wg *sy
 	}
 }
 
-func (c *Camera) castSprite(spriteIndex int) {
+func (c *Camera) castSprite(spriteOrdIndex int) {
+	// track whether the sprite actually needs to draw
+	renderSprite := false
+
 	rayPosX := c.pos.X
 	rayPosY := c.pos.Y
 
 	//translate sprite position to relative to camera
-	spriteX := c.sprite[c.spriteOrder[spriteIndex]].X - rayPosX
-	spriteY := c.sprite[c.spriteOrder[spriteIndex]].Y - rayPosY
+	spriteX := c.sprite[c.spriteOrder[spriteOrdIndex]].X - rayPosX
+	spriteY := c.sprite[c.spriteOrder[spriteOrdIndex]].Y - rayPosY
+
+	texNum := c.sprite[c.spriteOrder[spriteOrdIndex]].Texture
 
 	//transform sprite with the inverse camera matrix
 	// [ planeX   dirX ] -1                                       [ dirY      -dirX ]
@@ -531,9 +547,14 @@ func (c *Camera) castSprite(spriteIndex int) {
 	drawStartX := -spriteWidth/2 + spriteScreenX
 	drawEndX := spriteWidth/2 + spriteScreenX
 
-	//--due to modern way of drawing using quads this is removed to avoid glitches at the edges--//
-	// if drawStartX < 0 { drawStartX = 0 }
-	// if drawEndX >= c.w { drawEndX = c.w - 1 }
+	if drawStartX < 0 {
+		drawStartX = 0
+	}
+	if drawEndX >= c.w {
+		drawEndX = c.w - 1
+	}
+
+	var spriteSlices []*image.Rectangle
 
 	//loop through every vertical stripe of the sprite on screen
 	for stripe := drawStartX; stripe < drawEndX; stripe++ {
@@ -543,20 +564,62 @@ func (c *Camera) castSprite(spriteIndex int) {
 		//3) it's on the screen (right)
 		//4) ZBuffer, with perpendicular distance
 		if transformY > 0 && stripe > 0 && stripe < c.w && transformY < c.zBuffer[stripe] {
+			var spriteLvl *Level
+			if !renderSprite {
+				renderSprite = true
+				spriteLvl = c.makeSpriteLevel(spriteOrdIndex)
+				spriteImage := c.textures[c.sprite[c.spriteOrder[spriteOrdIndex]].Texture]
+				spriteW, spriteH := spriteImage.Size()
+				spriteSlices = MakeSlices(spriteW, spriteH)
+			} else {
+				spriteLvl = c.spriteLvls[spriteOrdIndex]
+			}
+
 			texX := int(256*(stripe-(-spriteWidth/2+spriteScreenX))*c.texWidth/spriteWidth) / 256
 
-			for y := drawStartY; y < drawEndY; y++ { //for every pixel of the current stripe
-				d := (y-vMoveScreen)*256 - c.h*128 + spriteHeight*128 //256 and 128 factors to avoid floats
-				texY := ((d * c.texWidth) / spriteHeight) / 256
-
-				if texX < 0 || texY < 0 {
-					// testing
-				}
-				// Uint32 color = texture[sprite[spriteOrder[i]].texture][texWidth * texY + texX] //get current color from the texture
-				// if((color & 0x00FFFFFF) != 0) buffer[y][stripe] = color //paint pixel if it isn't black, black is the invisible color
+			if texX < 0 || texX >= cap(spriteSlices) {
+				continue
 			}
+
+			//--set current texture slice--//
+			spriteLvl.Cts[stripe] = spriteSlices[texX]
+
+			spriteLvl.CurrTexNum[stripe] = texNum
+
+			//--set height of slice--//
+			spriteLvl.Sv[stripe].Min.Y = drawStartY + 1
+
+			//--set draw start of slice--//
+			spriteLvl.Sv[stripe].Max.Y = drawEndY
+
+			// TODO: distance based lighting/shading
+			spriteLvl.St[stripe] = &color.RGBA{255, 255, 255, 255}
 		}
 	}
+
+	if !renderSprite {
+		c.clearSpriteLevel(spriteOrdIndex)
+	}
+}
+
+func (c *Camera) makeSpriteLevel(spriteOrdIndex int) *Level {
+	spriteLvl := new(Level)
+	spriteLvl.Sv = SliceView(c.w, c.h)
+	spriteLvl.Cts = make([]*image.Rectangle, c.w)
+	spriteLvl.St = make([]*color.RGBA, c.w)
+	spriteLvl.CurrTexNum = make([]int, c.w)
+
+	for j := 0; j < cap(spriteLvl.CurrTexNum); j++ {
+		spriteLvl.CurrTexNum[j] = -1
+	}
+
+	c.spriteLvls[spriteOrdIndex] = spriteLvl
+
+	return spriteLvl
+}
+
+func (c *Camera) clearSpriteLevel(spriteOrdIndex int) {
+	c.spriteLvls[spriteOrdIndex] = nil
 }
 
 //sort algorithm

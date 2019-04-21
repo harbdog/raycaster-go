@@ -20,6 +20,19 @@ type Level struct {
 	CurrTexNum []int
 }
 
+// SliceView Creates rectangle slices for each x in width.
+func SliceView(width, height int) []*image.Rectangle {
+	var arr []*image.Rectangle
+	arr = make([]*image.Rectangle, width)
+
+	for x := 0; x < width; x++ {
+		thisRect := image.Rect(x, 0, x+1, height)
+		arr[x] = &thisRect
+	}
+
+	return arr
+}
+
 // HorLevel is for handling horizontal renders that cannot use vertical slices (e.g. floor, ceiling)
 type HorLevel struct {
 	// HorBuffer is the image representing the pixels to render during the update

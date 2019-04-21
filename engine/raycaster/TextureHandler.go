@@ -11,20 +11,26 @@ type TextureHandler struct {
 func NewTextureHandler(texWidth int) *TextureHandler {
 	t := &TextureHandler{}
 
-	//--init array--//
-	t.slices = make([]*image.Rectangle, texWidth)
-
 	//--for clarity in slice loop--//
 	texHeight := texWidth
 
-	//--loop through creating a "slice" for each texture x--//
-	for x := 0; x < texWidth; x++ {
-		//tex width and height are always equal so safe to use tex width instead of height here
-		thisRect := image.Rect(x, 0, x+1, texHeight)
-		t.slices[x] = &thisRect
-	}
+	//--init array--//
+	t.slices = MakeSlices(texWidth, texHeight)
 
 	return t
+}
+
+func MakeSlices(width, height int) []*image.Rectangle {
+	newSlices := make([]*image.Rectangle, width)
+
+	//--loop through creating a "slice" for each texture x--//
+	for x := 0; x < width; x++ {
+		//tex width and height are always equal so safe to use tex width instead of height here
+		thisRect := image.Rect(x, 0, x+1, height)
+		newSlices[x] = &thisRect
+	}
+
+	return newSlices
 }
 
 func (t *TextureHandler) GetSlices() []*image.Rectangle {
