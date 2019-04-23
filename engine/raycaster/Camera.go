@@ -654,7 +654,7 @@ func (c *Camera) getNormalSpeed(speed float64) float64 {
 	return speed * movementTPS / float64(c.targetTPS)
 }
 
-// Moves camera by move speed
+// Move camera by move speed
 func (c *Camera) Move(mSpeed float64) {
 	mSpeed = c.getNormalSpeed(mSpeed)
 
@@ -666,7 +666,19 @@ func (c *Camera) Move(mSpeed float64) {
 	}
 }
 
-// Rotates camera by rotate speed
+// Strafe camera by strafe speed
+func (c *Camera) Strafe(sSpeed float64) {
+	sSpeed = c.getNormalSpeed(sSpeed)
+
+	if c.worldMap[int(c.pos.X+c.plane.X*sSpeed*12)][int(c.pos.Y)] <= 0 {
+		c.pos.X += (c.plane.X * sSpeed)
+	}
+	if c.worldMap[int(c.pos.X)][int(c.pos.Y+c.plane.Y*sSpeed*12)] <= 0 {
+		c.pos.Y += (c.plane.Y * sSpeed)
+	}
+}
+
+// Rotate camera by rotate speed
 func (c *Camera) Rotate(rSpeed float64) {
 	rSpeed = c.getNormalSpeed(rSpeed)
 

@@ -13,5 +13,6 @@ To install and run from source the following are required:
     * `[GOPATH/src/raycaster-go]$ go run raycast.go`
 
 ## Controls
-* Move and turn using WASD and Arrow Keys
+* Move and rotate using WASD or Arrow Keys
+* Strafe by holding Alt with the rotate keys
 * Left/right mouse click currently used for visual/console debugging

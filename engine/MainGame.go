@@ -249,10 +249,19 @@ func (g *Game) handleInput() {
 		g.camera.Move(-0.06)
 	}
 
-	if rotLeft {
-		g.camera.Rotate(0.03)
-	} else if rotRight {
-		g.camera.Rotate(-0.03)
+	if ebiten.IsKeyPressed(ebiten.KeyAlt) {
+		// strafe instead of rotate
+		if rotLeft {
+			g.camera.Strafe(-0.05)
+		} else if rotRight {
+			g.camera.Strafe(0.05)
+		}
+	} else {
+		if rotLeft {
+			g.camera.Rotate(0.03)
+		} else if rotRight {
+			g.camera.Rotate(-0.03)
+		}
 	}
 }
 
