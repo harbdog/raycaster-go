@@ -112,7 +112,7 @@ func (g *Game) loadContent() {
 	g.spriteBatch = &SpriteBatch{g: g}
 
 	// TODO: use loadContent to load your game content here
-	g.textures = make([]*ebiten.Image, 11)
+	g.textures = make([]*ebiten.Image, 15)
 
 	g.textures[0], _, _ = getTextureFromFile("stone.png")
 	g.textures[1], _, _ = getTextureFromFile("left_bot_house.png")
@@ -121,7 +121,9 @@ func (g *Game) loadContent() {
 	g.textures[4], _, _ = getTextureFromFile("right_top_house.png")
 
 	// separating sprites out a bit from wall textures
+	g.textures[9], _, _ = getTextureFromFile("tree_09.png")
 	g.textures[10], _, _ = getTextureFromFile("tree_10.png")
+	g.textures[14], _, _ = getTextureFromFile("tree_14.png")
 
 	g.floor, _, _ = getTextureFromFile("floor.png")
 	g.sky, _, _ = getTextureFromFile("sky.png")
@@ -305,7 +307,7 @@ func (g *Game) draw() {
 
 	// draw sprites
 	for x := 0; x < g.width; x++ {
-		for i := cap(g.spriteLvls) - 1; i >= 0; i-- {
+		for i := 0; i < cap(g.spriteLvls); i++ {
 			spriteLvl := g.spriteLvls[i]
 			if spriteLvl == nil {
 				continue
