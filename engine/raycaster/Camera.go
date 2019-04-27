@@ -588,6 +588,10 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 			d = (drawEndY-1-vMoveScreen)*256 - c.h*128 + spriteHeight*128
 			texEndY := ((d * c.texWidth) / spriteHeight) / 256
 
+			if texStartY < 0 || texStartY >= texEndY || texEndY >= c.texWidth {
+				continue
+			}
+
 			//--set current texture slice--//
 			spriteLvl.Cts[stripe] = spriteSlices[texX]
 			spriteLvl.Cts[stripe].Min.Y = texStartY + 1
