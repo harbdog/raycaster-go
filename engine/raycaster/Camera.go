@@ -581,8 +581,17 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 				continue
 			}
 
+			// modify tex startY and endY based on distance
+			d := (drawStartY-vMoveScreen)*256 - c.h*128 + spriteHeight*128 //256 and 128 factors to avoid floats
+			texStartY := ((d * c.texWidth) / spriteHeight) / 256
+
+			d = (drawEndY-1-vMoveScreen)*256 - c.h*128 + spriteHeight*128
+			texEndY := ((d * c.texWidth) / spriteHeight) / 256
+
 			//--set current texture slice--//
 			spriteLvl.Cts[stripe] = spriteSlices[texX]
+			spriteLvl.Cts[stripe].Min.Y = texStartY + 1
+			spriteLvl.Cts[stripe].Max.Y = texEndY
 
 			spriteLvl.CurrTexNum[stripe] = texNum
 
