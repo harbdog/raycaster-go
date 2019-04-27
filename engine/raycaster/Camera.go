@@ -400,7 +400,7 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *Level, levelNum int, wg *sy
 	var lightFalloff float64 = -100 //decrease value to make torch dimmer
 
 	//--sun brightness, illuminates whole level--//
-	var sunLight float64 = 300 //global illuminaion
+	var sunLight float64 = 300 //global illumination
 
 	//--distance based dimming of light--//
 	var shadowDepth float64
@@ -556,6 +556,13 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 
 	var spriteSlices []*image.Rectangle
 
+	//// LIGHTING ////
+	//--simulates torch light, as if player was carrying a radial light--//
+	var lightFalloff float64 = -100 //decrease value to make torch dimmer
+
+	//--sun brightness, illuminates whole level--//
+	var sunLight float64 = 300 //global illumination
+
 	//loop through every vertical stripe of the sprite on screen
 	for stripe := drawStartX; stripe < drawEndX; stripe++ {
 		//the conditions in the if are:
@@ -605,8 +612,15 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 			//--set draw start of slice--//
 			spriteLvl.Sv[stripe].Max.Y = drawEndY
 
-			// TODO: distance based lighting/shading
+			// distance based lighting/shading
 			spriteLvl.St[stripe] = &color.RGBA{255, 255, 255, 255}
+
+			//--distance based dimming of light--//
+			var shadowDepth float64
+			shadowDepth = math.Sqrt(transformY) * lightFalloff
+			spriteLvl.St[stripe].R = byte(Clamp(int(float64(spriteLvl.St[stripe].R)+shadowDepth+sunLight), 0, 255))
+			spriteLvl.St[stripe].G = byte(Clamp(int(float64(spriteLvl.St[stripe].G)+shadowDepth+sunLight), 0, 255))
+			spriteLvl.St[stripe].B = byte(Clamp(int(float64(spriteLvl.St[stripe].B)+shadowDepth+sunLight), 0, 255))
 		}
 	}
 
