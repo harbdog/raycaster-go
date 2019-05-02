@@ -99,6 +99,9 @@ func NewMap() *Map {
 	}
 
 	m.sprite = []*Sprite{
+		// sorcerer
+		{20, 11.5, 15},
+
 		// line of trees for testing in front of initial view
 		{19.5, 11.5, 10},
 		{17.5, 11.5, 14},

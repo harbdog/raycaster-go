@@ -112,7 +112,7 @@ func (g *Game) loadContent() {
 	g.spriteBatch = &SpriteBatch{g: g}
 
 	// TODO: use loadContent to load your game content here
-	g.textures = make([]*ebiten.Image, 15)
+	g.textures = make([]*ebiten.Image, 16)
 
 	g.textures[0], _, _ = getTextureFromFile("stone.png")
 	g.textures[1], _, _ = getTextureFromFile("left_bot_house.png")
@@ -124,6 +124,8 @@ func (g *Game) loadContent() {
 	g.textures[9], _, _ = getTextureFromFile("tree_09.png")
 	g.textures[10], _, _ = getTextureFromFile("tree_10.png")
 	g.textures[14], _, _ = getTextureFromFile("tree_14.png")
+
+	g.textures[15], _, _ = getSpriteFromFile("sorcerer.png")
 
 	g.floor, _, _ = getTextureFromFile("floor.png")
 	g.sky, _, _ = getTextureFromFile("sky.png")
@@ -155,6 +157,15 @@ func getRGBAFromFile(texFile string) (*image.RGBA, error) {
 
 func getTextureFromFile(texFile string) (*ebiten.Image, image.Image, error) {
 	resourcePath := filepath.Join("engine", "content", "textures")
+	eImg, iImg, err := ebitenutil.NewImageFromFile(filepath.Join(resourcePath, texFile), ebiten.FilterNearest)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return eImg, iImg, err
+}
+
+func getSpriteFromFile(texFile string) (*ebiten.Image, image.Image, error) {
+	resourcePath := filepath.Join("engine", "content", "sprites")
 	eImg, iImg, err := ebitenutil.NewImageFromFile(filepath.Join(resourcePath, texFile), ebiten.FilterNearest)
 	if err != nil {
 		log.Fatal(err)
