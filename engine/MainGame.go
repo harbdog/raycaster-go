@@ -114,32 +114,33 @@ func (g *Game) loadContent() {
 	// TODO: use loadContent to load your game content here
 	g.textures = make([]*ebiten.Image, 16)
 
-	g.textures[0], _, _ = getTextureFromFile("stone.png")
-	g.textures[1], _, _ = getTextureFromFile("left_bot_house.png")
-	g.textures[2], _, _ = getTextureFromFile("right_bot_house.png")
-	g.textures[3], _, _ = getTextureFromFile("left_top_house.png")
-	g.textures[4], _, _ = getTextureFromFile("right_top_house.png")
+	g.textures[0] = getTextureFromFile("stone.png")
+	g.textures[1] = getTextureFromFile("left_bot_house.png")
+	g.textures[2] = getTextureFromFile("right_bot_house.png")
+	g.textures[3] = getTextureFromFile("left_top_house.png")
+	g.textures[4] = getTextureFromFile("right_top_house.png")
 
 	// separating sprites out a bit from wall textures
-	g.textures[9], _, _ = getTextureFromFile("tree_09.png")
-	g.textures[10], _, _ = getTextureFromFile("tree_10.png")
-	g.textures[14], _, _ = getTextureFromFile("tree_14.png")
+	g.textures[9] = getSpriteFromFile("tree_09.png")
+	g.textures[10] = getSpriteFromFile("tree_10.png")
+	g.textures[14] = getSpriteFromFile("tree_14.png")
 
-	g.textures[15], _, _ = getSpriteFromFile("sorcerer.png")
+	g.textures[15] = getSpriteFromSheetFile("sorcerer_sheet.png", 10, 1)[6]
 
-	g.floor, _, _ = getTextureFromFile("floor.png")
-	g.sky, _, _ = getTextureFromFile("sky.png")
+	g.floor = getTextureFromFile("floor.png")
+	g.sky = getTextureFromFile("sky.png")
 
 	// just setting the grass texture apart from the rest since it gets special handling
 	g.floorLvl.TexRGBA = make([]*image.RGBA, 1)
-	g.floorLvl.TexRGBA[0], _ = getRGBAFromFile("grass.png")
+	g.floorLvl.TexRGBA[0] = getRGBAFromFile("grass.png")
 }
 
-func getRGBAFromFile(texFile string) (*image.RGBA, error) {
+func getRGBAFromFile(texFile string) *image.RGBA {
 	var rgba *image.RGBA
-	_, tex, err := getTextureFromFile(texFile)
+	resourcePath := filepath.Join("engine", "content", "textures")
+	_, tex, err := ebitenutil.NewImageFromFile(filepath.Join(resourcePath, texFile), ebiten.FilterNearest)
 	if err != nil {
-		return rgba, err
+		log.Fatal(err)
 	}
 	if tex != nil {
 		rgba = image.NewRGBA(image.Rect(0, 0, texSize, texSize))
@@ -152,25 +153,57 @@ func getRGBAFromFile(texFile string) (*image.RGBA, error) {
 		}
 	}
 
-	return rgba, err
+	return rgba
 }
 
-func getTextureFromFile(texFile string) (*ebiten.Image, image.Image, error) {
+func getTextureFromFile(texFile string) *ebiten.Image {
 	resourcePath := filepath.Join("engine", "content", "textures")
-	eImg, iImg, err := ebitenutil.NewImageFromFile(filepath.Join(resourcePath, texFile), ebiten.FilterNearest)
+	eImg, _, err := ebitenutil.NewImageFromFile(filepath.Join(resourcePath, texFile), ebiten.FilterNearest)
 	if err != nil {
 		log.Fatal(err)
 	}
-	return eImg, iImg, err
+	return eImg
 }
 
-func getSpriteFromFile(texFile string) (*ebiten.Image, image.Image, error) {
+func getSpriteFromFile(sFile string) *ebiten.Image {
 	resourcePath := filepath.Join("engine", "content", "sprites")
-	eImg, iImg, err := ebitenutil.NewImageFromFile(filepath.Join(resourcePath, texFile), ebiten.FilterNearest)
+	eImg, _, err := ebitenutil.NewImageFromFile(filepath.Join(resourcePath, sFile), ebiten.FilterNearest)
 	if err != nil {
 		log.Fatal(err)
 	}
-	return eImg, iImg, err
+	return eImg
+}
+
+func getSpriteFromSheetFile(sheetFile string, columns int, rows int) []*ebiten.Image {
+	images := make([]*ebiten.Image, columns*rows)
+
+	resourcePath := filepath.Join("engine", "content", "sprites")
+	eImg, _, err := ebitenutil.NewImageFromFile(filepath.Join(resourcePath, sheetFile), ebiten.FilterNearest)
+	if err != nil {
+		log.Fatal(err)
+	} else if eImg != nil {
+		// crop sheet by given number of columns and rows into a single dimension array
+		w, h := eImg.Size()
+		wCell := w / columns
+		hCell := h / rows
+
+		op := &ebiten.DrawImageOptions{}
+
+		for r := 0; r < rows; r++ {
+			y := r * hCell
+			for c := 0; c < columns; c++ {
+				x := c * wCell
+				cellRect := image.Rect(x, y, x+wCell-1, y+hCell-1)
+				cellImg := eImg.SubImage(cellRect).(*ebiten.Image)
+
+				cellTarget, _ := ebiten.NewImage(wCell, hCell, ebiten.FilterNearest)
+				cellTarget.DrawImage(cellImg, op)
+
+				images[c+r*c] = cellTarget
+			}
+		}
+	}
+	return images
 }
 
 // Run is the Ebiten Run loop caller
@@ -384,9 +417,6 @@ func (s *SpriteBatch) draw(texture *ebiten.Image, destinationRectangle *image.Re
 		return
 	}
 
-	op := &ebiten.DrawImageOptions{}
-	op.Filter = ebiten.FilterLinear
-
 	if sourceRectangle.Min.X == 0 {
 		// fixes subImage from clipping at edges of textures which can cause gaps
 		sourceRectangle.Min.X++
@@ -402,6 +432,9 @@ func (s *SpriteBatch) draw(texture *ebiten.Image, destinationRectangle *image.Re
 		scaleX = float64(dSize.X) / float64(sSize.X)
 		scaleY = float64(dSize.Y) / float64(sSize.Y)
 	}
+
+	op := &ebiten.DrawImageOptions{}
+	op.Filter = ebiten.FilterLinear
 
 	op.GeoM.Scale(scaleX, scaleY)
 	op.GeoM.Translate(float64(destinationRectangle.Min.X), float64(destinationRectangle.Min.Y))
