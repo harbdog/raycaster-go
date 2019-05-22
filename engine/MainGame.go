@@ -28,7 +28,7 @@ const (
 // Game - This is the main type for your game.
 type Game struct {
 	//--create slicer and declare slices--//
-	slicer *raycaster.TextureHandler
+	tex    *raycaster.TextureHandler
 	slices []*image.Rectangle
 
 	//--viewport and width / height--//
@@ -41,8 +41,6 @@ type Game struct {
 
 	//--graphics manager and sprite batch--//
 	spriteBatch *SpriteBatch
-
-	textures []*ebiten.Image
 
 	//--test texture--//
 	floor *ebiten.Image
@@ -80,23 +78,26 @@ func NewGame() *Game {
 	g.width = int(math.Floor(float64(screenWidth) / screenScale))
 	g.height = int(math.Floor(float64(screenHeight) / screenScale))
 
-	g.slicer = raycaster.NewTextureHandler(texSize)
+	g.tex = raycaster.NewTextureHandler(texSize)
 
 	//--init texture slices--//
-	g.slices = g.slicer.GetSlices()
+	g.slices = g.tex.GetSlices()
 
 	// load map
-	g.mapObj = raycaster.NewMap()
+	g.mapObj = raycaster.NewMap(g.tex)
 
 	//--inits the levels--//
 	g.levels, g.floorLvl = g.createLevels(4)
-	g.spriteLvls = g.createSpriteLevels()
 
 	// load content once when first run
 	g.loadContent()
 
+	// init the sprites
+	g.mapObj.LoadSprites()
+	g.spriteLvls = g.createSpriteLevels()
+
 	//--init camera--//
-	g.camera = raycaster.NewCamera(g.width, g.height, texSize, g.mapObj, g.slices, g.levels, g.floorLvl, g.spriteLvls, g.textures)
+	g.camera = raycaster.NewCamera(g.width, g.height, texSize, g.mapObj, g.slices, g.levels, g.floorLvl, g.spriteLvls, g.tex)
 
 	// for debugging
 	g.DebugX = -1
@@ -112,20 +113,20 @@ func (g *Game) loadContent() {
 	g.spriteBatch = &SpriteBatch{g: g}
 
 	// TODO: use loadContent to load your game content here
-	g.textures = make([]*ebiten.Image, 16)
+	g.tex.Textures = make([]*ebiten.Image, 16)
 
-	g.textures[0] = getTextureFromFile("stone.png")
-	g.textures[1] = getTextureFromFile("left_bot_house.png")
-	g.textures[2] = getTextureFromFile("right_bot_house.png")
-	g.textures[3] = getTextureFromFile("left_top_house.png")
-	g.textures[4] = getTextureFromFile("right_top_house.png")
+	g.tex.Textures[0] = getTextureFromFile("stone.png")
+	g.tex.Textures[1] = getTextureFromFile("left_bot_house.png")
+	g.tex.Textures[2] = getTextureFromFile("right_bot_house.png")
+	g.tex.Textures[3] = getTextureFromFile("left_top_house.png")
+	g.tex.Textures[4] = getTextureFromFile("right_top_house.png")
 
 	// separating sprites out a bit from wall textures
-	g.textures[9] = getSpriteFromFile("tree_09.png")
-	g.textures[10] = getSpriteFromFile("tree_10.png")
-	g.textures[14] = getSpriteFromFile("tree_14.png")
+	g.tex.Textures[9] = getSpriteFromFile("tree_09.png")
+	g.tex.Textures[10] = getSpriteFromFile("tree_10.png")
+	g.tex.Textures[14] = getSpriteFromFile("tree_14.png")
 
-	g.textures[15] = getSpriteFromSheetFile("sorcerer_sheet.png", 10, 1)[6]
+	g.tex.Textures[15] = getSpriteFromFile("sorcerer_sheet.png")
 
 	g.floor = getTextureFromFile("floor.png")
 	g.sky = getTextureFromFile("sky.png")
@@ -172,38 +173,6 @@ func getSpriteFromFile(sFile string) *ebiten.Image {
 		log.Fatal(err)
 	}
 	return eImg
-}
-
-func getSpriteFromSheetFile(sheetFile string, columns int, rows int) []*ebiten.Image {
-	images := make([]*ebiten.Image, columns*rows)
-
-	resourcePath := filepath.Join("engine", "content", "sprites")
-	eImg, _, err := ebitenutil.NewImageFromFile(filepath.Join(resourcePath, sheetFile), ebiten.FilterNearest)
-	if err != nil {
-		log.Fatal(err)
-	} else if eImg != nil {
-		// crop sheet by given number of columns and rows into a single dimension array
-		w, h := eImg.Size()
-		wCell := w / columns
-		hCell := h / rows
-
-		op := &ebiten.DrawImageOptions{}
-
-		for r := 0; r < rows; r++ {
-			y := r * hCell
-			for c := 0; c < columns; c++ {
-				x := c * wCell
-				cellRect := image.Rect(x, y, x+wCell-1, y+hCell-1)
-				cellImg := eImg.SubImage(cellRect).(*ebiten.Image)
-
-				cellTarget, _ := ebiten.NewImage(wCell, hCell, ebiten.FilterNearest)
-				cellTarget.DrawImage(cellImg, op)
-
-				images[c+r*c] = cellTarget
-			}
-		}
-	}
-	return images
 }
 
 // Run is the Ebiten Run loop caller
@@ -335,7 +304,7 @@ func (g *Game) draw() {
 	//--draw walls--//
 	for x := 0; x < g.width; x++ {
 		for i := cap(g.levels) - 1; i >= 0; i-- {
-			g.spriteBatch.draw(g.textures[g.levels[i].CurrTexNum[x]], g.levels[i].Sv[x], g.levels[i].Cts[x], g.levels[i].St[x])
+			g.spriteBatch.draw(g.levels[i].CurrTex[x], g.levels[i].Sv[x], g.levels[i].Cts[x], g.levels[i].St[x])
 		}
 	}
 
@@ -357,9 +326,8 @@ func (g *Game) draw() {
 				continue
 			}
 
-			texNum := spriteLvl.CurrTexNum[x]
-			if texNum >= 0 {
-				texture := g.textures[texNum]
+			texture := spriteLvl.CurrTex[x]
+			if texture != nil {
 				g.spriteBatch.draw(texture, spriteLvl.Sv[x], spriteLvl.Cts[x], spriteLvl.St[x])
 			}
 		}
@@ -393,7 +361,7 @@ func (g *Game) createLevels(numLevels int) ([]*raycaster.Level, *raycaster.HorLe
 		levelArr[i].Sv = raycaster.SliceView(g.width, g.height)
 		levelArr[i].Cts = make([]*image.Rectangle, g.width)
 		levelArr[i].St = make([]*color.RGBA, g.width)
-		levelArr[i].CurrTexNum = make([]int, g.width)
+		levelArr[i].CurrTex = make([]*ebiten.Image, g.width)
 	}
 
 	horizontalLevel := new(raycaster.HorLevel)
@@ -450,7 +418,7 @@ func (s *SpriteBatch) draw(texture *ebiten.Image, destinationRectangle *image.Re
 	if s.g.DebugX > destinationRectangle.Min.X && s.g.DebugX <= destinationRectangle.Max.X &&
 		s.g.DebugY > destinationRectangle.Min.Y && s.g.DebugY <= destinationRectangle.Max.Y {
 
-		for texNum, tex := range s.g.textures {
+		for texNum, tex := range s.g.tex.Textures {
 			if tex == texture {
 				s.g.DebugPrintfOnce("[draw@%v,%v]: %v | %v < %v * %v,%v\n", s.g.DebugX, s.g.DebugY, destinationRectangle, texNum, sourceRectangle, scaleX, scaleY)
 				return

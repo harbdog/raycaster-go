@@ -72,7 +72,7 @@ type Camera struct {
 	spriteDistance []float64
 
 	spriteLvls []*Level
-	textures   []*ebiten.Image
+	tex        *TextureHandler
 
 	horLvl *HorLevel
 
@@ -88,7 +88,7 @@ type Vector2 struct {
 
 // NewCamera initalizes a Camera object
 func NewCamera(width int, height int, texWid int, mapObj *Map, slices []*image.Rectangle,
-	levels []*Level, horizontalLevel *HorLevel, spriteLvls []*Level, textures []*ebiten.Image) *Camera {
+	levels []*Level, horizontalLevel *HorLevel, spriteLvls []*Level, tex *TextureHandler) *Camera {
 
 	fmt.Printf("Initializing Camera\n")
 
@@ -130,7 +130,7 @@ func NewCamera(width int, height int, texWid int, mapObj *Map, slices []*image.R
 	c.spriteOrder = make([]int, c.mapObj.numSprites)
 	c.spriteDistance = make([]float64, c.mapObj.numSprites)
 
-	c.textures = textures
+	c.tex = tex
 
 	// initialize a pool of channels to limit concurrent floor and sprite casting
 	// from https://pocketgophers.com/limit-concurrent-use/
@@ -340,7 +340,23 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *Level, levelNum int, wg *sy
 	if texNum < 0 {
 		texNum = 0 //why?
 	}
-	c.lvls[levelNum].CurrTexNum[x] = texNum
+	//--some supid hacks to make the houses render correctly--//
+	// this corrects textures on two sides of house since the textures are not symmetrical
+	if side == 0 {
+		if texNum == 3 {
+			texNum = 4
+		} else if texNum == 4 {
+			texNum = 3
+		}
+
+		if texNum == 1 {
+			texNum = 4
+		} else if texNum == 2 {
+			texNum = 3
+		}
+	}
+
+	c.lvls[levelNum].CurrTex[x] = c.tex.Textures[texNum]
 
 	//calculate value of wallX
 	var wallX float64 //where exactly the wall was hit
@@ -359,22 +375,6 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *Level, levelNum int, wg *sy
 
 	if side == 1 && rayDirY < 0 {
 		texX = c.texWidth - texX - 1
-	}
-
-	//--some supid hacks to make the houses render correctly--//
-	// this corrects textures on two sides of house since the textures are not symmetrical
-	if side == 0 {
-		if texNum == 3 {
-			c.lvls[levelNum].CurrTexNum[x] = 4
-		} else if texNum == 4 {
-			c.lvls[levelNum].CurrTexNum[x] = 3
-		}
-
-		if texNum == 1 {
-			c.lvls[levelNum].CurrTexNum[x] = 4
-		} else if texNum == 2 {
-			c.lvls[levelNum].CurrTexNum[x] = 3
-		}
 	}
 
 	//--set current texture slice to be slice x--//
@@ -510,7 +510,8 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 	spriteX := c.sprite[c.spriteOrder[spriteOrdIndex]].X - rayPosX
 	spriteY := c.sprite[c.spriteOrder[spriteOrdIndex]].Y - rayPosY
 
-	texNum := c.sprite[c.spriteOrder[spriteOrdIndex]].Texture
+	spriteTex := c.sprite[c.spriteOrder[spriteOrdIndex]].GetTexture()
+	spriteW, spriteH := spriteTex.Size()
 
 	//transform sprite with the inverse camera matrix
 	// [ planeX   dirX ] -1                                       [ dirY      -dirX ]
@@ -575,8 +576,6 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 			if !renderSprite {
 				renderSprite = true
 				spriteLvl = c.makeSpriteLevel(spriteOrdIndex)
-				spriteImage := c.textures[c.sprite[c.spriteOrder[spriteOrdIndex]].Texture]
-				spriteW, spriteH := spriteImage.Size()
 				spriteSlices = MakeSlices(spriteW, spriteH)
 			} else {
 				spriteLvl = c.spriteLvls[spriteOrdIndex]
@@ -604,7 +603,7 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 			spriteLvl.Cts[stripe].Min.Y = texStartY + 1
 			spriteLvl.Cts[stripe].Max.Y = texEndY
 
-			spriteLvl.CurrTexNum[stripe] = texNum
+			spriteLvl.CurrTex[stripe] = spriteTex
 
 			//--set height of slice--//
 			spriteLvl.Sv[stripe].Min.Y = drawStartY + 1
@@ -634,11 +633,7 @@ func (c *Camera) makeSpriteLevel(spriteOrdIndex int) *Level {
 	spriteLvl.Sv = SliceView(c.w, c.h)
 	spriteLvl.Cts = make([]*image.Rectangle, c.w)
 	spriteLvl.St = make([]*color.RGBA, c.w)
-	spriteLvl.CurrTexNum = make([]int, c.w)
-
-	for j := 0; j < cap(spriteLvl.CurrTexNum); j++ {
-		spriteLvl.CurrTexNum[j] = -1
-	}
+	spriteLvl.CurrTex = make([]*ebiten.Image, c.w)
 
 	c.spriteLvls[spriteOrdIndex] = spriteLvl
 

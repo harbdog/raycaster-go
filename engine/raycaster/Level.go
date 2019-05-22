@@ -3,6 +3,8 @@ package raycaster
 import (
 	"image"
 	"image/color"
+
+	"github.com/hajimehoshi/ebiten"
 )
 
 // Level --struct to represent rects and tints of vertical level slices --//
@@ -16,8 +18,8 @@ type Level struct {
 	// St --current slice tint (for lighting/shading)--//
 	St []*color.RGBA
 
-	// CurrTexNum --the texture index to use as source
-	CurrTexNum []int
+	// CurrTex --the texture to use as source
+	CurrTex []*ebiten.Image
 }
 
 // SliceView Creates rectangle slices for each x in width.

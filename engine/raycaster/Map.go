@@ -7,15 +7,13 @@ type Map struct {
 
 	sprite     []*Sprite
 	numSprites int
+
+	tex *TextureHandler
 }
 
-type Sprite struct {
-	X, Y    float64
-	Texture int
-}
-
-func NewMap() *Map {
+func NewMap(tex *TextureHandler) *Map {
 	m := &Map{}
+	m.tex = tex
 
 	m.worldMap = [][]int{
 		{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
@@ -98,67 +96,69 @@ func NewMap() *Map {
 		{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1},
 	}
 
-	m.sprite = []*Sprite{
-		// sorcerer
-		{20, 11.5, 15},
+	return m
+}
 
-		// line of trees for testing in front of initial view
-		{19.5, 11.5, 10},
-		{17.5, 11.5, 14},
-		{15.5, 11.5, 9},
-		// render a forest!
-		{11.5, 1.5, 9},
-		{12.5, 1.5, 9},
-		{132.5, 1.5, 9},
-		{11.5, 2, 9},
-		{12.5, 2, 9},
-		{13.5, 2, 9},
-		{11.5, 2.5, 9},
-		{12.25, 2.5, 9},
-		{13.5, 2.25, 9},
-		{11.5, 3, 9},
-		{12.5, 3, 9},
-		{13.25, 3, 9},
-		{10.5, 3.5, 9},
-		{11.5, 3.25, 9},
-		{12.5, 3.5, 9},
-		{13.25, 3.5, 14},
-		{10.5, 4, 9},
-		{11.5, 4, 9},
-		{12.5, 4, 9},
-		{13.5, 4, 14},
-		{10.5, 4.5, 9},
-		{11.25, 4.5, 9},
-		{12.5, 4.5, 14},
-		{13.5, 4.5, 10},
-		{14.5, 4.25, 14},
-		{10.5, 5, 9},
-		{11.5, 5, 9},
-		{12.5, 5, 14},
-		{13.25, 5, 10},
-		{14.5, 5, 14},
-		{11.5, 5.5, 14},
-		{12.5, 5.25, 10},
-		{13.5, 5.25, 10},
-		{14.5, 5.5, 10},
-		{15.5, 5.5, 14},
-		{11.5, 6, 14},
-		{12.5, 6, 10},
-		{13.25, 6, 10},
-		{14.25, 6, 10},
-		{15.5, 6, 14},
-		{12.5, 6.5, 14},
-		{13.5, 6.25, 10},
-		{14.5, 6.5, 14},
-		{12.5, 7, 14},
-		{13.5, 7, 10},
-		{14.5, 7, 14},
-		{13.5, 7.5, 14},
-		{13.5, 8, 14},
+func (m *Map) LoadSprites() {
+	m.sprite = []*Sprite{
+		// // sorcerer
+		NewSpriteFromSheet(20, 11.5, m.tex.Textures[15], 10, 1),
+
+		// // line of trees for testing in front of initial view
+		NewSprite(19.5, 11.5, m.tex.Textures[10]),
+		NewSprite(17.5, 11.5, m.tex.Textures[14]),
+		NewSprite(15.5, 11.5, m.tex.Textures[9]),
+		// // render a forest!
+		NewSprite(11.5, 1.5, m.tex.Textures[9]),
+		NewSprite(12.5, 1.5, m.tex.Textures[9]),
+		NewSprite(132.5, 1.5, m.tex.Textures[9]),
+		NewSprite(11.5, 2, m.tex.Textures[9]),
+		NewSprite(12.5, 2, m.tex.Textures[9]),
+		NewSprite(13.5, 2, m.tex.Textures[9]),
+		NewSprite(11.5, 2.5, m.tex.Textures[9]),
+		NewSprite(12.25, 2.5, m.tex.Textures[9]),
+		NewSprite(13.5, 2.25, m.tex.Textures[9]),
+		NewSprite(11.5, 3, m.tex.Textures[9]),
+		NewSprite(12.5, 3, m.tex.Textures[9]),
+		NewSprite(13.25, 3, m.tex.Textures[9]),
+		NewSprite(10.5, 3.5, m.tex.Textures[9]),
+		NewSprite(11.5, 3.25, m.tex.Textures[9]),
+		NewSprite(12.5, 3.5, m.tex.Textures[9]),
+		NewSprite(13.25, 3.5, m.tex.Textures[14]),
+		NewSprite(10.5, 4, m.tex.Textures[9]),
+		NewSprite(11.5, 4, m.tex.Textures[9]),
+		NewSprite(12.5, 4, m.tex.Textures[9]),
+		NewSprite(13.5, 4, m.tex.Textures[14]),
+		NewSprite(10.5, 4.5, m.tex.Textures[9]),
+		NewSprite(11.25, 4.5, m.tex.Textures[9]),
+		NewSprite(12.5, 4.5, m.tex.Textures[14]),
+		NewSprite(13.5, 4.5, m.tex.Textures[10]),
+		NewSprite(14.5, 4.25, m.tex.Textures[14]),
+		NewSprite(10.5, 5, m.tex.Textures[9]),
+		NewSprite(11.5, 5, m.tex.Textures[9]),
+		NewSprite(12.5, 5, m.tex.Textures[14]),
+		NewSprite(13.25, 5, m.tex.Textures[10]),
+		NewSprite(14.5, 5, m.tex.Textures[14]),
+		NewSprite(11.5, 5.5, m.tex.Textures[14]),
+		NewSprite(12.5, 5.25, m.tex.Textures[10]),
+		NewSprite(13.5, 5.25, m.tex.Textures[10]),
+		NewSprite(14.5, 5.5, m.tex.Textures[10]),
+		NewSprite(15.5, 5.5, m.tex.Textures[14]),
+		NewSprite(11.5, 6, m.tex.Textures[14]),
+		NewSprite(12.5, 6, m.tex.Textures[10]),
+		NewSprite(13.25, 6, m.tex.Textures[10]),
+		NewSprite(14.25, 6, m.tex.Textures[10]),
+		NewSprite(15.5, 6, m.tex.Textures[14]),
+		NewSprite(12.5, 6.5, m.tex.Textures[14]),
+		NewSprite(13.5, 6.25, m.tex.Textures[10]),
+		NewSprite(14.5, 6.5, m.tex.Textures[14]),
+		NewSprite(12.5, 7, m.tex.Textures[14]),
+		NewSprite(13.5, 7, m.tex.Textures[10]),
+		NewSprite(14.5, 7, m.tex.Textures[14]),
+		NewSprite(13.5, 7.5, m.tex.Textures[14]),
+		NewSprite(13.5, 8, m.tex.Textures[14]),
 	}
 	m.numSprites = len(m.sprite)
-
-	return m
 }
 
 func (m *Map) getSprites() []*Sprite {

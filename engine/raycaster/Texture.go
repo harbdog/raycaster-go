@@ -2,10 +2,13 @@ package raycaster
 
 import (
 	"image"
+
+	"github.com/hajimehoshi/ebiten"
 )
 
 type TextureHandler struct {
-	slices []*image.Rectangle
+	slices   []*image.Rectangle
+	Textures []*ebiten.Image
 }
 
 func NewTextureHandler(texWidth int) *TextureHandler {
