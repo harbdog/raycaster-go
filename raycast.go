@@ -2,14 +2,21 @@ package main
 
 import (
 	"fmt"
+	"runtime"
+
+	"github.com/faiface/pixel/pixelgl"
 
 	"raycaster-go/engine"
 )
 
 func main() {
-	fmt.Printf("Hello there\n")
+	numCPU := runtime.NumCPU()
+	// only way to see maxprocs is to set it and see the return value, then set it back
+	maxProcs := runtime.GOMAXPROCS(numCPU)
+	runtime.GOMAXPROCS(maxProcs)
+	fmt.Printf("Hello there, you have %v cores and %v GOMAXPROCS\n", numCPU, maxProcs)
 
 	// run the game
 	g := engine.NewGame()
-	g.Run()
+	pixelgl.Run(g.Run)
 }

@@ -4,21 +4,21 @@ import (
 	"fmt"
 	"image"
 	"image/color"
-	"log"
-	"math"
+	"os"
 	"path/filepath"
 	"raycaster-go/engine/raycaster"
-	"runtime"
+	"time"
 
-	"github.com/hajimehoshi/ebiten"
-	"github.com/hajimehoshi/ebiten/ebitenutil"
+	_ "image/png"
+
+	"github.com/faiface/pixel"
+	"github.com/faiface/pixel/pixelgl"
 )
 
 const (
-	// ebiten constants
+	// default constants
 	screenWidth  = 1024
 	screenHeight = 700
-	screenScale  = 1.0
 
 	//--RaycastEngine constants
 	//--set constant, texture size to be the wall (and sprite) texture size--//
@@ -32,7 +32,8 @@ type Game struct {
 	slices []*image.Rectangle
 
 	//--viewport and width / height--//
-	view   *ebiten.Image
+	cfg    pixelgl.WindowConfig
+	win    *pixelgl.Window
 	width  int
 	height int
 
@@ -42,17 +43,17 @@ type Game struct {
 	//--graphics manager and sprite batch--//
 	spriteBatch *SpriteBatch
 
-	textures [5]*ebiten.Image
+	textures [5]pixel.Picture
 
 	//--test texture--//
-	floor *ebiten.Image
-	sky   *ebiten.Image
+	floor pixel.Picture
+	sky   pixel.Picture
 
 	//-test effect--//
 	//Effect effect;
 
 	//test sprite
-	sprite *ebiten.Image
+	sprite pixel.Picture
 
 	//--array of levels, levels reffer to "floors" of the world--//
 	levels []*raycaster.Level
@@ -78,8 +79,15 @@ func NewGame() *Game {
 	g := new(Game)
 
 	// use scale to keep the desired window width and height
-	g.width = int(math.Floor(float64(screenWidth) / screenScale))
-	g.height = int(math.Floor(float64(screenHeight) / screenScale))
+	// TODO: support pixel scaling for high DPI, using win.SetMatrix?
+	g.width = screenWidth
+	g.height = screenHeight
+
+	g.cfg = pixelgl.WindowConfig{
+		Title:  "Raycaster-Go",
+		Bounds: pixel.R(0, 0, float64(g.width), float64(g.height)),
+		//VSync:  true,
+	}
 
 	g.slicer = raycaster.NewTextureHandler(texSize)
 
@@ -106,142 +114,158 @@ func (g *Game) loadContent() {
 	g.spriteBatch = &SpriteBatch{g: g}
 
 	// TODO: use this.Content to load your game content here
-	g.textures[0], _, _ = getTextureFromFile("stone.png")
-	g.textures[1], _, _ = getTextureFromFile("left_bot_house.png")
-	g.textures[2], _, _ = getTextureFromFile("right_bot_house.png")
-	g.textures[3], _, _ = getTextureFromFile("left_top_house.png")
-	g.textures[4], _, _ = getTextureFromFile("right_top_house.png")
+	g.textures[0] = getTextureFromFile("stone.png")
+	g.textures[1] = getTextureFromFile("left_bot_house.png")
+	g.textures[2] = getTextureFromFile("right_bot_house.png")
+	g.textures[3] = getTextureFromFile("left_top_house.png")
+	g.textures[4] = getTextureFromFile("right_top_house.png")
 
-	g.floor, _, _ = getTextureFromFile("floor.png")
-	g.sky, _, _ = getTextureFromFile("sky.png")
+	g.floor = getTextureFromFile("floor.png")
+	g.sky = getTextureFromFile("sky.png")
 }
 
-func getTextureFromFile(texFile string) (*ebiten.Image, image.Image, error) {
-	resourcePath := filepath.Join("engine", "content", "textures")
-	eImg, iImg, err := ebitenutil.NewImageFromFile(filepath.Join(resourcePath, texFile), ebiten.FilterNearest)
+func loadPicture(path string) (pixel.Picture, error) {
+	file, err := os.Open(path)
 	if err != nil {
-		log.Fatal(err)
+		return nil, err
 	}
-	return eImg, iImg, err
+	defer file.Close()
+	img, _, err := image.Decode(file)
+	if err != nil {
+		return nil, err
+	}
+	return pixel.PictureDataFromImage(img), nil
 }
 
-// Run is the Ebiten Run loop caller
+func getTextureFromFile(texFile string) pixel.Picture {
+	resourcePath := filepath.Join("engine", "content", "textures")
+	img, err := loadPicture(filepath.Join(resourcePath, texFile))
+	if err != nil {
+		panic(err)
+	}
+	return img
+}
+
+// Run is the main Run loop caller
 func (g *Game) Run() {
 	// load content once when first run
 	g.loadContent()
 
-	// On browsers, let's use fullscreen so that this is playable on any browsers.
-	// It is planned to ignore the given 'scale' apply fullscreen automatically on browsers (#571).
-	if runtime.GOARCH == "js" || runtime.GOOS == "js" {
-		ebiten.SetFullscreen(true)
+	win, err := pixelgl.NewWindow(g.cfg)
+	if err != nil {
+		panic(err)
 	}
 
-	if err := ebiten.Run(g.Update, g.width, g.height, screenScale, "Raycaster-Go"); err != nil {
-		log.Fatal(err)
+	g.win = win
+
+	var (
+		frames = 0
+		second = time.NewTicker(time.Second)
+	)
+
+	for !win.Closed() {
+		g.update()
+
+		win.Update()
+
+		frames++
+		select {
+		case <-second.C:
+			win.SetTitle(fmt.Sprintf("%s | FPS: %d", g.cfg.Title, frames))
+			frames = 0
+		default:
+		}
 	}
 }
 
 // Update - Allows the game to run logic such as updating the world,
 // checking for collisions, gathering input, and playing audio.
-func (g *Game) Update(screen *ebiten.Image) error {
-	g.view = screen
-
+func (g *Game) update() {
 	// Perform logical updates
 	g.camera.Update()
 
 	// TODO: Add your update logic here
 	g.handleInput()
 
-	if ebiten.IsDrawingSkipped() {
-		// When the game is running slowly, the rendering result
-		// will not be adopted.
-		return nil
-	}
-
 	// Render game to screen
 	g.draw()
-
-	// TPS counter
-	fps := fmt.Sprintf("TPS: %f/%v", ebiten.CurrentTPS(), ebiten.MaxTPS())
-	ebitenutil.DebugPrint(g.view, fps)
-
-	return nil
 }
 
 func (g *Game) handleInput() {
-	mx, my := ebiten.CursorPosition()
 
-	forward := false
-	backward := false
-	rotLeft := false
-	rotRight := false
+	var mx, my float64
 
-	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
+	// forward := false
+	// backward := false
+	// rotLeft := false
+	// rotRight := false
+
+	// if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
+	// 	fmt.Printf("mouse left clicked: (%v, %v)\n", mx, my)
+
+	if g.win.JustPressed(pixelgl.MouseButtonLeft) {
+		clickedPos := g.win.MousePosition()
+		mx = clickedPos.X
+		my = clickedPos.Y
+
 		fmt.Printf("mouse left clicked: (%v, %v)\n", mx, my)
-
-		// using left click for debugging graphical issues
-		if g.DebugX == -1 && g.DebugY == -1 {
-			// only allow setting once between clears to debounce
-			g.DebugX = mx
-			g.DebugY = my
-			g.DebugOnce = true
-		}
 	}
 
-	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonRight) {
-		fmt.Printf("mouse right clicked: (%v, %v)\n", mx, my)
+	// 	// using left click for debugging graphical issues
+	// 	if g.DebugX == -1 && g.DebugY == -1 {
+	// 		// only allow setting once between clears to debounce
+	// 		g.DebugX = mx
+	// 		g.DebugY = my
+	// 		g.DebugOnce = true
+	// 	}
+	// }
 
-		// using right click to clear the debugging flag
-		g.DebugX = -1
-		g.DebugY = -1
-		g.DebugOnce = false
-	}
+	// if ebiten.IsMouseButtonPressed(ebiten.MouseButtonRight) {
+	// 	fmt.Printf("mouse right clicked: (%v, %v)\n", mx, my)
 
-	if ebiten.IsKeyPressed(ebiten.KeyA) || ebiten.IsKeyPressed(ebiten.KeyLeft) {
-		rotLeft = true
-	}
-	if ebiten.IsKeyPressed(ebiten.KeyD) || ebiten.IsKeyPressed(ebiten.KeyRight) {
-		rotRight = true
-	}
+	// 	// using right click to clear the debugging flag
+	// 	g.DebugX = -1
+	// 	g.DebugY = -1
+	// 	g.DebugOnce = false
+	// }
 
-	if ebiten.IsKeyPressed(ebiten.KeyW) || ebiten.IsKeyPressed(ebiten.KeyUp) {
-		forward = true
-	}
-	if ebiten.IsKeyPressed(ebiten.KeyS) || ebiten.IsKeyPressed(ebiten.KeyDown) {
-		backward = true
-	}
+	// if ebiten.IsKeyPressed(ebiten.KeyA) || ebiten.IsKeyPressed(ebiten.KeyLeft) {
+	// 	rotLeft = true
+	// }
+	// if ebiten.IsKeyPressed(ebiten.KeyD) || ebiten.IsKeyPressed(ebiten.KeyRight) {
+	// 	rotRight = true
+	// }
 
-	if forward {
-		g.camera.Move(0.06)
-	} else if backward {
-		g.camera.Move(-0.06)
-	}
+	// if ebiten.IsKeyPressed(ebiten.KeyW) || ebiten.IsKeyPressed(ebiten.KeyUp) {
+	// 	forward = true
+	// }
+	// if ebiten.IsKeyPressed(ebiten.KeyS) || ebiten.IsKeyPressed(ebiten.KeyDown) {
+	// 	backward = true
+	// }
 
-	if rotLeft {
-		g.camera.Rotate(0.03)
-	} else if rotRight {
-		g.camera.Rotate(-0.03)
-	}
+	// if forward {
+	// 	g.camera.Move(0.06)
+	// } else if backward {
+	// 	g.camera.Move(-0.06)
+	// }
+
+	// if rotLeft {
+	// 	g.camera.Rotate(0.03)
+	// } else if rotRight {
+	// 	g.camera.Rotate(-0.03)
+	// }
 }
 
 func (g *Game) draw() {
-	g.view.Clear()
+	whiteRGBA := &color.RGBA{255, 255, 255, 255}
+	g.win.Clear(whiteRGBA)
 
 	//--draw sky and floor--//
 	texRect := image.Rect(0, 0, texSize, texSize)
-	whiteRGBA := &color.RGBA{255, 255, 255, 255}
 
-	// spriteBatch.Draw(floor,
-	//    new Rectangle(0, (int)(height * 0.5f), width, (int)(height * 0.5f)),
-	//    new Rectangle(0, 0, texSize, texSize),
-	//    Color.White);
 	floorRect := image.Rect(0, int(float64(g.height)*0.5), g.width, 2*int(float64(g.height)*0.5))
 	g.spriteBatch.draw(g.floor, &floorRect, &texRect, whiteRGBA)
 
-	// spriteBatch.Draw(sky,
-	//    new Rectangle(0, 0, width, (int)(height * 0.5f)),
-	//    new Rectangle(0, 0, texSize, texSize),
-	//    Color.White);
 	skyRect := image.Rect(0, 0, g.width, int(float64(g.height)*0.5))
 	g.spriteBatch.draw(g.sky, &skyRect, &texRect, whiteRGBA)
 
@@ -258,22 +282,21 @@ func (g *Game) draw() {
 	}
 
 	// draw for debugging
-	if g.DebugX >= 0 && g.DebugY >= 0 {
-		fX := float64(g.DebugX)
-		fY := float64(g.DebugY)
-		// draw a red translucent dot at the debug point
-		ebitenutil.DrawLine(g.view, fX-0.5, fY-0.5, fX+0.5, fY+0.5, color.RGBA{255, 0, 0, 150})
+	// if g.DebugX >= 0 && g.DebugY >= 0 {
+	// 	fX := float64(g.DebugX)
+	// 	fY := float64(g.DebugY)
+	// 	// draw a red translucent dot at the debug point
+	// 	ebitenutil.DrawLine(g.view, fX-0.5, fY-0.5, fX+0.5, fY+0.5, color.RGBA{255, 0, 0, 150})
 
-		// draw two red vertical lines focusing on point
-		ebitenutil.DrawLine(g.view, fX-0.5, fY+5, fX+0.5, fY+25, color.RGBA{255, 0, 0, 150})
-		ebitenutil.DrawLine(g.view, fX-0.5, fY-25, fX+0.5, fY-5, color.RGBA{255, 0, 0, 150})
-	}
+	// 	// draw two red vertical lines focusing on point
+	// 	ebitenutil.DrawLine(g.view, fX-0.5, fY+5, fX+0.5, fY+25, color.RGBA{255, 0, 0, 150})
+	// 	ebitenutil.DrawLine(g.view, fX-0.5, fY-25, fX+0.5, fY-5, color.RGBA{255, 0, 0, 150})
+	// }
 }
 
 //returns an initialised Level struct
 func (g *Game) createLevels(numLevels int) []*raycaster.Level {
-	var arr []*raycaster.Level
-	arr = make([]*raycaster.Level, numLevels)
+	var arr = make([]*raycaster.Level, numLevels)
 
 	for i := 0; i < numLevels; i++ {
 		arr[i] = new(raycaster.Level)
@@ -292,8 +315,7 @@ func (g *Game) createLevels(numLevels int) []*raycaster.Level {
 
 // Creates rectangle slices for each x in width.
 func (g *Game) sliceView() []*image.Rectangle {
-	var arr []*image.Rectangle
-	arr = make([]*image.Rectangle, g.width)
+	var arr = make([]*image.Rectangle, g.width)
 
 	for x := 0; x < g.width; x++ {
 		thisRect := image.Rect(x, 0, x+1, g.height)
@@ -303,15 +325,7 @@ func (g *Game) sliceView() []*image.Rectangle {
 	return arr
 }
 
-func (s *SpriteBatch) draw(texture *ebiten.Image, destinationRectangle *image.Rectangle, sourceRectangle *image.Rectangle, color *color.RGBA) {
-	op := &ebiten.DrawImageOptions{}
-	op.Filter = ebiten.FilterLinear
-
-	if sourceRectangle.Min.X == 0 {
-		// fixes subImage from clipping at edges of textures which can cause gaps
-		sourceRectangle.Min.X++
-		sourceRectangle.Max.X++
-	}
+func (s *SpriteBatch) draw(texture pixel.Picture, destinationRectangle *image.Rectangle, sourceRectangle *image.Rectangle, color *color.RGBA) {
 
 	// if destinationRectangle is not the same size as sourceRectangle, scale to fit
 	var scaleX, scaleY float64 = 1.0, 1.0
@@ -323,26 +337,26 @@ func (s *SpriteBatch) draw(texture *ebiten.Image, destinationRectangle *image.Re
 		scaleY = float64(dSize.Y) / float64(sSize.Y)
 	}
 
-	op.GeoM.Scale(scaleX, scaleY)
-	op.GeoM.Translate(float64(destinationRectangle.Min.X), float64(destinationRectangle.Min.Y))
+	// if s.g.DebugX > destinationRectangle.Min.X && s.g.DebugX <= destinationRectangle.Max.X {
+	// 	for texNum, tex := range s.g.textures {
+	// 		if tex == texture {
+	// 			s.g.DebugPrintfOnce("[debug@%v,%v]: %v | %v < %v * %v,%v\n", s.g.DebugX, s.g.DebugY, destinationRectangle, texNum, sourceRectangle, scaleX, scaleY)
+	// 			return
+	// 		}
+	// 	}
+	// }
 
-	var destTexture *ebiten.Image
-	destTexture = texture.SubImage(*sourceRectangle).(*ebiten.Image)
+	destMat := pixel.IM
+	destMat = destMat.Moved(pixel.Vec{X: texture.Bounds().Max.X / 2, Y: -texture.Bounds().Max.Y / 2})
+	destMat = destMat.ScaledXY(pixel.ZV, pixel.Vec{X: scaleX, Y: scaleY})
+	destMat = destMat.Moved(pixel.Vec{X: float64(destinationRectangle.Min.X), Y: s.g.win.Bounds().Max.Y - float64(destinationRectangle.Min.Y)})
 
-	// color channel modulation/tinting
-	op.ColorM.Scale(float64(color.R)/255, float64(color.G)/255, float64(color.B)/255, float64(color.A)/255)
+	destTexture := pixel.NewSprite(texture, rectangleToRect(sourceRectangle))
+	destTexture.DrawColorMask(s.g.win, destMat, color)
+}
 
-	if s.g.DebugX > destinationRectangle.Min.X && s.g.DebugX <= destinationRectangle.Max.X {
-		for texNum, tex := range s.g.textures {
-			if tex == texture {
-				s.g.DebugPrintfOnce("[debug@%v,%v]: %v | %v < %v * %v,%v\n", s.g.DebugX, s.g.DebugY, destinationRectangle, texNum, sourceRectangle, scaleX, scaleY)
-				return
-			}
-		}
-	}
-
-	view := s.g.view
-	view.DrawImage(destTexture, op)
+func rectangleToRect(r *image.Rectangle) pixel.Rect {
+	return pixel.R(float64(r.Min.X), float64(r.Min.Y), float64(r.Max.X), float64(r.Max.Y))
 }
 
 // DebugPrintfOnce prints info to screen only one time until g.DebugFlag cleared again

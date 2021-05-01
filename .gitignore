@@ -8,7 +8,7 @@
 # Test binary, build with `go test -c`
 *.test
 *.vscode
-debug
+*debug*
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
