@@ -76,6 +76,9 @@ func NewGame() *Game {
 	// initialize Game object
 	g := new(Game)
 
+	ebiten.SetWindowSize(screenWidth, screenHeight)
+	ebiten.SetWindowTitle("Raycaster-Go")
+
 	// use scale to keep the desired window width and height
 	g.width = int(math.Floor(float64(screenWidth) / screenScale))
 	g.height = int(math.Floor(float64(screenHeight) / screenScale))
