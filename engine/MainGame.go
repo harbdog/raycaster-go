@@ -195,10 +195,10 @@ func (g *Game) handleInput() {
 
 	var mx, my float64
 
-	// forward := false
-	// backward := false
-	// rotLeft := false
-	// rotRight := false
+	forward := false
+	backward := false
+	rotLeft := false
+	rotRight := false
 
 	// if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
 	// 	fmt.Printf("mouse left clicked: (%v, %v)\n", mx, my)
@@ -229,31 +229,31 @@ func (g *Game) handleInput() {
 	// 	g.DebugOnce = false
 	// }
 
-	// if ebiten.IsKeyPressed(ebiten.KeyA) || ebiten.IsKeyPressed(ebiten.KeyLeft) {
-	// 	rotLeft = true
-	// }
-	// if ebiten.IsKeyPressed(ebiten.KeyD) || ebiten.IsKeyPressed(ebiten.KeyRight) {
-	// 	rotRight = true
-	// }
+	if g.win.Pressed(pixelgl.KeyA) || g.win.Pressed(pixelgl.KeyLeft) {
+		rotLeft = true
+	}
+	if g.win.Pressed(pixelgl.KeyD) || g.win.Pressed(pixelgl.KeyRight) {
+		rotRight = true
+	}
 
-	// if ebiten.IsKeyPressed(ebiten.KeyW) || ebiten.IsKeyPressed(ebiten.KeyUp) {
-	// 	forward = true
-	// }
-	// if ebiten.IsKeyPressed(ebiten.KeyS) || ebiten.IsKeyPressed(ebiten.KeyDown) {
-	// 	backward = true
-	// }
+	if g.win.Pressed(pixelgl.KeyW) || g.win.Pressed(pixelgl.KeyUp) {
+		forward = true
+	}
+	if g.win.Pressed(pixelgl.KeyS) || g.win.Pressed(pixelgl.KeyDown) {
+		backward = true
+	}
 
-	// if forward {
-	// 	g.camera.Move(0.06)
-	// } else if backward {
-	// 	g.camera.Move(-0.06)
-	// }
+	if forward {
+		g.camera.Move(0.06)
+	} else if backward {
+		g.camera.Move(-0.06)
+	}
 
-	// if rotLeft {
-	// 	g.camera.Rotate(0.03)
-	// } else if rotRight {
-	// 	g.camera.Rotate(-0.03)
-	// }
+	if rotLeft {
+		g.camera.Rotate(0.03)
+	} else if rotRight {
+		g.camera.Rotate(-0.03)
+	}
 }
 
 func (g *Game) draw() {
@@ -264,15 +264,30 @@ func (g *Game) draw() {
 	texRect := image.Rect(0, 0, texSize, texSize)
 
 	floorRect := image.Rect(0, int(float64(g.height)*0.5), g.width, 2*int(float64(g.height)*0.5))
-	g.spriteBatch.draw(g.floor, &floorRect, &texRect, whiteRGBA)
+	g.spriteBatch.draw(g.floor, g.win, &floorRect, &texRect, whiteRGBA)
 
 	skyRect := image.Rect(0, 0, g.width, int(float64(g.height)*0.5))
-	g.spriteBatch.draw(g.sky, &skyRect, &texRect, whiteRGBA)
+	g.spriteBatch.draw(g.sky, g.win, &skyRect, &texRect, whiteRGBA)
+
+	// setup batches for each texture by index, and by level
+	var batches = make([][cap(g.textures)]*pixel.Batch, cap(g.levels))
 
 	//--draw walls--//
 	for x := 0; x < g.width; x++ {
 		for i := cap(g.levels) - 1; i >= 0; i-- {
-			g.spriteBatch.draw(g.textures[g.levels[i].CurrTexNum[x]], g.levels[i].Sv[x], g.levels[i].Cts[x], g.levels[i].St[x])
+			texNum := g.levels[i].CurrTexNum[x]
+			if batches[i][texNum] == nil {
+				batches[i][texNum] = pixel.NewBatch(&pixel.TrianglesData{}, g.textures[texNum])
+			}
+			g.spriteBatch.draw(g.textures[texNum], batches[i][texNum], g.levels[i].Sv[x], g.levels[i].Cts[x], g.levels[i].St[x])
+		}
+	}
+
+	for i := cap(g.levels) - 1; i >= 0; i-- {
+		for b := 0; b < cap(batches[0]); b++ {
+			if batches[i][b] != nil {
+				batches[i][b].Draw(g.win)
+			}
 		}
 	}
 
@@ -325,7 +340,7 @@ func (g *Game) sliceView() []*image.Rectangle {
 	return arr
 }
 
-func (s *SpriteBatch) draw(texture pixel.Picture, destinationRectangle *image.Rectangle, sourceRectangle *image.Rectangle, color *color.RGBA) {
+func (s *SpriteBatch) draw(texture pixel.Picture, target pixel.Target, destinationRectangle *image.Rectangle, sourceRectangle *image.Rectangle, color *color.RGBA) {
 
 	// if destinationRectangle is not the same size as sourceRectangle, scale to fit
 	var scaleX, scaleY float64 = 1.0, 1.0
@@ -352,7 +367,7 @@ func (s *SpriteBatch) draw(texture pixel.Picture, destinationRectangle *image.Re
 	destMat = destMat.Moved(pixel.Vec{X: float64(destinationRectangle.Min.X), Y: s.g.win.Bounds().Max.Y - float64(destinationRectangle.Min.Y)})
 
 	destTexture := pixel.NewSprite(texture, rectangleToRect(sourceRectangle))
-	destTexture.DrawColorMask(s.g.win, destMat, color)
+	destTexture.DrawColorMask(target, destMat, color)
 }
 
 func rectangleToRect(r *image.Rectangle) pixel.Rect {
