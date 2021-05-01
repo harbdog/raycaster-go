@@ -7,7 +7,7 @@ import (
 	"math"
 	"sync"
 
-	"github.com/hajimehoshi/ebiten"
+	"github.com/hajimehoshi/ebiten/v2"
 )
 
 const (
@@ -95,6 +95,7 @@ func NewCamera(width int, height int, texWid int, mapObj *Map, slices []*image.R
 	c := &Camera{}
 
 	// set target FPS (TPS)
+	// TODO: make target FPS customizable
 	c.targetTPS = 60
 	ebiten.SetMaxTPS(c.targetTPS)
 

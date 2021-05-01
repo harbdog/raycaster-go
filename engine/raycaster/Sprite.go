@@ -2,9 +2,10 @@ package raycaster
 
 import (
 	"image"
-	"time"
 
-	"github.com/hajimehoshi/ebiten"
+	_ "image/png"
+
+	"github.com/hajimehoshi/ebiten/v2"
 )
 
 type Sprite struct {
@@ -45,7 +46,7 @@ func NewSpriteFromSheet(x, y float64, img *ebiten.Image, columns, rows int) *Spr
 			cellRect := image.Rect(x, y, x+wCell-1, y+hCell-1)
 			cellImg := img.SubImage(cellRect).(*ebiten.Image)
 
-			cellTarget, _ := ebiten.NewImage(wCell, hCell, ebiten.FilterNearest)
+			cellTarget := ebiten.NewImage(wCell, hCell)
 			cellTarget.DrawImage(cellImg, op)
 
 			s.textures[c+r*c] = cellTarget
@@ -53,20 +54,20 @@ func NewSpriteFromSheet(x, y float64, img *ebiten.Image, columns, rows int) *Spr
 	}
 
 	// TESTING ANIMATION
-	ticker := time.NewTicker(100 * time.Millisecond)
-	quit := make(chan struct{})
-	go func() {
-		for {
-			select {
-			case <-ticker.C:
-				s.X -= 0.1
-				s.nextTexture()
-			case <-quit:
-				ticker.Stop()
-				return
-			}
-		}
-	}()
+	// ticker := time.NewTicker(100 * time.Millisecond)
+	// quit := make(chan struct{})
+	// go func() {
+	// 	for {
+	// 		select {
+	// 		case <-ticker.C:
+	// 			s.X -= 0.1
+	// 			s.nextTexture()
+	// 		case <-quit:
+	// 			ticker.Stop()
+	// 			return
+	// 		}
+	// 	}
+	// }()
 
 	return s
 }

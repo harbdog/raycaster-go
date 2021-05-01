@@ -10,8 +10,10 @@ import (
 	"raycaster-go/engine/raycaster"
 	"runtime"
 
-	"github.com/hajimehoshi/ebiten"
-	"github.com/hajimehoshi/ebiten/ebitenutil"
+	_ "image/png"
+
+	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 )
 
 const (
@@ -139,7 +141,7 @@ func (g *Game) loadContent() {
 func getRGBAFromFile(texFile string) *image.RGBA {
 	var rgba *image.RGBA
 	resourcePath := filepath.Join("engine", "content", "textures")
-	_, tex, err := ebitenutil.NewImageFromFile(filepath.Join(resourcePath, texFile), ebiten.FilterNearest)
+	_, tex, err := ebitenutil.NewImageFromFile(filepath.Join(resourcePath, texFile))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -159,7 +161,7 @@ func getRGBAFromFile(texFile string) *image.RGBA {
 
 func getTextureFromFile(texFile string) *ebiten.Image {
 	resourcePath := filepath.Join("engine", "content", "textures")
-	eImg, _, err := ebitenutil.NewImageFromFile(filepath.Join(resourcePath, texFile), ebiten.FilterNearest)
+	eImg, _, err := ebitenutil.NewImageFromFile(filepath.Join(resourcePath, texFile))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -168,7 +170,7 @@ func getTextureFromFile(texFile string) *ebiten.Image {
 
 func getSpriteFromFile(sFile string) *ebiten.Image {
 	resourcePath := filepath.Join("engine", "content", "sprites")
-	eImg, _, err := ebitenutil.NewImageFromFile(filepath.Join(resourcePath, sFile), ebiten.FilterNearest)
+	eImg, _, err := ebitenutil.NewImageFromFile(filepath.Join(resourcePath, sFile))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -183,34 +185,25 @@ func (g *Game) Run() {
 		ebiten.SetFullscreen(true)
 	}
 
-	if err := ebiten.Run(g.Update, g.width, g.height, screenScale, "Raycaster-Go"); err != nil {
+	if err := ebiten.RunGame(g); err != nil {
 		log.Fatal(err)
 	}
 }
 
-// Update - Allows the game to run logic such as updating the world,
-// checking for collisions, gathering input, and playing audio.
-func (g *Game) Update(screen *ebiten.Image) error {
-	g.view = screen
+// Layout takes the outside size (e.g., the window size) and returns the (logical) screen size.
+// If you don't have to adjust the screen size with the outside size, just return a fixed size.
+func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
+	return screenWidth, screenHeight
+}
 
+// Update - Allows the game to run logic such as updating the world, gathering input, and playing audio.
+// Update is called every tick (1/60 [s] by default).
+func (g *Game) Update() error {
 	// Perform logical updates
 	g.camera.Update()
 
-	// TODO: Add your update logic here
+	// handle input
 	g.handleInput()
-
-	if ebiten.IsDrawingSkipped() {
-		// When the game is running slowly, the rendering result
-		// will not be adopted.
-		return nil
-	}
-
-	// Render game to screen
-	g.draw()
-
-	// TPS counter
-	fps := fmt.Sprintf("TPS: %f/%v", ebiten.CurrentTPS(), ebiten.MaxTPS())
-	ebitenutil.DebugPrint(g.view, fps)
 
 	return nil
 }
@@ -280,7 +273,10 @@ func (g *Game) handleInput() {
 	}
 }
 
-func (g *Game) draw() {
+// Draw draws the game screen.
+// Draw is called every frame (typically 1/60[s] for 60Hz display).
+func (g *Game) Draw(screen *ebiten.Image) {
+	g.view = screen
 	g.view.Clear()
 
 	//--draw basic sky and floor--//
@@ -309,9 +305,9 @@ func (g *Game) draw() {
 	}
 
 	// draw textured floor
-	floorImg, err := ebiten.NewImageFromImage(g.floorLvl.HorBuffer, ebiten.FilterLinear)
-	if err != nil || floorImg == nil {
-		log.Fatal(err)
+	floorImg := ebiten.NewImageFromImage(g.floorLvl.HorBuffer)
+	if floorImg == nil {
+		log.Fatal("floorImg is nil")
 	} else {
 		op := &ebiten.DrawImageOptions{}
 		op.Filter = ebiten.FilterLinear
@@ -349,6 +345,10 @@ func (g *Game) draw() {
 		ebitenutil.DrawLine(g.view, fX-0.5, fY+5, fX+0.5, fY+25, color.RGBA{255, 0, 0, 150})
 		ebitenutil.DrawLine(g.view, fX-0.5, fY-25, fX+0.5, fY-5, color.RGBA{255, 0, 0, 150})
 	}
+
+	// TPS counter
+	fps := fmt.Sprintf("TPS: %f/%v", ebiten.CurrentTPS(), ebiten.MaxTPS())
+	ebitenutil.DebugPrint(g.view, fps)
 }
 
 //returns initialised Level structs
