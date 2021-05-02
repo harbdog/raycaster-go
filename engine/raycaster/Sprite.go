@@ -2,6 +2,7 @@ package raycaster
 
 import (
 	"image"
+	"time"
 
 	_ "image/png"
 
@@ -54,20 +55,20 @@ func NewSpriteFromSheet(x, y float64, img *ebiten.Image, columns, rows int) *Spr
 	}
 
 	// TESTING ANIMATION
-	// ticker := time.NewTicker(100 * time.Millisecond)
-	// quit := make(chan struct{})
-	// go func() {
-	// 	for {
-	// 		select {
-	// 		case <-ticker.C:
-	// 			s.X -= 0.1
-	// 			s.nextTexture()
-	// 		case <-quit:
-	// 			ticker.Stop()
-	// 			return
-	// 		}
-	// 	}
-	// }()
+	ticker := time.NewTicker(100 * time.Millisecond)
+	quit := make(chan struct{})
+	go func() {
+		for {
+			select {
+			case <-ticker.C:
+				s.X -= 0.1
+				s.nextTexture()
+			case <-quit:
+				ticker.Stop()
+				return
+			}
+		}
+	}()
 
 	return s
 }
