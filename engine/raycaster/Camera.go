@@ -12,10 +12,10 @@ import (
 
 const (
 	//--move speed--//
-	moveSpeed = 0.06
+	//moveSpeed = 0.06
 
 	//--rotate speed--//
-	rotSpeed = 0.03
+	//rotSpeed = 0.03
 
 	// maximum number of concurrent tasks for large task sets (e.g. floor and sprite casting)
 	maxConcurrent = 100
@@ -616,8 +616,7 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 			spriteLvl.St[stripe] = &color.RGBA{255, 255, 255, 255}
 
 			//--distance based dimming of light--//
-			var shadowDepth float64
-			shadowDepth = math.Sqrt(transformY) * lightFalloff
+			shadowDepth := math.Sqrt(transformY) * lightFalloff
 			spriteLvl.St[stripe].R = byte(Clamp(int(float64(spriteLvl.St[stripe].R)+shadowDepth+sunLight), 0, 255))
 			spriteLvl.St[stripe].G = byte(Clamp(int(float64(spriteLvl.St[stripe].G)+shadowDepth+sunLight), 0, 255))
 			spriteLvl.St[stripe].B = byte(Clamp(int(float64(spriteLvl.St[stripe].B)+shadowDepth+sunLight), 0, 255))

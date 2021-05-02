@@ -24,8 +24,7 @@ type Level struct {
 
 // SliceView Creates rectangle slices for each x in width.
 func SliceView(width, height int) []*image.Rectangle {
-	var arr []*image.Rectangle
-	arr = make([]*image.Rectangle, width)
+	arr := make([]*image.Rectangle, width)
 
 	for x := 0; x < width; x++ {
 		thisRect := image.Rect(x, 0, x+1, height)
