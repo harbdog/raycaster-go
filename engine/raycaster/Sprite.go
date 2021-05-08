@@ -2,7 +2,6 @@ package raycaster
 
 import (
 	"image"
-	"time"
 
 	_ "image/png"
 
@@ -11,6 +10,8 @@ import (
 
 type Sprite struct {
 	X, Y           float64
+	AnimationRate  int
+	animCounter    int
 	texNum, lenTex int
 	textures       []*ebiten.Image
 }
@@ -26,9 +27,12 @@ func NewSprite(x, y float64, img *ebiten.Image) *Sprite {
 	return s
 }
 
-func NewSpriteFromSheet(x, y float64, img *ebiten.Image, columns, rows int) *Sprite {
+func NewAnimatedSprite(x, y float64, animationRate int, img *ebiten.Image, columns, rows int) *Sprite {
 	s := &Sprite{}
 	s.X, s.Y = x, y
+	s.AnimationRate = animationRate
+	s.animCounter = 0
+
 	s.texNum = 0
 	s.lenTex = columns * rows
 	s.textures = make([]*ebiten.Image, s.lenTex)
@@ -54,29 +58,22 @@ func NewSpriteFromSheet(x, y float64, img *ebiten.Image, columns, rows int) *Spr
 		}
 	}
 
-	// TESTING ANIMATION
-	ticker := time.NewTicker(100 * time.Millisecond)
-	quit := make(chan struct{})
-	go func() {
-		for {
-			select {
-			case <-ticker.C:
-				s.X -= 0.1
-				s.nextTexture()
-			case <-quit:
-				ticker.Stop()
-				return
-			}
-		}
-	}()
-
 	return s
 }
 
-func (s *Sprite) nextTexture() {
-	s.texNum += 1
-	if s.texNum >= s.lenTex {
-		s.texNum = 0
+func (s *Sprite) Update() {
+	if s.AnimationRate <= 0 {
+		return
+	}
+
+	if s.animCounter >= s.AnimationRate {
+		s.animCounter = 0
+		s.texNum += 1
+		if s.texNum >= s.lenTex {
+			s.texNum = 0
+		}
+	} else {
+		s.animCounter++
 	}
 }
 

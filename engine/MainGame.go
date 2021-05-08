@@ -203,10 +203,13 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 // Update is called every tick (1/60 [s] by default).
 func (g *Game) Update() error {
 	// Perform logical updates
-	g.camera.Update()
+	g.updateSprites()
 
 	// handle input
 	g.handleInput()
+
+	// Update camera (calculate raycast)
+	g.camera.Update()
 
 	return nil
 }
@@ -274,6 +277,18 @@ func (g *Game) handleInput() {
 			g.camera.Rotate(-0.03)
 		}
 	}
+}
+
+func (g *Game) updateSprites() {
+	// Testing animated sprite movement
+	s := g.mapObj.GetSprite(0)
+	vX := -0.02
+	if g.mapObj.GetAt(int(s.X+vX*10), int(s.Y)) == 0 {
+		// terrible but simple boundary check to prevent phasing through wall
+		// TODO: use size of sprite to determine proper boundary test
+		s.X += vX
+	}
+	s.Update()
 }
 
 // Draw draws the game screen.
@@ -356,8 +371,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 //returns initialised Level structs
 func (g *Game) createLevels(numLevels int) ([]*raycaster.Level, *raycaster.HorLevel) {
-	var levelArr []*raycaster.Level
-	levelArr = make([]*raycaster.Level, numLevels)
+	levelArr := make([]*raycaster.Level, numLevels)
 
 	for i := 0; i < numLevels; i++ {
 		levelArr[i] = new(raycaster.Level)
@@ -377,8 +391,7 @@ func (g *Game) createSpriteLevels() []*raycaster.Level {
 	// create empty "level" for all sprites to render using similar slice methods as walls
 	numSprites := g.mapObj.GetNumSprites()
 
-	var spriteArr []*raycaster.Level
-	spriteArr = make([]*raycaster.Level, numSprites)
+	spriteArr := make([]*raycaster.Level, numSprites)
 
 	return spriteArr
 }
@@ -410,8 +423,7 @@ func (s *SpriteBatch) draw(texture *ebiten.Image, destinationRectangle *image.Re
 	op.GeoM.Scale(scaleX, scaleY)
 	op.GeoM.Translate(float64(destinationRectangle.Min.X), float64(destinationRectangle.Min.Y))
 
-	var destTexture *ebiten.Image
-	destTexture = texture.SubImage(*sourceRectangle).(*ebiten.Image)
+	destTexture := texture.SubImage(*sourceRectangle).(*ebiten.Image)
 
 	if color != nil {
 		// color channel modulation/tinting

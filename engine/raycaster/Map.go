@@ -102,7 +102,7 @@ func NewMap(tex *TextureHandler) *Map {
 func (m *Map) LoadSprites() {
 	m.sprite = []*Sprite{
 		// // sorcerer
-		NewSpriteFromSheet(20, 11.5, m.tex.Textures[15], 10, 1),
+		NewAnimatedSprite(20, 11.5, 5, m.tex.Textures[15], 10, 1),
 
 		// // line of trees for testing in front of initial view
 		NewSprite(19.5, 11.5, m.tex.Textures[10]),
@@ -161,8 +161,16 @@ func (m *Map) LoadSprites() {
 	m.numSprites = len(m.sprite)
 }
 
+func (m *Map) GetAt(x, y int) int {
+	return m.worldMap[x][y]
+}
+
 func (m *Map) getSprites() []*Sprite {
 	return m.sprite
+}
+
+func (m *Map) GetSprite(index int) *Sprite {
+	return m.sprite[index]
 }
 
 func (m *Map) GetNumSprites() int {
