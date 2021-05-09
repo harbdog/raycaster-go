@@ -6,6 +6,7 @@ import (
 	"image/color"
 	"log"
 	"math"
+	"math/rand"
 	"path/filepath"
 	"raycaster-go/engine/raycaster"
 	"runtime"
@@ -104,6 +105,9 @@ func NewGame() *Game {
 	// give sprite a sample velocity for movement
 	s := g.mapObj.GetSprite(0)
 	s.Vx = -0.02
+	// give sprite custom bounds for collision instead of using image bounds
+	s.W = int(s.Scale * 85)
+	s.H = int(s.Scale * 126)
 
 	//--init camera--//
 	g.camera = raycaster.NewCamera(g.width, g.height, texSize, g.mapObj, g.slices, g.levels, g.floorLvl, g.spriteLvls, g.tex)
@@ -289,14 +293,38 @@ func (g *Game) updateSprites() {
 
 	for _, s := range sprites {
 		if s.Vx != 0 || s.Vy != 0 {
-			if g.mapObj.GetAt(int(s.X+s.Vx*10), int(s.Y)) == 0 {
-				// terrible but simple boundary check to prevent phasing through wall
-				// TODO: use size of sprite to determine proper boundary test
+			horBounds := float64(s.W/2) / float64(texSize)
+
+			xCheck := int(s.X)
+			yCheck := int(s.Y)
+			if s.Vx > 0 {
+				xCheck = int(s.X + s.Vx + horBounds)
+			} else if s.Vx < 0 {
+				xCheck = int(s.X + s.Vx - horBounds)
+			}
+
+			if s.Vy > 0 {
+				yCheck = int(s.Y + s.Vy + horBounds)
+			} else if s.Vy < 0 {
+				yCheck = int(s.Y + s.Vy - horBounds)
+			}
+
+			if g.mapObj.GetAt(xCheck, yCheck) == 0 {
+				// simple collision check to prevent phasing through walls
 				s.X += s.Vx
+				s.Y += s.Vy
+			} else {
+				// for testing purposes, letting the sample sprite ping pong off walls in somewhat random direction
+				s.Vx = randFloat(-0.03, 0.03)
+				s.Vy = randFloat(-0.03, 0.03)
 			}
 		}
 		s.Update()
 	}
+}
+
+func randFloat(min, max float64) float64 {
+	return min + rand.Float64()*(max-min)
 }
 
 // Draw draws the game screen.
