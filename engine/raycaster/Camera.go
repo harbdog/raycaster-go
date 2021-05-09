@@ -127,7 +127,7 @@ func NewCamera(width int, height int, texWid int, mapObj *Map, slices []*image.R
 	c.upMap = c.mapObj.getGridUp()
 	c.midMap = c.mapObj.getGridMid()
 
-	c.sprite = c.mapObj.getSprites()
+	c.sprite = c.mapObj.GetSprites()
 	c.spriteOrder = make([]int, c.mapObj.numSprites)
 	c.spriteDistance = make([]float64, c.mapObj.numSprites)
 

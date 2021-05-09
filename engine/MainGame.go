@@ -101,6 +101,10 @@ func NewGame() *Game {
 	g.mapObj.LoadSprites()
 	g.spriteLvls = g.createSpriteLevels()
 
+	// give sprite a sample velocity for movement
+	s := g.mapObj.GetSprite(0)
+	s.Vx = -0.02
+
 	//--init camera--//
 	g.camera = raycaster.NewCamera(g.width, g.height, texSize, g.mapObj, g.slices, g.levels, g.floorLvl, g.spriteLvls, g.tex)
 
@@ -281,14 +285,18 @@ func (g *Game) handleInput() {
 
 func (g *Game) updateSprites() {
 	// Testing animated sprite movement
-	s := g.mapObj.GetSprite(0)
-	vX := -0.02
-	if g.mapObj.GetAt(int(s.X+vX*10), int(s.Y)) == 0 {
-		// terrible but simple boundary check to prevent phasing through wall
-		// TODO: use size of sprite to determine proper boundary test
-		s.X += vX
+	sprites := g.mapObj.GetSprites()
+
+	for _, s := range sprites {
+		if s.Vx != 0 || s.Vy != 0 {
+			if g.mapObj.GetAt(int(s.X+s.Vx*10), int(s.Y)) == 0 {
+				// terrible but simple boundary check to prevent phasing through wall
+				// TODO: use size of sprite to determine proper boundary test
+				s.X += s.Vx
+			}
+		}
+		s.Update()
 	}
-	s.Update()
 }
 
 // Draw draws the game screen.
