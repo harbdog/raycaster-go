@@ -216,9 +216,6 @@ func (g *Game) Update() error {
 	// handle input
 	g.handleInput()
 
-	// Update camera (calculate raycast)
-	g.camera.Update()
-
 	return nil
 }
 
@@ -293,6 +290,8 @@ func (g *Game) updateSprites() {
 
 	for _, s := range sprites {
 		if s.Vx != 0 || s.Vy != 0 {
+			// TODO: use ebiten.CurrentTPS() to determine actual velicity amount to move sprite per tick
+
 			horBounds := float64(s.W/2) / float64(texSize)
 
 			xCheck := int(s.X)
@@ -332,6 +331,9 @@ func randFloat(min, max float64) float64 {
 func (g *Game) Draw(screen *ebiten.Image) {
 	g.view = screen
 	g.view.Clear()
+
+	// Update camera (calculate raycast)
+	g.camera.Update()
 
 	//--draw basic sky and floor--//
 	texRect := image.Rect(0, 0, texSize, texSize)
@@ -400,8 +402,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		ebitenutil.DrawLine(g.view, fX-0.5, fY-25, fX+0.5, fY-5, color.RGBA{255, 0, 0, 150})
 	}
 
-	// TPS counter
-	fps := fmt.Sprintf("TPS: %f/%v", ebiten.CurrentTPS(), ebiten.MaxTPS())
+	// FPS/TPS counter
+	fps := fmt.Sprintf("FPS: %f\nTPS: %f/%v", ebiten.CurrentFPS(), ebiten.CurrentTPS(), ebiten.MaxTPS())
 	ebitenutil.DebugPrint(g.view, fps)
 }
 
