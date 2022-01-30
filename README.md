@@ -11,7 +11,9 @@ To install and run from source the following are required:
 2. Clone/download this project locally.
 3. From the project folder use the following command to download the Go module dependencies of this project:
     * `[path/to/raycaster-go]$ go mod download`
-4. Now you can use the `go run` command to run `raycast.go`:
+4. The Ebiten game library may have [additional dependencies to install](https://ebiten.org/documents/install.html),
+   depending on the OS.
+5. Now you can use the `go run` command to run `raycast.go`:
     * `[path/to/raycaster-go]$ go run raycast.go`
 
 ## Controls
