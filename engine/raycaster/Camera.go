@@ -11,17 +11,18 @@ import (
 )
 
 const (
-	//--move speed--//
-	//moveSpeed = 0.06
-
-	//--rotate speed--//
-	//rotSpeed = 0.03
-
 	// maximum number of concurrent tasks for large task sets (e.g. floor and sprite casting)
 	maxConcurrent = 100
 
 	// constant used for movement target framerate to prevent higher framerates from moving too fast
 	movementTPS = 60.0
+)
+
+type MouseMode int
+
+const (
+	MouseModeMove MouseMode = iota
+	MouseModeCursor
 )
 
 // Camera Class that represents a camera in terms of raycasting.
@@ -84,6 +85,16 @@ type Camera struct {
 type Vector2 struct {
 	X float64
 	Y float64
+}
+
+func (v *Vector2) Add(v2 *Vector2) *Vector2 {
+	v.X += v2.X
+	v.Y += v2.Y
+	return v
+}
+
+func (v *Vector2) Copy() *Vector2 {
+	return &Vector2{X: v.X, Y: v.Y}
 }
 
 // NewCamera initalizes a Camera object
@@ -678,6 +689,7 @@ func (c *Camera) getNormalSpeed(speed float64) float64 {
 
 // Move camera by move speed
 func (c *Camera) Move(mSpeed float64) {
+	// TODO: figure our correct speed for X separately from Y when moving at an angle (use triangle math)
 	mSpeed = c.getNormalSpeed(mSpeed)
 
 	if c.worldMap[int(c.pos.X+c.dir.X*mSpeed*12)][int(c.pos.Y)] <= 0 {
@@ -690,6 +702,7 @@ func (c *Camera) Move(mSpeed float64) {
 
 // Strafe camera by strafe speed
 func (c *Camera) Strafe(sSpeed float64) {
+	// TODO: figure our correct speed for X separately from Y when moving at an angle (use triangle math)
 	sSpeed = c.getNormalSpeed(sSpeed)
 
 	if c.worldMap[int(c.pos.X+c.plane.X*sSpeed*12)][int(c.pos.Y)] <= 0 {
