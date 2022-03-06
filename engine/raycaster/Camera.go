@@ -16,6 +16,9 @@ const (
 
 	// constant used for movement target framerate to prevent higher framerates from moving too fast
 	movementTPS = 60.0
+
+	// unit distance to keep camera away from wall to avoid clipping
+	clipDistance = 0.25
 )
 
 type MouseMode int
@@ -687,30 +690,55 @@ func (c *Camera) getNormalSpeed(speed float64) float64 {
 	return speed * movementTPS / float64(c.targetTPS)
 }
 
+// checks for valid move from current position, returns valid (x, y) position
+func (c *Camera) getValidMove(newX, newY float64) (float64, float64) {
+	posX := c.pos.X
+	posY := c.pos.Y
+
+	ix := int(newX)
+	iy := int(newY)
+	switch {
+	case ix < 0:
+		ix = 0
+		newX = clipDistance
+	case ix >= len(c.worldMap):
+		ix = len(c.worldMap) - 1
+		newX = float64(ix) - clipDistance
+	}
+
+	switch {
+	case iy < 0:
+		iy = 0
+		newY = clipDistance
+	case iy >= len(c.worldMap[0]):
+		iy = len(c.worldMap[0]) - 1
+		newY = float64(iy) - clipDistance
+	}
+
+	if c.worldMap[ix][iy] <= 0 {
+		posX = newX
+	}
+	if c.worldMap[int(posX)][iy] <= 0 {
+		posY = newY
+	}
+
+	return posX, posY
+}
+
 // Move camera by move speed
 func (c *Camera) Move(mSpeed float64) {
-	// TODO: figure our correct speed for X separately from Y when moving at an angle (use triangle math)
 	mSpeed = c.getNormalSpeed(mSpeed)
-
-	if c.worldMap[int(c.pos.X+c.dir.X*mSpeed*12)][int(c.pos.Y)] <= 0 {
-		c.pos.X += (c.dir.X * mSpeed)
-	}
-	if c.worldMap[int(c.pos.X)][int(c.pos.Y+c.dir.Y*mSpeed*12)] <= 0 {
-		c.pos.Y += (c.dir.Y * mSpeed)
-	}
+	mx := c.pos.X + (c.dir.X * mSpeed)
+	my := c.pos.Y + (c.dir.Y * mSpeed)
+	c.pos.X, c.pos.Y = c.getValidMove(mx, my)
 }
 
 // Strafe camera by strafe speed
 func (c *Camera) Strafe(sSpeed float64) {
-	// TODO: figure our correct speed for X separately from Y when moving at an angle (use triangle math)
 	sSpeed = c.getNormalSpeed(sSpeed)
-
-	if c.worldMap[int(c.pos.X+c.plane.X*sSpeed*12)][int(c.pos.Y)] <= 0 {
-		c.pos.X += (c.plane.X * sSpeed)
-	}
-	if c.worldMap[int(c.pos.X)][int(c.pos.Y+c.plane.Y*sSpeed*12)] <= 0 {
-		c.pos.Y += (c.plane.Y * sSpeed)
-	}
+	sx := c.pos.X + (c.plane.X * sSpeed)
+	sy := c.pos.Y + (c.plane.Y * sSpeed)
+	c.pos.X, c.pos.Y = c.getValidMove(sx, sy)
 }
 
 // Rotate camera by rotate speed
