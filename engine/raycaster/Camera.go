@@ -702,8 +702,8 @@ func (c *Camera) getValidMove(newX, newY float64) (float64, float64) {
 		ix = 0
 		newX = clipDistance
 	case ix >= len(c.worldMap):
-		ix = len(c.worldMap) - 1
-		newX = float64(ix) - clipDistance
+		newX = float64(len(c.worldMap)) - clipDistance
+		ix = int(newX)
 	}
 
 	switch {
@@ -711,14 +711,12 @@ func (c *Camera) getValidMove(newX, newY float64) (float64, float64) {
 		iy = 0
 		newY = clipDistance
 	case iy >= len(c.worldMap[0]):
-		iy = len(c.worldMap[0]) - 1
-		newY = float64(iy) - clipDistance
+		newY = float64(len(c.worldMap[0])) - clipDistance
+		iy = int(newY)
 	}
 
 	if c.worldMap[ix][iy] <= 0 {
 		posX = newX
-	}
-	if c.worldMap[int(posX)][iy] <= 0 {
 		posY = newY
 	}
 
