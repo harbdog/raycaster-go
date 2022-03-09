@@ -235,7 +235,7 @@ func (g *Game) handleInput() {
 
 	moveModifier := 1.0
 	if ebiten.IsKeyPressed(ebiten.KeyShift) {
-		moveModifier = 6.0 // TODO: 2.0
+		moveModifier = 2.0
 	}
 
 	switch {

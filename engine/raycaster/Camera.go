@@ -693,11 +693,15 @@ func (c *Camera) getNormalSpeed(speed float64) float64 {
 }
 
 // checks for valid move from current position, returns valid (x, y) position
-func (c *Camera) getValidMove(moveX, moveY float64) (float64, float64) {
+func (c *Camera) getValidMove(moveX, moveY float64, checkAlternate bool) (float64, float64) {
 	posX := c.pos.X
 	posY := c.pos.Y
 	newX := moveX
 	newY := moveY
+
+	if posX == newX && posY == moveY {
+		return posX, posY
+	}
 
 	ix := int(newX)
 	iy := int(newY)
@@ -749,10 +753,28 @@ func (c *Camera) getValidMove(moveX, moveY float64) (float64, float64) {
 		angle := moveLine.Angle()
 
 		// generate new move line using calculated angle and safe distance from intersecting point
-		moveLine = LineFromAngle(posX, posY, angle, dist-0.0001)
+		moveLine = LineFromAngle(posX, posY, angle, dist-0.01)
 
 		newX, newY = moveLine.X2, moveLine.Y2
 		ix, iy = int(newX), int(newY)
+
+		// if either X or Y direction was already intersecting, attempt move only in the adjacent direction
+		if checkAlternate {
+			xDiff := math.Abs(newX - posX)
+			yDiff := math.Abs(newY - posY)
+			switch {
+			case xDiff <= 0.01:
+				// no more room to move in X, try to move only Y
+				// fmt.Printf("\t[@%v,%v] move to (%v,%v) try adjacent move to {%v,%v}\n",
+				// 	c.pos.X, c.pos.Y, moveX, moveY, posX, moveY)
+				return c.getValidMove(posX, moveY, false)
+			case yDiff <= 0.01:
+				// no more room to move in Y, try to move only X
+				// fmt.Printf("\t[@%v,%v] move to (%v,%v) try adjacent move to {%v,%v}\n",
+				// 	c.pos.X, c.pos.Y, moveX, moveY, moveX, posY)
+				return c.getValidMove(moveX, posY, false)
+			}
+		}
 
 		// fmt.Printf("[@%v,%v] move to (%v,%v) intersects at {%v,%v}\n",
 		// 	c.pos.X, c.pos.Y, moveX, moveY, newX, newY)
@@ -771,7 +793,7 @@ func (c *Camera) Move(mSpeed float64) {
 	mSpeed = c.getNormalSpeed(mSpeed)
 	mx := c.pos.X + (c.dir.X * mSpeed)
 	my := c.pos.Y + (c.dir.Y * mSpeed)
-	c.pos.X, c.pos.Y = c.getValidMove(mx, my)
+	c.pos.X, c.pos.Y = c.getValidMove(mx, my, true)
 }
 
 // Strafe camera by strafe speed
@@ -779,7 +801,7 @@ func (c *Camera) Strafe(sSpeed float64) {
 	sSpeed = c.getNormalSpeed(sSpeed)
 	sx := c.pos.X + (c.plane.X * sSpeed)
 	sy := c.pos.Y + (c.plane.Y * sSpeed)
-	c.pos.X, c.pos.Y = c.getValidMove(sx, sy)
+	c.pos.X, c.pos.Y = c.getValidMove(sx, sy, true)
 }
 
 // Rotate camera by rotate speed
