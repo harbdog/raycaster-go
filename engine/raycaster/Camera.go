@@ -18,7 +18,7 @@ const (
 	movementTPS = 60.0
 
 	// unit distance to keep camera away from wall to avoid clipping
-	clipDistance = 0.25
+	clipDistance = 0.1
 )
 
 type MouseMode int
@@ -49,10 +49,11 @@ type Camera struct {
 	targetTPS int
 
 	//--world map--//
-	mapObj   *Map
-	worldMap [][]int
-	upMap    [][]int
-	midMap   [][]int
+	mapObj       *Map
+	worldMap     [][]int
+	upMap        [][]int
+	midMap       [][]int
+	collisionMap []Line
 
 	//--texture width--//
 	texWidth int
@@ -140,6 +141,7 @@ func NewCamera(width int, height int, texWid int, mapObj *Map, slices []*image.R
 	c.worldMap = c.mapObj.getGrid()
 	c.upMap = c.mapObj.getGridUp()
 	c.midMap = c.mapObj.getGridMid()
+	c.collisionMap = c.mapObj.getCollisionLines()
 
 	c.sprite = c.mapObj.GetSprites()
 	c.spriteOrder = make([]int, c.mapObj.numSprites)
@@ -691,28 +693,69 @@ func (c *Camera) getNormalSpeed(speed float64) float64 {
 }
 
 // checks for valid move from current position, returns valid (x, y) position
-func (c *Camera) getValidMove(newX, newY float64) (float64, float64) {
+func (c *Camera) getValidMove(moveX, moveY float64) (float64, float64) {
 	posX := c.pos.X
 	posY := c.pos.Y
+	newX := moveX
+	newY := moveY
 
 	ix := int(newX)
 	iy := int(newY)
+
+	// prevent index out of bounds errors
 	switch {
-	case ix < 0:
-		ix = 0
+	case ix < 0 || newX < 0:
 		newX = clipDistance
+		ix = 0
 	case ix >= len(c.worldMap):
 		newX = float64(len(c.worldMap)) - clipDistance
 		ix = int(newX)
 	}
 
 	switch {
-	case iy < 0:
-		iy = 0
+	case iy < 0 || newY < 0:
 		newY = clipDistance
+		iy = 0
 	case iy >= len(c.worldMap[0]):
 		newY = float64(len(c.worldMap[0])) - clipDistance
 		iy = int(newY)
+	}
+
+	moveLine := Line{posX, posY, newX, newY}
+
+	intersectPoints := [][2]float64{}
+	for _, borderLine := range c.collisionMap {
+		// TODO: only check intersection of nearby wall cells instead of all of them
+		if px, py, ok := Intersection(moveLine, borderLine); ok {
+			intersectPoints = append(intersectPoints, [2]float64{px, py})
+		}
+	}
+
+	if len(intersectPoints) > 0 {
+		// find the point closest to the start position
+		min := math.Inf(1)
+		minI := -1
+		for i, p := range intersectPoints {
+			d2 := Distance2(posX, posY, p[0], p[1])
+			if d2 < min {
+				min = d2
+				minI = i
+			}
+		}
+
+		// use the closest intersecting point to determine a safe distance to make the move
+		moveLine = Line{posX, posY, intersectPoints[minI][0], intersectPoints[minI][1]}
+		dist := math.Sqrt(min)
+		angle := moveLine.Angle()
+
+		// generate new move line using calculated angle and safe distance from intersecting point
+		moveLine = LineFromAngle(posX, posY, angle, dist-0.0001)
+
+		newX, newY = moveLine.X2, moveLine.Y2
+		ix, iy = int(newX), int(newY)
+
+		// fmt.Printf("[@%v,%v] move to (%v,%v) intersects at {%v,%v}\n",
+		// 	c.pos.X, c.pos.Y, moveX, moveY, newX, newY)
 	}
 
 	if c.worldMap[ix][iy] <= 0 {

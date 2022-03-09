@@ -188,3 +188,23 @@ func (m *Map) getGridUp() [][]int {
 func (m *Map) getGridMid() [][]int {
 	return m.midMap
 }
+
+func (m *Map) getCollisionLines() []Line {
+	if len(m.worldMap) == 0 || len(m.worldMap[0]) == 0 {
+		return []Line{}
+	}
+
+	lines := Rect(clipDistance, clipDistance,
+		float64(len(m.worldMap))-clipDistance, float64(len(m.worldMap[0]))-clipDistance)
+
+	for x, row := range m.worldMap {
+		for y, value := range row {
+			if value > 0 {
+				lines = append(lines, Rect(float64(x)-clipDistance, float64(y)-clipDistance,
+					1.0+(2*clipDistance), 1.0+(2*clipDistance))...)
+			}
+		}
+	}
+
+	return lines
+}

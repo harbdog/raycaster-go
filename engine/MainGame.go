@@ -52,7 +52,7 @@ type Game struct {
 	floor *ebiten.Image
 	sky   *ebiten.Image
 
-	//--array of levels, levels reffer to "floors" of the world--//
+	//--array of levels, levels refer to "floors" of the world--//
 	mapObj     *raycaster.Map
 	levels     []*raycaster.Level
 	spriteLvls []*raycaster.Level
@@ -285,9 +285,6 @@ func (g *Game) handleInput() {
 		default:
 			dx, dy := g.mouseX-x, g.mouseY-y
 			g.mouseX, g.mouseY = x, y
-			if dx != 0 || dy != 0 {
-				fmt.Printf("[delta: %v,%v]\t", dx, dy)
-			}
 
 			if dx != 0 {
 				g.camera.Rotate(0.005 * float64(dx) * moveModifier)
