@@ -240,12 +240,21 @@ func (g *Game) handleInput() {
 
 	switch {
 	case ebiten.IsKeyPressed(ebiten.KeyControl):
-		ebiten.SetCursorMode(ebiten.CursorModeVisible)
-		g.mouseMode = raycaster.MouseModeCursor
+		if g.mouseMode != raycaster.MouseModeCursor {
+			ebiten.SetCursorMode(ebiten.CursorModeVisible)
+			g.mouseMode = raycaster.MouseModeCursor
+		}
 
-	case g.mouseMode != raycaster.MouseModeMove:
+	case ebiten.IsKeyPressed(ebiten.KeyAlt):
+		if g.mouseMode != raycaster.MouseModeMove {
+			ebiten.SetCursorMode(ebiten.CursorModeCaptured)
+			g.mouseMode = raycaster.MouseModeMove
+			g.mouseX, g.mouseY = math.MinInt32, math.MinInt32
+		}
+
+	case g.mouseMode != raycaster.MouseModeLook:
 		ebiten.SetCursorMode(ebiten.CursorModeCaptured)
-		g.mouseMode = raycaster.MouseModeMove
+		g.mouseMode = raycaster.MouseModeLook
 		g.mouseX, g.mouseY = math.MinInt32, math.MinInt32
 	}
 
@@ -294,6 +303,27 @@ func (g *Game) handleInput() {
 				g.camera.Move(0.01 * float64(dy) * moveModifier)
 			}
 		}
+	case raycaster.MouseModeLook:
+		x, y := ebiten.CursorPosition()
+		switch {
+		case g.mouseX == math.MinInt32 && g.mouseY == math.MinInt32:
+			// initialize first position to establish delta
+			if x != 0 && y != 0 {
+				g.mouseX, g.mouseY = x, y
+			}
+
+		default:
+			dx, dy := g.mouseX-x, g.mouseY-y
+			g.mouseX, g.mouseY = x, y
+
+			if dx != 0 {
+				g.camera.Rotate(0.005 * float64(dx) * moveModifier)
+			}
+
+			if dy != 0 {
+				g.camera.Pitch(dy)
+			}
+		}
 	}
 
 	if ebiten.IsKeyPressed(ebiten.KeyA) || ebiten.IsKeyPressed(ebiten.KeyLeft) {
@@ -316,7 +346,7 @@ func (g *Game) handleInput() {
 		g.camera.Move(-0.06 * moveModifier)
 	}
 
-	if ebiten.IsKeyPressed(ebiten.KeyAlt) || g.mouseMode == raycaster.MouseModeMove {
+	if g.mouseMode == raycaster.MouseModeLook || g.mouseMode == raycaster.MouseModeMove {
 		// strafe instead of rotate
 		if rotLeft {
 			g.camera.Strafe(-0.05 * moveModifier)
@@ -387,18 +417,11 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	texRect := image.Rect(0, 0, texSize, texSize)
 	whiteRGBA := &color.RGBA{255, 255, 255, 255}
 
-	// spriteBatch.Draw(floor,
-	//    new Rectangle(0, (int)(height * 0.5f), width, (int)(height * 0.5f)),
-	//    new Rectangle(0, 0, texSize, texSize),
-	//    Color.White);
-	floorRect := image.Rect(0, int(float64(g.height)*0.5), g.width, 2*int(float64(g.height)*0.5))
+	floorRect := image.Rect(0, int(float64(g.height)*0.5)+g.camera.GetPitch(),
+		g.width, 2*int(float64(g.height)*0.5)-g.camera.GetPitch())
 	g.spriteBatch.draw(g.floor, &floorRect, &texRect, whiteRGBA)
 
-	// spriteBatch.Draw(sky,
-	//    new Rectangle(0, 0, width, (int)(height * 0.5f)),
-	//    new Rectangle(0, 0, texSize, texSize),
-	//    Color.White);
-	skyRect := image.Rect(0, 0, g.width, int(float64(g.height)*0.5))
+	skyRect := image.Rect(0, 0, g.width, int(float64(g.height)*0.5)+g.camera.GetPitch())
 	g.spriteBatch.draw(g.sky, &skyRect, &texRect, whiteRGBA)
 
 	//--draw walls--//

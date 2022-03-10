@@ -24,7 +24,8 @@ const (
 type MouseMode int
 
 const (
-	MouseModeMove MouseMode = iota
+	MouseModeLook MouseMode = iota
+	MouseModeMove
 	MouseModeCursor
 )
 
@@ -44,6 +45,9 @@ type Camera struct {
 	//--viewport width and height--//
 	w int
 	h int
+
+	// camera pitch
+	pitch int
 
 	// target framerate reference
 	targetTPS int
@@ -123,6 +127,7 @@ func NewCamera(width int, height int, texWid int, mapObj *Map, slices []*image.R
 
 	c.w = width
 	c.h = height
+	c.pitch = 0
 	c.texWidth = texWid
 	c.s = slices
 	c.lvls = levels
@@ -180,7 +185,7 @@ func (c *Camera) preCalcCamX() {
 func (c *Camera) preCalcCamY() {
 	c.camY = make([]float64, c.h)
 	for y := 0; y < c.h; y++ {
-		c.camY[y] = float64(c.h) / (2.0*float64(y) - float64(c.h))
+		c.camY[y] = float64(c.h) / (2.0*float64(y-c.pitch) - float64(c.h))
 	}
 }
 
@@ -200,7 +205,7 @@ func (c *Camera) raycast() {
 	numSprites := c.mapObj.numSprites
 	for i := 0; i < numSprites; i++ {
 		c.spriteOrder[i] = i
-		c.spriteDistance[i] = ((c.pos.X-c.sprite[i].X)*(c.pos.X-c.sprite[i].X) + (c.pos.Y-c.sprite[i].Y)*(c.pos.Y-c.sprite[i].Y)) //sqrt not taken, unneeded
+		c.spriteDistance[i] = (math.Pow(c.pos.X-c.sprite[i].X, 2) + math.Pow(c.pos.Y-c.sprite[i].Y, 2))
 	}
 	combSort(c.spriteOrder, c.spriteDistance, numSprites)
 
@@ -345,7 +350,7 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *Level, levelNum int, wg *sy
 	lineHeight := int(float64(c.h) / perpWallDist)
 
 	//calculate lowest and highest pixel to fill in current stripe
-	drawStart := (-lineHeight/2 + c.h/2) - lineHeight*levelNum
+	drawStart := (-lineHeight/2 + c.h/2) + c.pitch - lineHeight*levelNum
 	drawEnd := drawStart + lineHeight
 
 	//--due to modern way of drawing using quads this is removed to avoid glitches at the edges--//
@@ -546,7 +551,7 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 	var uDiv = 1
 	var vDiv = 1
 	var vMove = 0.0
-	vMoveScreen := int(vMove / transformY)
+	vMoveScreen := int(vMove/transformY) + c.pitch
 
 	//calculate height of the sprite on screen
 	spriteHeight := int(math.Abs(float64(c.h)/transformY) / float64(vDiv)) //using "transformY" instead of the real distance prevents fisheye
@@ -815,6 +820,20 @@ func (c *Camera) Rotate(rSpeed float64) {
 	oldPlaneX := c.plane.X
 	c.plane.X = (c.plane.X*math.Cos(rSpeed) - c.plane.Y*math.Sin(rSpeed))
 	c.plane.Y = (oldPlaneX*math.Sin(rSpeed) + c.plane.Y*math.Cos(rSpeed))
+}
+
+// Get current pitch value
+func (c *Camera) GetPitch() int {
+	return c.pitch
+}
+
+// Pitch camera by pitch delta
+func (c *Camera) Pitch(pDelta int) {
+	newPitch := Clamp(c.pitch+pDelta, -c.h/2, c.h/2)
+	if newPitch != c.pitch {
+		c.pitch = newPitch
+		c.preCalcCamY()
+	}
 }
 
 // Clamp - converted C# method MathHelper.Clamp
