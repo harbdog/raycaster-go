@@ -11,17 +11,21 @@ import (
 )
 
 const (
-	//--move speed--//
-	//moveSpeed = 0.06
-
-	//--rotate speed--//
-	//rotSpeed = 0.03
-
 	// maximum number of concurrent tasks for large task sets (e.g. floor and sprite casting)
 	maxConcurrent = 100
 
 	// constant used for movement target framerate to prevent higher framerates from moving too fast
 	movementTPS = 60.0
+
+	// unit distance to keep camera away from wall to avoid clipping
+	clipDistance = 0.1
+)
+
+type MouseMode int
+
+const (
+	MouseModeMove MouseMode = iota
+	MouseModeCursor
 )
 
 // Camera Class that represents a camera in terms of raycasting.
@@ -45,10 +49,11 @@ type Camera struct {
 	targetTPS int
 
 	//--world map--//
-	mapObj   *Map
-	worldMap [][]int
-	upMap    [][]int
-	midMap   [][]int
+	mapObj       *Map
+	worldMap     [][]int
+	upMap        [][]int
+	midMap       [][]int
+	collisionMap []Line
 
 	//--texture width--//
 	texWidth int
@@ -84,6 +89,16 @@ type Camera struct {
 type Vector2 struct {
 	X float64
 	Y float64
+}
+
+func (v *Vector2) Add(v2 *Vector2) *Vector2 {
+	v.X += v2.X
+	v.Y += v2.Y
+	return v
+}
+
+func (v *Vector2) Copy() *Vector2 {
+	return &Vector2{X: v.X, Y: v.Y}
 }
 
 // NewCamera initalizes a Camera object
@@ -126,6 +141,7 @@ func NewCamera(width int, height int, texWid int, mapObj *Map, slices []*image.R
 	c.worldMap = c.mapObj.getGrid()
 	c.upMap = c.mapObj.getGridUp()
 	c.midMap = c.mapObj.getGridMid()
+	c.collisionMap = c.mapObj.getCollisionLines()
 
 	c.sprite = c.mapObj.GetSprites()
 	c.spriteOrder = make([]int, c.mapObj.numSprites)
@@ -676,28 +692,116 @@ func (c *Camera) getNormalSpeed(speed float64) float64 {
 	return speed * movementTPS / float64(c.targetTPS)
 }
 
+// checks for valid move from current position, returns valid (x, y) position
+func (c *Camera) getValidMove(moveX, moveY float64, checkAlternate bool) (float64, float64) {
+	posX := c.pos.X
+	posY := c.pos.Y
+	newX := moveX
+	newY := moveY
+
+	if posX == newX && posY == moveY {
+		return posX, posY
+	}
+
+	ix := int(newX)
+	iy := int(newY)
+
+	// prevent index out of bounds errors
+	switch {
+	case ix < 0 || newX < 0:
+		newX = clipDistance
+		ix = 0
+	case ix >= len(c.worldMap):
+		newX = float64(len(c.worldMap)) - clipDistance
+		ix = int(newX)
+	}
+
+	switch {
+	case iy < 0 || newY < 0:
+		newY = clipDistance
+		iy = 0
+	case iy >= len(c.worldMap[0]):
+		newY = float64(len(c.worldMap[0])) - clipDistance
+		iy = int(newY)
+	}
+
+	moveLine := Line{posX, posY, newX, newY}
+
+	intersectPoints := [][2]float64{}
+	for _, borderLine := range c.collisionMap {
+		// TODO: only check intersection of nearby wall cells instead of all of them
+		if px, py, ok := Intersection(moveLine, borderLine); ok {
+			intersectPoints = append(intersectPoints, [2]float64{px, py})
+		}
+	}
+
+	if len(intersectPoints) > 0 {
+		// find the point closest to the start position
+		min := math.Inf(1)
+		minI := -1
+		for i, p := range intersectPoints {
+			d2 := Distance2(posX, posY, p[0], p[1])
+			if d2 < min {
+				min = d2
+				minI = i
+			}
+		}
+
+		// use the closest intersecting point to determine a safe distance to make the move
+		moveLine = Line{posX, posY, intersectPoints[minI][0], intersectPoints[minI][1]}
+		dist := math.Sqrt(min)
+		angle := moveLine.Angle()
+
+		// generate new move line using calculated angle and safe distance from intersecting point
+		moveLine = LineFromAngle(posX, posY, angle, dist-0.01)
+
+		newX, newY = moveLine.X2, moveLine.Y2
+		ix, iy = int(newX), int(newY)
+
+		// if either X or Y direction was already intersecting, attempt move only in the adjacent direction
+		if checkAlternate {
+			xDiff := math.Abs(newX - posX)
+			yDiff := math.Abs(newY - posY)
+			switch {
+			case xDiff <= 0.01:
+				// no more room to move in X, try to move only Y
+				// fmt.Printf("\t[@%v,%v] move to (%v,%v) try adjacent move to {%v,%v}\n",
+				// 	c.pos.X, c.pos.Y, moveX, moveY, posX, moveY)
+				return c.getValidMove(posX, moveY, false)
+			case yDiff <= 0.01:
+				// no more room to move in Y, try to move only X
+				// fmt.Printf("\t[@%v,%v] move to (%v,%v) try adjacent move to {%v,%v}\n",
+				// 	c.pos.X, c.pos.Y, moveX, moveY, moveX, posY)
+				return c.getValidMove(moveX, posY, false)
+			}
+		}
+
+		// fmt.Printf("[@%v,%v] move to (%v,%v) intersects at {%v,%v}\n",
+		// 	c.pos.X, c.pos.Y, moveX, moveY, newX, newY)
+	}
+
+	if c.worldMap[ix][iy] <= 0 {
+		posX = newX
+		posY = newY
+	}
+
+	return posX, posY
+}
+
 // Move camera by move speed
 func (c *Camera) Move(mSpeed float64) {
 	mSpeed = c.getNormalSpeed(mSpeed)
-
-	if c.worldMap[int(c.pos.X+c.dir.X*mSpeed*12)][int(c.pos.Y)] <= 0 {
-		c.pos.X += (c.dir.X * mSpeed)
-	}
-	if c.worldMap[int(c.pos.X)][int(c.pos.Y+c.dir.Y*mSpeed*12)] <= 0 {
-		c.pos.Y += (c.dir.Y * mSpeed)
-	}
+	mx := c.pos.X + (c.dir.X * mSpeed)
+	my := c.pos.Y + (c.dir.Y * mSpeed)
+	c.pos.X, c.pos.Y = c.getValidMove(mx, my, true)
 }
 
 // Strafe camera by strafe speed
 func (c *Camera) Strafe(sSpeed float64) {
 	sSpeed = c.getNormalSpeed(sSpeed)
-
-	if c.worldMap[int(c.pos.X+c.plane.X*sSpeed*12)][int(c.pos.Y)] <= 0 {
-		c.pos.X += (c.plane.X * sSpeed)
-	}
-	if c.worldMap[int(c.pos.X)][int(c.pos.Y+c.plane.Y*sSpeed*12)] <= 0 {
-		c.pos.Y += (c.plane.Y * sSpeed)
-	}
+	sx := c.pos.X + (c.plane.X * sSpeed)
+	sy := c.pos.Y + (c.plane.Y * sSpeed)
+	c.pos.X, c.pos.Y = c.getValidMove(sx, sy, true)
 }
 
 // Rotate camera by rotate speed

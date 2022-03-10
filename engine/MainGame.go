@@ -42,6 +42,9 @@ type Game struct {
 	//--define camera--//
 	camera *raycaster.Camera
 
+	mouseMode      raycaster.MouseMode
+	mouseX, mouseY int
+
 	//--graphics manager and sprite batch--//
 	spriteBatch *SpriteBatch
 
@@ -49,7 +52,7 @@ type Game struct {
 	floor *ebiten.Image
 	sky   *ebiten.Image
 
-	//--array of levels, levels reffer to "floors" of the world--//
+	//--array of levels, levels refer to "floors" of the world--//
 	mapObj     *raycaster.Map
 	levels     []*raycaster.Level
 	spriteLvls []*raycaster.Level
@@ -108,6 +111,11 @@ func NewGame() *Game {
 	// give sprite custom bounds for collision instead of using image bounds
 	s.W = int(s.Scale * 85)
 	s.H = int(s.Scale * 126)
+
+	// init mouse movement mode
+	ebiten.SetCursorMode(ebiten.CursorModeCaptured)
+	g.mouseMode = raycaster.MouseModeMove
+	g.mouseX, g.mouseY = math.MinInt32, math.MinInt32
 
 	//--init camera--//
 	g.camera = raycaster.NewCamera(g.width, g.height, texSize, g.mapObj, g.slices, g.levels, g.floorLvl, g.spriteLvls, g.tex)
@@ -220,32 +228,72 @@ func (g *Game) Update() error {
 }
 
 func (g *Game) handleInput() {
-	mx, my := ebiten.CursorPosition()
-
 	forward := false
 	backward := false
 	rotLeft := false
 	rotRight := false
 
-	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
-		fmt.Printf("mouse left clicked: (%v, %v)\n", mx, my)
-
-		// using left click for debugging graphical issues
-		if g.DebugX == -1 && g.DebugY == -1 {
-			// only allow setting once between clears to debounce
-			g.DebugX = mx
-			g.DebugY = my
-			g.DebugOnce = true
-		}
+	moveModifier := 1.0
+	if ebiten.IsKeyPressed(ebiten.KeyShift) {
+		moveModifier = 2.0
 	}
 
-	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonRight) {
-		fmt.Printf("mouse right clicked: (%v, %v)\n", mx, my)
+	switch {
+	case ebiten.IsKeyPressed(ebiten.KeyControl):
+		ebiten.SetCursorMode(ebiten.CursorModeVisible)
+		g.mouseMode = raycaster.MouseModeCursor
 
-		// using right click to clear the debugging flag
-		g.DebugX = -1
-		g.DebugY = -1
-		g.DebugOnce = false
+	case g.mouseMode != raycaster.MouseModeMove:
+		ebiten.SetCursorMode(ebiten.CursorModeCaptured)
+		g.mouseMode = raycaster.MouseModeMove
+		g.mouseX, g.mouseY = math.MinInt32, math.MinInt32
+	}
+
+	switch g.mouseMode {
+	case raycaster.MouseModeCursor:
+		g.mouseX, g.mouseY = ebiten.CursorPosition()
+		if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
+			fmt.Printf("mouse left clicked: (%v, %v)\n", g.mouseX, g.mouseY)
+
+			// using left click for debugging graphical issues
+			if g.DebugX == -1 && g.DebugY == -1 {
+				// only allow setting once between clears to debounce
+				g.DebugX = g.mouseX
+				g.DebugY = g.mouseY
+				g.DebugOnce = true
+			}
+		}
+
+		if ebiten.IsMouseButtonPressed(ebiten.MouseButtonRight) {
+			fmt.Printf("mouse right clicked: (%v, %v)\n", g.mouseX, g.mouseY)
+
+			// using right click to clear the debugging flag
+			g.DebugX = -1
+			g.DebugY = -1
+			g.DebugOnce = false
+		}
+
+	case raycaster.MouseModeMove:
+		x, y := ebiten.CursorPosition()
+		switch {
+		case g.mouseX == math.MinInt32 && g.mouseY == math.MinInt32:
+			// initialize first position to establish delta
+			if x != 0 && y != 0 {
+				g.mouseX, g.mouseY = x, y
+			}
+
+		default:
+			dx, dy := g.mouseX-x, g.mouseY-y
+			g.mouseX, g.mouseY = x, y
+
+			if dx != 0 {
+				g.camera.Rotate(0.005 * float64(dx) * moveModifier)
+			}
+
+			if dy != 0 {
+				g.camera.Move(0.01 * float64(dy) * moveModifier)
+			}
+		}
 	}
 
 	if ebiten.IsKeyPressed(ebiten.KeyA) || ebiten.IsKeyPressed(ebiten.KeyLeft) {
@@ -263,23 +311,23 @@ func (g *Game) handleInput() {
 	}
 
 	if forward {
-		g.camera.Move(0.06)
+		g.camera.Move(0.06 * moveModifier)
 	} else if backward {
-		g.camera.Move(-0.06)
+		g.camera.Move(-0.06 * moveModifier)
 	}
 
-	if ebiten.IsKeyPressed(ebiten.KeyAlt) {
+	if ebiten.IsKeyPressed(ebiten.KeyAlt) || g.mouseMode == raycaster.MouseModeMove {
 		// strafe instead of rotate
 		if rotLeft {
-			g.camera.Strafe(-0.05)
+			g.camera.Strafe(-0.05 * moveModifier)
 		} else if rotRight {
-			g.camera.Strafe(0.05)
+			g.camera.Strafe(0.05 * moveModifier)
 		}
 	} else {
 		if rotLeft {
-			g.camera.Rotate(0.03)
+			g.camera.Rotate(0.03 * moveModifier)
 		} else if rotRight {
-			g.camera.Rotate(-0.03)
+			g.camera.Rotate(-0.03 * moveModifier)
 		}
 	}
 }
