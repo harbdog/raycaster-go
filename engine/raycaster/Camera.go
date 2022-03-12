@@ -57,6 +57,8 @@ type Camera struct {
 
 	//--world map--//
 	mapObj       *Map
+	mapWidth     int
+	mapHeight    int
 	worldMap     [][]int
 	upMap        [][]int
 	midMap       [][]int
@@ -142,6 +144,9 @@ func NewCamera(width int, height int, texWid int, mapObj *Map, slices []*image.R
 	c.worldMap = c.mapObj.getGrid()
 	c.upMap = c.mapObj.getGridUp()
 	c.midMap = c.mapObj.getGridMid()
+
+	c.mapWidth = len(c.worldMap)
+	c.mapHeight = len(c.worldMap[0])
 	c.collisionMap = c.mapObj.getCollisionLines()
 
 	c.sprite = c.mapObj.GetSprites()
@@ -284,9 +289,6 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *Level, levelNum int, wg *sy
 
 	//perform DDA
 	for hit == 0 {
-		mapWidth := len(c.worldMap)
-		mapHeight := len(c.worldMap[0])
-
 		//jump to next map square, OR in x-direction, OR in y-direction
 		if sideDistX < sideDistY {
 			sideDistX += deltaDistX
@@ -299,7 +301,7 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *Level, levelNum int, wg *sy
 		}
 
 		//Check if ray has hit a wall
-		if mapX < mapWidth && mapY < mapHeight && mapX > 0 && mapY > 0 {
+		if mapX < c.mapWidth && mapY < c.mapHeight && mapX > 0 && mapY > 0 {
 			if grid[mapX][mapY] > 0 {
 				hit = 1
 			}
@@ -310,14 +312,14 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *Level, levelNum int, wg *sy
 			//prevent out of range errors, needs to be improved
 			if mapX < 0 {
 				mapX = 0
-			} else if mapX > mapWidth-1 {
-				mapX = mapWidth - 1
+			} else if mapX > c.mapWidth-1 {
+				mapX = c.mapWidth - 1
 			}
 
 			if mapY < 0 {
 				mapY = 0
-			} else if mapY > mapHeight-1 {
-				mapY = mapHeight - 1
+			} else if mapY > c.mapHeight-1 {
+				mapY = c.mapHeight - 1
 			}
 		}
 	}
@@ -699,8 +701,8 @@ func (c *Camera) getValidMove(moveX, moveY float64, checkAlternate bool) (float6
 	case ix < 0 || newX < 0:
 		newX = clipDistance
 		ix = 0
-	case ix >= len(c.worldMap):
-		newX = float64(len(c.worldMap)) - clipDistance
+	case ix >= c.mapWidth:
+		newX = float64(c.mapWidth) - clipDistance
 		ix = int(newX)
 	}
 
@@ -708,8 +710,8 @@ func (c *Camera) getValidMove(moveX, moveY float64, checkAlternate bool) (float6
 	case iy < 0 || newY < 0:
 		newY = clipDistance
 		iy = 0
-	case iy >= len(c.worldMap[0]):
-		newY = float64(len(c.worldMap[0])) - clipDistance
+	case iy >= c.mapHeight:
+		newY = float64(c.mapHeight) - clipDistance
 		iy = int(newY)
 	}
 
