@@ -284,6 +284,9 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *Level, levelNum int, wg *sy
 
 	//perform DDA
 	for hit == 0 {
+		mapWidth := len(c.worldMap)
+		mapHeight := len(c.worldMap[0])
+
 		//jump to next map square, OR in x-direction, OR in y-direction
 		if sideDistX < sideDistY {
 			sideDistX += deltaDistX
@@ -296,7 +299,7 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *Level, levelNum int, wg *sy
 		}
 
 		//Check if ray has hit a wall
-		if mapX < 24 && mapY < 24 && mapX > 0 && mapY > 0 {
+		if mapX < mapWidth && mapY < mapHeight && mapX > 0 && mapY > 0 {
 			if grid[mapX][mapY] > 0 {
 				hit = 1
 			}
@@ -307,14 +310,14 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *Level, levelNum int, wg *sy
 			//prevent out of range errors, needs to be improved
 			if mapX < 0 {
 				mapX = 0
-			} else if mapX > 23 {
-				mapX = 23
+			} else if mapX > mapWidth-1 {
+				mapX = mapWidth - 1
 			}
 
 			if mapY < 0 {
 				mapY = 0
-			} else if mapY > 23 {
-				mapY = 23
+			} else if mapY > mapHeight-1 {
+				mapY = mapHeight - 1
 			}
 		}
 	}
