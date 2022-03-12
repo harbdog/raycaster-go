@@ -135,10 +135,6 @@ func NewCamera(width int, height int, texWid int, mapObj *Map, slices []*image.R
 	c.horLvl = horizontalLevel
 	c.spriteLvls = spriteLvls
 
-	//--init cam pre calc array--//
-	c.preCalcCamX()
-	c.preCalcCamY()
-
 	// set zbuffer based on screen width
 	c.zBuffer = make([]float64, width)
 
@@ -171,22 +167,6 @@ func (c *Camera) Update() {
 
 	//--do raycast--//
 	c.raycast()
-}
-
-// precalculates camera x coordinate
-func (c *Camera) preCalcCamX() {
-	c.camX = make([]float64, c.w)
-	for x := 0; x < c.w; x++ {
-		c.camX[x] = 2.0*float64(x)/float64(c.w) - 1.0
-	}
-}
-
-// precalculates camera y coordinate
-func (c *Camera) preCalcCamY() {
-	c.camY = make([]float64, c.h)
-	for y := 0; y < c.h; y++ {
-		c.camY[y] = float64(c.h) / (2.0*float64(y-c.pitch) - float64(c.h))
-	}
 }
 
 func (c *Camera) raycast() {
@@ -257,7 +237,7 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *Level, levelNum int, wg *sy
 	_st = lvl.St
 
 	//calculate ray position and direction
-	cameraX := c.camX[x] //x-coordinate in camera space
+	cameraX := 2.0*float64(x)/float64(c.w) - 1.0 //x-coordinate in camera space
 	rayDirX := c.dir.X + c.plane.X*cameraX
 	rayDirY := c.dir.Y + c.plane.Y*cameraX
 
@@ -476,7 +456,7 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *Level, levelNum int, wg *sy
 
 			//draw the floor from drawEnd to the bottom of the screen
 			for y := drawEnd + 1; y < c.h; y++ {
-				currentDist = c.camY[y] //float64(c.h) / (2.0*float64(y) - float64(c.h))
+				currentDist = float64(c.h) / (2.0*float64(y-c.pitch) - float64(c.h))
 
 				weight := (currentDist - distPlayer) / (distWall - distPlayer)
 
@@ -830,10 +810,7 @@ func (c *Camera) GetPitch() int {
 // Pitch camera by pitch delta
 func (c *Camera) Pitch(pDelta int) {
 	newPitch := Clamp(c.pitch+pDelta, -c.h/2, c.h/2)
-	if newPitch != c.pitch {
-		c.pitch = newPitch
-		c.preCalcCamY()
-	}
+	c.pitch = newPitch
 }
 
 // Clamp - converted C# method MathHelper.Clamp
