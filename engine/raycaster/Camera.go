@@ -36,6 +36,9 @@ type Camera struct {
 	//--camera position, init to start position--//
 	pos *Vector2
 
+	// vertical camera strafing up/down, for jumping/crouching
+	posZ float64
+
 	//--current facing direction, init to values coresponding to FOV--//
 	dir *Vector2
 
@@ -64,10 +67,6 @@ type Camera struct {
 
 	//--slices--//
 	s []*image.Rectangle
-
-	//--cam x/y pre calc--//
-	camX []float64
-	camY []float64
 
 	//--structs that contain rects and tints for each level render--//
 	lvls []*Level
@@ -120,6 +119,7 @@ func NewCamera(width int, height int, texWid int, mapObj *Map, slices []*image.R
 
 	//--camera position, init to start position--//
 	c.pos = &Vector2{X: 22.5, Y: 11.5}
+	c.posZ = 0.0
 	//--current facing direction, init to values coresponding to FOV--//
 	c.dir = &Vector2{X: -1.0, Y: 0.0}
 	//--the 2d raycaster version of camera plane, adjust y component to change FOV (ratio between this and dir x resizes FOV)--//
@@ -330,7 +330,7 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *Level, levelNum int, wg *sy
 	lineHeight := int(float64(c.h) / perpWallDist)
 
 	//calculate lowest and highest pixel to fill in current stripe
-	drawStart := (-lineHeight/2 + c.h/2) + c.pitch - lineHeight*levelNum
+	drawStart := (-lineHeight/2 + c.h/2) + c.pitch + int(c.posZ/perpWallDist) - lineHeight*levelNum
 	drawEnd := drawStart + lineHeight
 
 	//--due to modern way of drawing using quads this is removed to avoid glitches at the edges--//
@@ -456,7 +456,7 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *Level, levelNum int, wg *sy
 
 			//draw the floor from drawEnd to the bottom of the screen
 			for y := drawEnd + 1; y < c.h; y++ {
-				currentDist = float64(c.h) / (2.0*float64(y-c.pitch) - float64(c.h))
+				currentDist = (float64(c.h) + (2.0 * c.posZ)) / (2.0*float64(y-c.pitch) - float64(c.h))
 
 				weight := (currentDist - distPlayer) / (distWall - distPlayer)
 
@@ -531,7 +531,7 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 	var uDiv = 1
 	var vDiv = 1
 	var vMove = 0.0
-	vMoveScreen := int(vMove/transformY) + c.pitch
+	vMoveScreen := int(vMove/transformY) + c.pitch + int(c.posZ/transformY)
 
 	//calculate height of the sprite on screen
 	spriteHeight := int(math.Abs(float64(c.h)/transformY) / float64(vDiv)) //using "transformY" instead of the real distance prevents fisheye
@@ -811,6 +811,21 @@ func (c *Camera) GetPitch() int {
 func (c *Camera) Pitch(pDelta int) {
 	newPitch := Clamp(c.pitch+pDelta, -c.h/2, c.h/2)
 	c.pitch = newPitch
+}
+
+// Stand camera position
+func (c *Camera) Stand() {
+	c.posZ = 0.0
+}
+
+// Crouch camera position
+func (c *Camera) Crouch() {
+	c.posZ = -200.0
+}
+
+// Jump camera position
+func (c *Camera) Jump() {
+	c.posZ = 200.0
 }
 
 // Clamp - converted C# method MathHelper.Clamp

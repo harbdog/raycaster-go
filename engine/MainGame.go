@@ -340,6 +340,14 @@ func (g *Game) handleInput() {
 		backward = true
 	}
 
+	if ebiten.IsKeyPressed(ebiten.KeyC) {
+		g.camera.Crouch()
+	} else if ebiten.IsKeyPressed(ebiten.KeySpace) {
+		g.camera.Jump()
+	} else {
+		g.camera.Stand()
+	}
+
 	if forward {
 		g.camera.Move(0.06 * moveModifier)
 	} else if backward {
