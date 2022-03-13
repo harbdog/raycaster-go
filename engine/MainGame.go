@@ -20,8 +20,8 @@ import (
 const (
 	// ebiten constants
 	screenWidth  = 1024
-	screenHeight = 700
-	screenScale  = 1.0
+	screenHeight = 768
+	renderScale  = 0.75
 
 	//--RaycastEngine constants
 	//--set constant, texture size to be the wall (and sprite) texture size--//
@@ -84,8 +84,8 @@ func NewGame() *Game {
 	ebiten.SetWindowTitle("Raycaster-Go")
 
 	// use scale to keep the desired window width and height
-	g.width = int(math.Floor(float64(screenWidth) / screenScale))
-	g.height = int(math.Floor(float64(screenHeight) / screenScale))
+	g.width = int(math.Floor(float64(screenWidth) * renderScale))
+	g.height = int(math.Floor(float64(screenHeight) * renderScale))
 
 	g.tex = raycaster.NewTextureHandler(texSize)
 
@@ -133,9 +133,9 @@ func (g *Game) loadContent() {
 	// Create a new SpriteBatch, which can be used to draw textures.
 	g.spriteBatch = &SpriteBatch{g: g}
 
-	// TODO: use loadContent to load your game content here
 	g.tex.Textures = make([]*ebiten.Image, 16)
 
+	// load wall textures
 	g.tex.Textures[0] = getTextureFromFile("stone.png")
 	g.tex.Textures[1] = getTextureFromFile("left_bot_house.png")
 	g.tex.Textures[2] = getTextureFromFile("right_bot_house.png")
@@ -212,7 +212,7 @@ func (g *Game) Run() {
 // Layout takes the outside size (e.g., the window size) and returns the (logical) screen size.
 // If you don't have to adjust the screen size with the outside size, just return a fixed size.
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
-	return screenWidth, screenHeight
+	return screenWidth * renderScale, screenHeight * renderScale
 }
 
 // Update - Allows the game to run logic such as updating the world, gathering input, and playing audio.
