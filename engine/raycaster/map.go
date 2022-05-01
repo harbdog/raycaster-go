@@ -1,5 +1,7 @@
 package raycaster
 
+import "raycaster-go/engine/geom"
+
 type Map struct {
 	worldMap [][]int
 	midMap   [][]int
@@ -189,18 +191,18 @@ func (m *Map) getGridMid() [][]int {
 	return m.midMap
 }
 
-func (m *Map) getCollisionLines() []Line {
+func (m *Map) getCollisionLines() []geom.Line {
 	if len(m.worldMap) == 0 || len(m.worldMap[0]) == 0 {
-		return []Line{}
+		return []geom.Line{}
 	}
 
-	lines := Rect(clipDistance, clipDistance,
+	lines := geom.Rect(clipDistance, clipDistance,
 		float64(len(m.worldMap))-clipDistance, float64(len(m.worldMap[0]))-clipDistance)
 
 	for x, row := range m.worldMap {
 		for y, value := range row {
 			if value > 0 {
-				lines = append(lines, Rect(float64(x)-clipDistance, float64(y)-clipDistance,
+				lines = append(lines, geom.Rect(float64(x)-clipDistance, float64(y)-clipDistance,
 					1.0+(2*clipDistance), 1.0+(2*clipDistance))...)
 			}
 		}

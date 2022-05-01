@@ -1,6 +1,36 @@
-package raycaster
+package geom
 
 import "math"
+
+func RadToDeg(radians float64) float64 {
+	return radians * 180 / math.Pi
+}
+
+func DegToRad(degrees float64) float64 {
+	return degrees * math.Pi / 180
+}
+
+// Vector2 converted struct from C#
+type Vector2 struct {
+	X float64
+	Y float64
+}
+
+func (v *Vector2) Add(v2 *Vector2) *Vector2 {
+	v.X += v2.X
+	v.Y += v2.Y
+	return v
+}
+
+func (v *Vector2) Sub(v2 *Vector2) *Vector2 {
+	v.X -= v2.X
+	v.Y -= v2.Y
+	return v
+}
+
+func (v *Vector2) Copy() *Vector2 {
+	return &Vector2{X: v.X, Y: v.Y}
+}
 
 // Line implementation for Geometry applications
 type Line struct {
@@ -22,8 +52,8 @@ func LineFromAngle(x, y, angle, length float64) Line {
 	return Line{
 		X1: x,
 		Y1: y,
-		X2: x + length*math.Cos(angle),
-		Y2: y + length*math.Sin(angle),
+		X2: x + (length * math.Cos(angle)),
+		Y2: y + (length * math.Sin(angle)),
 	}
 }
 

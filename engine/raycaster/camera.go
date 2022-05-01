@@ -7,6 +7,8 @@ import (
 	"math"
 	"sync"
 
+	"raycaster-go/engine/geom"
+
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
@@ -34,16 +36,16 @@ const (
 // set the rectangle slice position and height,
 type Camera struct {
 	//--camera position, init to start position--//
-	pos *Vector2
+	pos *geom.Vector2
 
 	// vertical camera strafing up/down, for jumping/crouching
 	posZ float64
 
 	//--current facing direction, init to values coresponding to FOV--//
-	dir *Vector2
+	dir *geom.Vector2
 
 	//--the 2d raycaster version of camera plane, adjust y component to change FOV (ratio between this and dir x resizes FOV)--//
-	plane *Vector2
+	plane *geom.Vector2
 
 	//--viewport width and height--//
 	w int
@@ -51,6 +53,9 @@ type Camera struct {
 
 	// camera pitch
 	pitch int
+
+	// camera fov angle and depth
+	fovAngle, fovDepth float64
 
 	// target framerate reference
 	targetTPS int
@@ -62,7 +67,7 @@ type Camera struct {
 	worldMap     [][]int
 	upMap        [][]int
 	midMap       [][]int
-	collisionMap []Line
+	collisionMap []geom.Line
 
 	//--texture width--//
 	texWidth int
@@ -90,22 +95,6 @@ type Camera struct {
 	semaphore chan struct{}
 }
 
-// Vector2 converted struct from C#
-type Vector2 struct {
-	X float64
-	Y float64
-}
-
-func (v *Vector2) Add(v2 *Vector2) *Vector2 {
-	v.X += v2.X
-	v.Y += v2.Y
-	return v
-}
-
-func (v *Vector2) Copy() *Vector2 {
-	return &Vector2{X: v.X, Y: v.Y}
-}
-
 // NewCamera initalizes a Camera object
 func NewCamera(width int, height int, texWid int, mapObj *Map, slices []*image.Rectangle,
 	levels []*Level, horizontalLevel *HorLevel, spriteLvls []*Level, tex *TextureHandler) *Camera {
@@ -114,18 +103,23 @@ func NewCamera(width int, height int, texWid int, mapObj *Map, slices []*image.R
 
 	c := &Camera{}
 
-	// set target FPS (TPS)
+	// set target TPS
 	// TODO: make target FPS customizable
 	c.targetTPS = 60
 	ebiten.SetMaxTPS(c.targetTPS)
 
-	//--camera position, init to start position--//
-	c.pos = &Vector2{X: 22.5, Y: 11.5}
+	//--camera position, init to some start position--//
+	fovDegrees := 70.0
+	c.fovAngle = geom.DegToRad(fovDegrees)
+	c.fovDepth = 1.0
+	c.pos = &geom.Vector2{X: 1.0, Y: 1.0}
 	c.posZ = 0.0
-	//--current facing direction, init to values coresponding to FOV--//
-	c.dir = &Vector2{X: -1.0, Y: 0.0}
-	//--the 2d raycaster version of camera plane, adjust y component to change FOV (ratio between this and dir x resizes FOV)--//
-	c.plane = &Vector2{X: 0.0, Y: 0.66}
+
+	//--current facing direction, init to some start position--//
+	c.dir = c.GetVecForAngle(0)
+
+	//--the 2d raycaster version of camera plane (ratio between this and dir x resizes FOV)--//
+	c.plane = c.GetVecForFov(c.dir)
 
 	c.w = width
 	c.h = height
@@ -715,12 +709,12 @@ func (c *Camera) getValidMove(moveX, moveY float64, checkAlternate bool) (float6
 		iy = int(newY)
 	}
 
-	moveLine := Line{posX, posY, newX, newY}
+	moveLine := geom.Line{X1: posX, Y1: posY, X2: newX, Y2: newY}
 
 	intersectPoints := [][2]float64{}
 	for _, borderLine := range c.collisionMap {
 		// TODO: only check intersection of nearby wall cells instead of all of them
-		if px, py, ok := Intersection(moveLine, borderLine); ok {
+		if px, py, ok := geom.Intersection(moveLine, borderLine); ok {
 			intersectPoints = append(intersectPoints, [2]float64{px, py})
 		}
 	}
@@ -730,7 +724,7 @@ func (c *Camera) getValidMove(moveX, moveY float64, checkAlternate bool) (float6
 		min := math.Inf(1)
 		minI := -1
 		for i, p := range intersectPoints {
-			d2 := Distance2(posX, posY, p[0], p[1])
+			d2 := geom.Distance2(posX, posY, p[0], p[1])
 			if d2 < min {
 				min = d2
 				minI = i
@@ -738,12 +732,12 @@ func (c *Camera) getValidMove(moveX, moveY float64, checkAlternate bool) (float6
 		}
 
 		// use the closest intersecting point to determine a safe distance to make the move
-		moveLine = Line{posX, posY, intersectPoints[minI][0], intersectPoints[minI][1]}
+		moveLine = geom.Line{X1: posX, Y1: posY, X2: intersectPoints[minI][0], Y2: intersectPoints[minI][1]}
 		dist := math.Sqrt(min)
 		angle := moveLine.Angle()
 
 		// generate new move line using calculated angle and safe distance from intersecting point
-		moveLine = LineFromAngle(posX, posY, angle, dist-0.01)
+		moveLine = geom.LineFromAngle(posX, posY, angle, dist-0.01)
 
 		newX, newY = moveLine.X2, moveLine.Y2
 		ix, iy = int(newX), int(newY)
@@ -778,8 +772,38 @@ func (c *Camera) getValidMove(moveX, moveY float64, checkAlternate bool) (float6
 	return posX, posY
 }
 
+// Set camera position vector
+func (c *Camera) SetPosition(pos *geom.Vector2) {
+	c.pos = pos
+}
+
+// Get camera position vector
+func (c *Camera) GetPosition() *geom.Vector2 {
+	return c.pos
+}
+
+// Set camera direction vector
+func (c *Camera) SetDirection(dir *geom.Vector2) {
+	c.dir = dir
+}
+
+// Get camera direction vector
+func (c *Camera) GetDirection() *geom.Vector2 {
+	return c.dir
+}
+
+// Set camera plane vector
+func (c *Camera) SetPlane(plane *geom.Vector2) {
+	c.plane = plane
+}
+
+// Get camera plane vector
+func (c *Camera) GetPlane() *geom.Vector2 {
+	return c.plane
+}
+
 // Move camera by move speed
-func (c *Camera) Move(mSpeed float64) {
+func (c *Camera) move(mSpeed float64) {
 	mSpeed = c.getNormalSpeed(mSpeed)
 	mx := c.pos.X + (c.dir.X * mSpeed)
 	my := c.pos.Y + (c.dir.Y * mSpeed)
@@ -787,7 +811,7 @@ func (c *Camera) Move(mSpeed float64) {
 }
 
 // Strafe camera by strafe speed
-func (c *Camera) Strafe(sSpeed float64) {
+func (c *Camera) strafe(sSpeed float64) {
 	sSpeed = c.getNormalSpeed(sSpeed)
 	sx := c.pos.X + (c.plane.X * sSpeed)
 	sy := c.pos.Y + (c.plane.Y * sSpeed)
@@ -795,7 +819,7 @@ func (c *Camera) Strafe(sSpeed float64) {
 }
 
 // Rotate camera by rotate speed
-func (c *Camera) Rotate(rSpeed float64) {
+func (c *Camera) rotate(rSpeed float64) {
 	rSpeed = c.getNormalSpeed(rSpeed)
 
 	//both camera direction and camera plane must be rotated
@@ -805,6 +829,39 @@ func (c *Camera) Rotate(rSpeed float64) {
 	oldPlaneX := c.plane.X
 	c.plane.X = (c.plane.X*math.Cos(rSpeed) - c.plane.Y*math.Sin(rSpeed))
 	c.plane.Y = (oldPlaneX*math.Sin(rSpeed) + c.plane.Y*math.Cos(rSpeed))
+}
+
+// Get the angle from the dir vectors
+func (c *Camera) GetAngleFromVec(dir *geom.Vector2) float64 {
+	return math.Atan2(dir.Y, dir.X)
+}
+
+// Get the dir vector from angle and fov length
+func (c *Camera) GetVecForAngleLength(angle, length float64) *geom.Vector2 {
+	return &geom.Vector2{X: length * math.Cos(angle), Y: length * math.Sin(angle)}
+}
+
+func (c *Camera) GetVecForAngle(angle float64) *geom.Vector2 {
+	return &geom.Vector2{X: c.fovDepth * math.Cos(angle), Y: c.fovDepth * math.Sin(angle)}
+}
+
+// Get the FOV from the dir+-plane vectors
+func (c *Camera) GetFovFromVec(dir, plane *geom.Vector2) float64 {
+	pov1 := dir.Copy().Add(plane)
+	pov2 := dir.Copy().Sub(plane)
+	fovAngle := math.Atan2(pov2.Y, pov2.X) - math.Atan2(pov1.Y, pov1.X)
+	return fovAngle
+}
+
+// Get the plane vector from FOV based on dir vector
+func (c *Camera) GetVecForFov(dir *geom.Vector2) *geom.Vector2 {
+	// get the hypotenuse of half the FOV triangle to calculate the plane vec points
+	angle := c.GetAngleFromVec(dir)
+	length := math.Sqrt(math.Pow(dir.X, 2) + math.Pow(dir.Y, 2))
+	hypotenuse := length / math.Cos(c.fovAngle/2)
+
+	// subtract resulting vector from dir since plane vec is relative to it
+	return dir.Copy().Sub(c.GetVecForAngleLength(angle+c.fovAngle/2, hypotenuse))
 }
 
 // Get current pitch value
