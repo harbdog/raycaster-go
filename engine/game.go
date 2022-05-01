@@ -8,10 +8,12 @@ import (
 	"math"
 	"math/rand"
 	"path/filepath"
-	"raycaster-go/engine/raycaster"
 	"runtime"
 
 	_ "image/png"
+
+	"raycaster-go/engine/geom"
+	"raycaster-go/engine/raycaster"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -38,6 +40,8 @@ type Game struct {
 	view   *ebiten.Image
 	width  int
 	height int
+
+	player *Player
 
 	//--define camera--//
 	camera *raycaster.Camera
@@ -119,6 +123,11 @@ func NewGame() *Game {
 
 	//--init camera--//
 	g.camera = raycaster.NewCamera(g.width, g.height, texSize, g.mapObj, g.slices, g.levels, g.floorLvl, g.spriteLvls, g.tex)
+
+	// init player model and initialize camera to their position
+	angleDegrees := 90.0
+	g.player = NewPlayer(10.5, 1.5, geom.DegToRad(angleDegrees), 0)
+	g.updatePlayerCamera(true)
 
 	// for debugging
 	g.DebugX = -1
@@ -224,6 +233,9 @@ func (g *Game) Update() error {
 	// handle input
 	g.handleInput()
 
+	// handle player camera movement
+	g.updatePlayerCamera(false)
+
 	return nil
 }
 
@@ -296,11 +308,11 @@ func (g *Game) handleInput() {
 			g.mouseX, g.mouseY = x, y
 
 			if dx != 0 {
-				g.camera.Rotate(0.005 * float64(dx) * moveModifier)
+				g.Rotate(0.005 * float64(dx) * moveModifier)
 			}
 
 			if dy != 0 {
-				g.camera.Move(0.01 * float64(dy) * moveModifier)
+				g.Move(0.01 * float64(dy) * moveModifier)
 			}
 		}
 	case raycaster.MouseModeLook:
@@ -317,7 +329,7 @@ func (g *Game) handleInput() {
 			g.mouseX, g.mouseY = x, y
 
 			if dx != 0 {
-				g.camera.Rotate(0.005 * float64(dx) * moveModifier)
+				g.Rotate(0.005 * float64(dx) * moveModifier)
 			}
 
 			if dy != 0 {
@@ -349,25 +361,80 @@ func (g *Game) handleInput() {
 	}
 
 	if forward {
-		g.camera.Move(0.06 * moveModifier)
+		g.Move(0.06 * moveModifier)
 	} else if backward {
-		g.camera.Move(-0.06 * moveModifier)
+		g.Move(-0.06 * moveModifier)
 	}
 
 	if g.mouseMode == raycaster.MouseModeLook || g.mouseMode == raycaster.MouseModeMove {
 		// strafe instead of rotate
 		if rotLeft {
-			g.camera.Strafe(-0.05 * moveModifier)
+			g.Strafe(-0.05 * moveModifier)
 		} else if rotRight {
-			g.camera.Strafe(0.05 * moveModifier)
+			g.Strafe(0.05 * moveModifier)
 		}
 	} else {
 		if rotLeft {
-			g.camera.Rotate(0.03 * moveModifier)
+			g.Rotate(0.03 * moveModifier)
 		} else if rotRight {
-			g.camera.Rotate(-0.03 * moveModifier)
+			g.Rotate(-0.03 * moveModifier)
 		}
 	}
+}
+
+// Move player by move speed in the forward/backward direction
+func (g *Game) Move(mSpeed float64) {
+	moveLine := geom.LineFromAngle(g.player.Pos.X, g.player.Pos.Y, g.player.Angle, mSpeed)
+
+	// TODO: collision check using raycast method
+
+	g.player.Pos = &geom.Vector2{X: moveLine.X2, Y: moveLine.Y2}
+	g.player.Moved = true
+}
+
+// Move player by strafe speed in the left/right direction
+func (g *Game) Strafe(sSpeed float64) {
+	strafeAngle := math.Pi / 2
+	if sSpeed < 0 {
+		strafeAngle = -strafeAngle
+	}
+	strafeLine := geom.LineFromAngle(g.player.Pos.X, g.player.Pos.Y, g.player.Angle-strafeAngle, math.Abs(sSpeed))
+
+	// TODO: collision check using raycast method
+
+	g.player.Pos = &geom.Vector2{X: strafeLine.X2, Y: strafeLine.Y2}
+	g.player.Moved = true
+}
+
+// Rotate player heading angle by rotation speed
+func (g *Game) Rotate(rSpeed float64) {
+	g.player.Angle += rSpeed
+
+	pi2 := 2 * math.Pi
+	if g.player.Angle >= pi2 {
+		g.player.Angle = pi2 - g.player.Angle
+	} else if g.player.Angle <= -pi2 {
+		g.player.Angle = g.player.Angle + pi2
+	}
+
+	g.player.Moved = true
+}
+
+// Update camera to match player position and orientation
+func (g *Game) updatePlayerCamera(forceUpdate bool) {
+	if !g.player.Moved && !forceUpdate {
+		// only update camera position if player moved or forceUpdate set
+		return
+	}
+
+	// reset player moved flag to only update camera when necessary
+	g.player.Moved = false
+
+	playerPos := g.player.Pos.Copy()
+	playerDir := g.camera.GetVecForAngle(g.player.Angle)
+	g.camera.SetPosition(playerPos)
+	g.camera.SetDirection(playerDir)
+	g.camera.SetPlane(g.camera.GetVecForFov(playerDir))
 }
 
 func (g *Game) updateSprites() {
