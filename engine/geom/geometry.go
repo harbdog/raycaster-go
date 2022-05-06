@@ -2,11 +2,11 @@ package geom
 
 import "math"
 
-func RadToDeg(radians float64) float64 {
+func Degrees(radians float64) float64 {
 	return radians * 180 / math.Pi
 }
 
-func DegToRad(degrees float64) float64 {
+func Radians(degrees float64) float64 {
 	return degrees * math.Pi / 180
 }
 

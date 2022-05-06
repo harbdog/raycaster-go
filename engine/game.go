@@ -126,7 +126,7 @@ func NewGame() *Game {
 
 	// init player model and initialize camera to their position
 	angleDegrees := 90.0
-	g.player = NewPlayer(10.5, 1.5, geom.DegToRad(angleDegrees), 0)
+	g.player = NewPlayer(10.5, 1.5, geom.Radians(angleDegrees), 0)
 	g.updatePlayerCamera(true)
 
 	// for debugging

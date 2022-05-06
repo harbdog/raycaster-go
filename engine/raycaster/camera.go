@@ -110,7 +110,7 @@ func NewCamera(width int, height int, texWid int, mapObj *Map, slices []*image.R
 
 	//--camera position, init to some start position--//
 	fovDegrees := 70.0
-	c.fovAngle = geom.DegToRad(fovDegrees)
+	c.fovAngle = geom.Radians(fovDegrees)
 	c.fovDepth = 1.0
 	c.pos = &geom.Vector2{X: 1.0, Y: 1.0}
 	c.posZ = 0.0
@@ -425,11 +425,6 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *Level, levelNum int, wg *sy
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-
-			c.semaphore <- struct{}{} // Lock
-			defer func() {
-				<-c.semaphore // Unlock
-			}()
 
 			var floorXWall, floorYWall float64
 
