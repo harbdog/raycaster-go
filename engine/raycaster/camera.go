@@ -16,8 +16,8 @@ const (
 	// maximum number of concurrent tasks for large task sets (e.g. floor and sprite casting)
 	maxConcurrent = 100
 
-	// unit distance to keep camera away from wall to avoid clipping
-	clipDistance = 0.1
+	// distance to keep camera away from edge of game world to avoid index exception
+	edgeDistance = 0.1
 )
 
 type MouseMode int
@@ -58,13 +58,12 @@ type Camera struct {
 	targetTPS int
 
 	//--world map--//
-	mapObj       *Map
-	mapWidth     int
-	mapHeight    int
-	worldMap     [][]int
-	upMap        [][]int
-	midMap       [][]int
-	collisionMap []geom.Line
+	mapObj    *Map
+	mapWidth  int
+	mapHeight int
+	worldMap  [][]int
+	upMap     [][]int
+	midMap    [][]int
 
 	//--texture width--//
 	texWidth int
@@ -132,13 +131,12 @@ func NewCamera(width int, height int, texWid int, mapObj *Map, slices []*image.R
 	c.zBuffer = make([]float64, width)
 
 	c.mapObj = mapObj
-	c.worldMap = c.mapObj.getGrid()
-	c.upMap = c.mapObj.getGridUp()
-	c.midMap = c.mapObj.getGridMid()
+	c.worldMap = c.mapObj.GetGrid()
+	c.upMap = c.mapObj.GetGridUp()
+	c.midMap = c.mapObj.GetGridMid()
 
 	c.mapWidth = len(c.worldMap)
 	c.mapHeight = len(c.worldMap[0])
-	c.collisionMap = c.mapObj.getCollisionLines()
 
 	c.sprite = c.mapObj.GetSprites()
 	c.spriteOrder = make([]int, c.mapObj.numSprites)
@@ -663,8 +661,8 @@ func combSort(order []int, dist []float64, amount int) {
 	}
 }
 
-// checks for valid move from current position, returns valid (x, y) position
-func (c *Camera) getValidMove(moveX, moveY float64, checkAlternate bool) (float64, float64) {
+// checks for valid move for the camera (not player model) from current position, returns valid (x, y) position
+func (c *Camera) getValidCameraMove(moveX, moveY float64, checkAlternate bool) (float64, float64) {
 	posX := c.pos.X
 	posY := c.pos.Y
 	newX := moveX
@@ -680,75 +678,20 @@ func (c *Camera) getValidMove(moveX, moveY float64, checkAlternate bool) (float6
 	// prevent index out of bounds errors
 	switch {
 	case ix < 0 || newX < 0:
-		newX = clipDistance
+		newX = edgeDistance
 		ix = 0
 	case ix >= c.mapWidth:
-		newX = float64(c.mapWidth) - clipDistance
+		newX = float64(c.mapWidth) - edgeDistance
 		ix = int(newX)
 	}
 
 	switch {
 	case iy < 0 || newY < 0:
-		newY = clipDistance
+		newY = edgeDistance
 		iy = 0
 	case iy >= c.mapHeight:
-		newY = float64(c.mapHeight) - clipDistance
+		newY = float64(c.mapHeight) - edgeDistance
 		iy = int(newY)
-	}
-
-	moveLine := geom.Line{X1: posX, Y1: posY, X2: newX, Y2: newY}
-
-	intersectPoints := [][2]float64{}
-	for _, borderLine := range c.collisionMap {
-		// TODO: only check intersection of nearby wall cells instead of all of them
-		if px, py, ok := geom.Intersection(moveLine, borderLine); ok {
-			intersectPoints = append(intersectPoints, [2]float64{px, py})
-		}
-	}
-
-	if len(intersectPoints) > 0 {
-		// find the point closest to the start position
-		min := math.Inf(1)
-		minI := -1
-		for i, p := range intersectPoints {
-			d2 := geom.Distance2(posX, posY, p[0], p[1])
-			if d2 < min {
-				min = d2
-				minI = i
-			}
-		}
-
-		// use the closest intersecting point to determine a safe distance to make the move
-		moveLine = geom.Line{X1: posX, Y1: posY, X2: intersectPoints[minI][0], Y2: intersectPoints[minI][1]}
-		dist := math.Sqrt(min)
-		angle := moveLine.Angle()
-
-		// generate new move line using calculated angle and safe distance from intersecting point
-		moveLine = geom.LineFromAngle(posX, posY, angle, dist-0.01)
-
-		newX, newY = moveLine.X2, moveLine.Y2
-		ix, iy = int(newX), int(newY)
-
-		// if either X or Y direction was already intersecting, attempt move only in the adjacent direction
-		if checkAlternate {
-			xDiff := math.Abs(newX - posX)
-			yDiff := math.Abs(newY - posY)
-			switch {
-			case xDiff <= 0.01:
-				// no more room to move in X, try to move only Y
-				// fmt.Printf("\t[@%v,%v] move to (%v,%v) try adjacent move to {%v,%v}\n",
-				// 	c.pos.X, c.pos.Y, moveX, moveY, posX, moveY)
-				return c.getValidMove(posX, moveY, false)
-			case yDiff <= 0.01:
-				// no more room to move in Y, try to move only X
-				// fmt.Printf("\t[@%v,%v] move to (%v,%v) try adjacent move to {%v,%v}\n",
-				// 	c.pos.X, c.pos.Y, moveX, moveY, moveX, posY)
-				return c.getValidMove(moveX, posY, false)
-			}
-		}
-
-		// fmt.Printf("[@%v,%v] move to (%v,%v) intersects at {%v,%v}\n",
-		// 	c.pos.X, c.pos.Y, moveX, moveY, newX, newY)
 	}
 
 	if c.worldMap[ix][iy] <= 0 {
@@ -789,22 +732,22 @@ func (c *Camera) GetPlane() *geom.Vector2 {
 	return c.plane
 }
 
-// Move camera by move speed
-func (c *Camera) move(mSpeed float64) {
+// Move camera by move speed (does not alter player model position)
+func (c *Camera) MoveCamera(mSpeed float64) {
 	mx := c.pos.X + (c.dir.X * mSpeed)
 	my := c.pos.Y + (c.dir.Y * mSpeed)
-	c.pos.X, c.pos.Y = c.getValidMove(mx, my, true)
+	c.pos.X, c.pos.Y = c.getValidCameraMove(mx, my, true)
 }
 
-// Strafe camera by strafe speed
-func (c *Camera) strafe(sSpeed float64) {
+// Strafe camera by strafe speed (does not alter player model position)
+func (c *Camera) StrafeCamera(sSpeed float64) {
 	sx := c.pos.X + (c.plane.X * sSpeed)
 	sy := c.pos.Y + (c.plane.Y * sSpeed)
-	c.pos.X, c.pos.Y = c.getValidMove(sx, sy, true)
+	c.pos.X, c.pos.Y = c.getValidCameraMove(sx, sy, true)
 }
 
-// Rotate camera by rotate speed
-func (c *Camera) rotate(rSpeed float64) {
+// Rotate camera by rotate speed (does not alter player model orientation)
+func (c *Camera) RotateCamera(rSpeed float64) {
 	//both camera direction and camera plane must be rotated
 	oldDirX := c.dir.X
 	c.dir.X = (c.dir.X*math.Cos(rSpeed) - c.dir.Y*math.Sin(rSpeed))
@@ -812,6 +755,12 @@ func (c *Camera) rotate(rSpeed float64) {
 	oldPlaneX := c.plane.X
 	c.plane.X = (c.plane.X*math.Cos(rSpeed) - c.plane.Y*math.Sin(rSpeed))
 	c.plane.Y = (oldPlaneX*math.Sin(rSpeed) + c.plane.Y*math.Cos(rSpeed))
+}
+
+// Pitch camera by pitch delta (does not alter player model orientation)
+func (c *Camera) PitchCamera(pDelta int) {
+	newPitch := Clamp(c.pitch+pDelta, -c.h/2, c.h/2)
+	c.pitch = newPitch
 }
 
 // Get the angle from the dir vectors
@@ -850,12 +799,6 @@ func (c *Camera) GetVecForFov(dir *geom.Vector2) *geom.Vector2 {
 // Get current pitch value
 func (c *Camera) GetPitch() int {
 	return c.pitch
-}
-
-// Pitch camera by pitch delta
-func (c *Camera) Pitch(pDelta int) {
-	newPitch := Clamp(c.pitch+pDelta, -c.h/2, c.h/2)
-	c.pitch = newPitch
 }
 
 // Stand camera position
