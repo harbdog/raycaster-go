@@ -16,9 +16,6 @@ const (
 	// maximum number of concurrent tasks for large task sets (e.g. floor and sprite casting)
 	maxConcurrent = 100
 
-	// constant used for movement target framerate to prevent higher framerates from moving too fast
-	movementTPS = 60.0
-
 	// unit distance to keep camera away from wall to avoid clipping
 	clipDistance = 0.1
 )
@@ -666,11 +663,6 @@ func combSort(order []int, dist []float64, amount int) {
 	}
 }
 
-// normalize speed based on a constant input rate
-func (c *Camera) getNormalSpeed(speed float64) float64 {
-	return speed * movementTPS / float64(c.targetTPS)
-}
-
 // checks for valid move from current position, returns valid (x, y) position
 func (c *Camera) getValidMove(moveX, moveY float64, checkAlternate bool) (float64, float64) {
 	posX := c.pos.X
@@ -799,7 +791,6 @@ func (c *Camera) GetPlane() *geom.Vector2 {
 
 // Move camera by move speed
 func (c *Camera) move(mSpeed float64) {
-	mSpeed = c.getNormalSpeed(mSpeed)
 	mx := c.pos.X + (c.dir.X * mSpeed)
 	my := c.pos.Y + (c.dir.Y * mSpeed)
 	c.pos.X, c.pos.Y = c.getValidMove(mx, my, true)
@@ -807,7 +798,6 @@ func (c *Camera) move(mSpeed float64) {
 
 // Strafe camera by strafe speed
 func (c *Camera) strafe(sSpeed float64) {
-	sSpeed = c.getNormalSpeed(sSpeed)
 	sx := c.pos.X + (c.plane.X * sSpeed)
 	sy := c.pos.Y + (c.plane.Y * sSpeed)
 	c.pos.X, c.pos.Y = c.getValidMove(sx, sy, true)
@@ -815,8 +805,6 @@ func (c *Camera) strafe(sSpeed float64) {
 
 // Rotate camera by rotate speed
 func (c *Camera) rotate(rSpeed float64) {
-	rSpeed = c.getNormalSpeed(rSpeed)
-
 	//both camera direction and camera plane must be rotated
 	oldDirX := c.dir.X
 	c.dir.X = (c.dir.X*math.Cos(rSpeed) - c.dir.Y*math.Sin(rSpeed))
