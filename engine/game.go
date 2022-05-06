@@ -28,6 +28,9 @@ const (
 	//--RaycastEngine constants
 	//--set constant, texture size to be the wall (and sprite) texture size--//
 	texSize = 256
+
+	// distance to keep away from walls and obstacles to avoid clipping
+	clipDistance = 0.1
 )
 
 // Game - This is the main type for your game.
@@ -57,10 +60,14 @@ type Game struct {
 	sky   *ebiten.Image
 
 	//--array of levels, levels refer to "floors" of the world--//
-	mapObj     *raycaster.Map
-	levels     []*raycaster.Level
-	spriteLvls []*raycaster.Level
-	floorLvl   *raycaster.HorLevel
+	mapObj       *raycaster.Map
+	levels       []*raycaster.Level
+	spriteLvls   []*raycaster.Level
+	floorLvl     *raycaster.HorLevel
+	collisionMap []geom.Line
+
+	worldMap            [][]int
+	mapWidth, mapHeight int
 
 	// for debugging
 	DebugX    int
@@ -101,6 +108,11 @@ func NewGame() *Game {
 
 	//--inits the levels--//
 	g.levels, g.floorLvl = g.createLevels(4)
+
+	g.collisionMap = g.mapObj.GetCollisionLines(clipDistance)
+	g.worldMap = g.mapObj.GetGrid()
+	g.mapWidth = len(g.worldMap)
+	g.mapHeight = len(g.worldMap[0])
 
 	// load content once when first run
 	g.loadContent()
@@ -327,7 +339,7 @@ func (g *Game) handleInput() {
 			}
 
 			if dy != 0 {
-				g.camera.Pitch(dy)
+				g.camera.PitchCamera(dy)
 			}
 		}
 	}
@@ -380,10 +392,11 @@ func (g *Game) handleInput() {
 func (g *Game) Move(mSpeed float64) {
 	moveLine := geom.LineFromAngle(g.player.Pos.X, g.player.Pos.Y, g.player.Angle, mSpeed)
 
-	// TODO: collision check using raycast method
-
-	g.player.Pos = &geom.Vector2{X: moveLine.X2, Y: moveLine.Y2}
-	g.player.Moved = true
+	newPos := g.getValidMove(moveLine.X2, moveLine.Y2, true)
+	if !newPos.Equals(g.player.Pos) {
+		g.player.Pos = newPos
+		g.player.Moved = true
+	}
 }
 
 // Move player by strafe speed in the left/right direction
@@ -394,10 +407,11 @@ func (g *Game) Strafe(sSpeed float64) {
 	}
 	strafeLine := geom.LineFromAngle(g.player.Pos.X, g.player.Pos.Y, g.player.Angle-strafeAngle, math.Abs(sSpeed))
 
-	// TODO: collision check using raycast method
-
-	g.player.Pos = &geom.Vector2{X: strafeLine.X2, Y: strafeLine.Y2}
-	g.player.Moved = true
+	newPos := g.getValidMove(strafeLine.X2, strafeLine.Y2, true)
+	if !newPos.Equals(g.player.Pos) {
+		g.player.Pos = newPos
+		g.player.Moved = true
+	}
 }
 
 // Rotate player heading angle by rotation speed
@@ -412,6 +426,102 @@ func (g *Game) Rotate(rSpeed float64) {
 	}
 
 	g.player.Moved = true
+}
+
+// checks for valid move from current position, returns valid (x, y) position
+func (g *Game) getValidMove(moveX, moveY float64, checkAlternate bool) *geom.Vector2 {
+	posX := g.player.Pos.X
+	posY := g.player.Pos.Y
+	newX := moveX
+	newY := moveY
+
+	if posX == newX && posY == moveY {
+		return &geom.Vector2{X: posX, Y: posY}
+	}
+
+	ix := int(newX)
+	iy := int(newY)
+
+	// prevent index out of bounds errors
+	switch {
+	case ix < 0 || newX < 0:
+		newX = clipDistance
+		ix = 0
+	case ix >= g.mapWidth:
+		newX = float64(g.mapWidth) - clipDistance
+		ix = int(newX)
+	}
+
+	switch {
+	case iy < 0 || newY < 0:
+		newY = clipDistance
+		iy = 0
+	case iy >= g.mapHeight:
+		newY = float64(g.mapHeight) - clipDistance
+		iy = int(newY)
+	}
+
+	moveLine := geom.Line{X1: posX, Y1: posY, X2: newX, Y2: newY}
+
+	intersectPoints := [][2]float64{}
+	for _, borderLine := range g.collisionMap {
+		// TODO: only check intersection of nearby wall cells instead of all of them
+		if px, py, ok := geom.Intersection(moveLine, borderLine); ok {
+			intersectPoints = append(intersectPoints, [2]float64{px, py})
+		}
+	}
+
+	if len(intersectPoints) > 0 {
+		// find the point closest to the start position
+		min := math.Inf(1)
+		minI := -1
+		for i, p := range intersectPoints {
+			d2 := geom.Distance2(posX, posY, p[0], p[1])
+			if d2 < min {
+				min = d2
+				minI = i
+			}
+		}
+
+		// use the closest intersecting point to determine a safe distance to make the move
+		moveLine = geom.Line{X1: posX, Y1: posY, X2: intersectPoints[minI][0], Y2: intersectPoints[minI][1]}
+		dist := math.Sqrt(min)
+		angle := moveLine.Angle()
+
+		// generate new move line using calculated angle and safe distance from intersecting point
+		moveLine = geom.LineFromAngle(posX, posY, angle, dist-0.01)
+
+		newX, newY = moveLine.X2, moveLine.Y2
+		ix, iy = int(newX), int(newY)
+
+		// if either X or Y direction was already intersecting, attempt move only in the adjacent direction
+		if checkAlternate {
+			xDiff := math.Abs(newX - posX)
+			yDiff := math.Abs(newY - posY)
+			switch {
+			case xDiff <= 0.01:
+				// no more room to move in X, try to move only Y
+				// fmt.Printf("\t[@%v,%v] move to (%v,%v) try adjacent move to {%v,%v}\n",
+				// 	c.pos.X, c.pos.Y, moveX, moveY, posX, moveY)
+				return g.getValidMove(posX, moveY, false)
+			case yDiff <= 0.01:
+				// no more room to move in Y, try to move only X
+				// fmt.Printf("\t[@%v,%v] move to (%v,%v) try adjacent move to {%v,%v}\n",
+				// 	c.pos.X, c.pos.Y, moveX, moveY, moveX, posY)
+				return g.getValidMove(moveX, posY, false)
+			}
+		}
+
+		// fmt.Printf("[@%v,%v] move to (%v,%v) intersects at {%v,%v}\n",
+		// 	c.pos.X, c.pos.Y, moveX, moveY, newX, newY)
+	}
+
+	if g.worldMap[ix][iy] <= 0 {
+		posX = newX
+		posY = newY
+	}
+
+	return &geom.Vector2{X: posX, Y: posY}
 }
 
 // Update camera to match player position and orientation

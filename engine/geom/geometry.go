@@ -32,6 +32,10 @@ func (v *Vector2) Copy() *Vector2 {
 	return &Vector2{X: v.X, Y: v.Y}
 }
 
+func (v *Vector2) Equals(v2 *Vector2) bool {
+	return v.X == v2.X && v.Y == v2.Y
+}
+
 // Line implementation for Geometry applications
 type Line struct {
 	X1, Y1, X2, Y2 float64
