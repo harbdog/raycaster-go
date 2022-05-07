@@ -2,14 +2,16 @@ package raycaster
 
 import (
 	"image"
-
 	_ "image/png"
+
+	"raycaster-go/engine/geom"
+	"raycaster-go/engine/model"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
 type Sprite struct {
-	X, Y           float64
+	*model.Entity
 	Vx, Vy         float64
 	W, H           int
 	Scale          float64
@@ -20,8 +22,12 @@ type Sprite struct {
 }
 
 func NewSprite(x, y float64, img *ebiten.Image, uSize int) *Sprite {
-	s := &Sprite{}
-	s.X, s.Y = x, y
+	s := &Sprite{
+		Entity: &model.Entity{
+			Pos:   &geom.Vector2{X: x, Y: y},
+			Angle: 0,
+		},
+	}
 	s.Scale = 1.0
 	s.texNum = 0
 	s.lenTex = 1
@@ -38,14 +44,21 @@ func NewSprite(x, y float64, img *ebiten.Image, uSize int) *Sprite {
 		img = translateImg
 	}
 
+	// for now, setting collision distance to half the sprite unit width
+	s.CollisionRadius = float64(s.W/uSize) / 2
+
 	s.textures[0] = img
 
 	return s
 }
 
 func NewAnimatedSprite(x, y, scale float64, animationRate int, img *ebiten.Image, columns, rows int, uSize int) *Sprite {
-	s := &Sprite{}
-	s.X, s.Y = x, y
+	s := &Sprite{
+		Entity: &model.Entity{
+			Pos:   &geom.Vector2{X: x, Y: y},
+			Angle: 0,
+		},
+	}
 	s.Scale = scale
 	s.AnimationRate = animationRate
 	s.animCounter = 0
@@ -98,6 +111,9 @@ func NewAnimatedSprite(x, y, scale float64, animationRate int, img *ebiten.Image
 			s.textures[c+r*c] = cellTarget
 		}
 	}
+
+	// for now, setting collision distance to half the sprite unit width
+	s.CollisionRadius = float64(s.W/uSize) / 2
 
 	return s
 }

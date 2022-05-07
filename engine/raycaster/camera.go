@@ -179,7 +179,7 @@ func (c *Camera) raycast() {
 	numSprites := c.mapObj.numSprites
 	for i := 0; i < numSprites; i++ {
 		c.spriteOrder[i] = i
-		c.spriteDistance[i] = (math.Pow(c.pos.X-c.sprite[i].X, 2) + math.Pow(c.pos.Y-c.sprite[i].Y, 2))
+		c.spriteDistance[i] = (math.Pow(c.pos.X-c.sprite[i].Pos.X, 2) + math.Pow(c.pos.Y-c.sprite[i].Pos.Y, 2))
 	}
 	combSort(c.spriteOrder, c.spriteDistance, numSprites)
 
@@ -498,8 +498,8 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 	rayPosY := c.pos.Y
 
 	//translate sprite position to relative to camera
-	spriteX := c.sprite[c.spriteOrder[spriteOrdIndex]].X - rayPosX
-	spriteY := c.sprite[c.spriteOrder[spriteOrdIndex]].Y - rayPosY
+	spriteX := c.sprite[c.spriteOrder[spriteOrdIndex]].Pos.X - rayPosX
+	spriteY := c.sprite[c.spriteOrder[spriteOrdIndex]].Pos.Y - rayPosY
 
 	spriteTex := c.sprite[c.spriteOrder[spriteOrdIndex]].GetTexture()
 	spriteW, spriteH := spriteTex.Size()
