@@ -139,6 +139,7 @@ func NewGame() *Game {
 	// init player model and initialize camera to their position
 	angleDegrees := 90.0
 	g.player = NewPlayer(10.5, 1.5, geom.Radians(angleDegrees), 0)
+	g.player.CollisionRadius = clipDistance
 	g.updatePlayerCamera(true)
 
 	// for debugging
@@ -464,7 +465,7 @@ func (g *Game) getValidMove(posX, posY, moveX, moveY float64, checkAlternate boo
 	intersectPoints := [][2]float64{}
 	for _, borderLine := range g.collisionMap {
 		// TODO: only check intersection of nearby wall cells instead of all of them
-		if px, py, ok := geom.Intersection(moveLine, borderLine); ok {
+		if px, py, ok := geom.LineIntersection(moveLine, borderLine); ok {
 			intersectPoints = append(intersectPoints, [2]float64{px, py})
 		}
 	}
@@ -545,13 +546,12 @@ func (g *Game) updateSprites() {
 
 	for _, s := range sprites {
 		if s.Vx != 0 || s.Vy != 0 {
-			xCheck := s.X + s.Vx
-			yCheck := s.Y + s.Vy
+			xCheck := s.Pos.X + s.Vx
+			yCheck := s.Pos.Y + s.Vy
 
-			newPos := g.getValidMove(s.X, s.Y, xCheck, yCheck, false)
-			if !newPos.Equals(&geom.Vector2{X: s.X, Y: s.Y}) {
-				s.X = newPos.X
-				s.Y = newPos.Y
+			newPos := g.getValidMove(s.Pos.X, s.Pos.Y, xCheck, yCheck, false)
+			if !newPos.Equals(s.Pos) {
+				s.Pos = newPos
 			} else {
 				// for testing purposes, letting the sample sprite ping pong off walls in somewhat random direction
 				s.Vx = randFloat(-0.03, 0.03)
