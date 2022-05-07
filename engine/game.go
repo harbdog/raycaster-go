@@ -392,7 +392,7 @@ func (g *Game) handleInput() {
 func (g *Game) Move(mSpeed float64) {
 	moveLine := geom.LineFromAngle(g.player.Pos.X, g.player.Pos.Y, g.player.Angle, mSpeed)
 
-	newPos := g.getValidMove(moveLine.X2, moveLine.Y2, true)
+	newPos := g.getValidMove(g.player.Pos.X, g.player.Pos.Y, moveLine.X2, moveLine.Y2, true)
 	if !newPos.Equals(g.player.Pos) {
 		g.player.Pos = newPos
 		g.player.Moved = true
@@ -407,7 +407,7 @@ func (g *Game) Strafe(sSpeed float64) {
 	}
 	strafeLine := geom.LineFromAngle(g.player.Pos.X, g.player.Pos.Y, g.player.Angle-strafeAngle, math.Abs(sSpeed))
 
-	newPos := g.getValidMove(strafeLine.X2, strafeLine.Y2, true)
+	newPos := g.getValidMove(g.player.Pos.X, g.player.Pos.Y, strafeLine.X2, strafeLine.Y2, true)
 	if !newPos.Equals(g.player.Pos) {
 		g.player.Pos = newPos
 		g.player.Moved = true
@@ -429,9 +429,7 @@ func (g *Game) Rotate(rSpeed float64) {
 }
 
 // checks for valid move from current position, returns valid (x, y) position
-func (g *Game) getValidMove(moveX, moveY float64, checkAlternate bool) *geom.Vector2 {
-	posX := g.player.Pos.X
-	posY := g.player.Pos.Y
+func (g *Game) getValidMove(posX, posY, moveX, moveY float64, checkAlternate bool) *geom.Vector2 {
 	newX := moveX
 	newY := moveY
 
@@ -503,12 +501,12 @@ func (g *Game) getValidMove(moveX, moveY float64, checkAlternate bool) *geom.Vec
 				// no more room to move in X, try to move only Y
 				// fmt.Printf("\t[@%v,%v] move to (%v,%v) try adjacent move to {%v,%v}\n",
 				// 	c.pos.X, c.pos.Y, moveX, moveY, posX, moveY)
-				return g.getValidMove(posX, moveY, false)
+				return g.getValidMove(posX, posY, posX, moveY, false)
 			case yDiff <= 0.01:
 				// no more room to move in Y, try to move only X
 				// fmt.Printf("\t[@%v,%v] move to (%v,%v) try adjacent move to {%v,%v}\n",
 				// 	c.pos.X, c.pos.Y, moveX, moveY, moveX, posY)
-				return g.getValidMove(moveX, posY, false)
+				return g.getValidMove(posX, posY, moveX, posY, false)
 			}
 		}
 
@@ -547,28 +545,13 @@ func (g *Game) updateSprites() {
 
 	for _, s := range sprites {
 		if s.Vx != 0 || s.Vy != 0 {
-			// TODO: use ebiten.CurrentTPS() to determine actual velicity amount to move sprite per tick
+			xCheck := s.X + s.Vx
+			yCheck := s.Y + s.Vy
 
-			horBounds := float64(s.W/2) / float64(texSize)
-
-			xCheck := int(s.X)
-			yCheck := int(s.Y)
-			if s.Vx > 0 {
-				xCheck = int(s.X + s.Vx + horBounds)
-			} else if s.Vx < 0 {
-				xCheck = int(s.X + s.Vx - horBounds)
-			}
-
-			if s.Vy > 0 {
-				yCheck = int(s.Y + s.Vy + horBounds)
-			} else if s.Vy < 0 {
-				yCheck = int(s.Y + s.Vy - horBounds)
-			}
-
-			if g.mapObj.GetAt(xCheck, yCheck) == 0 {
-				// simple collision check to prevent phasing through walls
-				s.X += s.Vx
-				s.Y += s.Vy
+			newPos := g.getValidMove(s.X, s.Y, xCheck, yCheck, false)
+			if !newPos.Equals(&geom.Vector2{X: s.X, Y: s.Y}) {
+				s.X = newPos.X
+				s.Y = newPos.Y
 			} else {
 				// for testing purposes, letting the sample sprite ping pong off walls in somewhat random direction
 				s.Vx = randFloat(-0.03, 0.03)
