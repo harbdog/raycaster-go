@@ -13,6 +13,7 @@ import (
 	_ "image/png"
 
 	"raycaster-go/engine/geom"
+	"raycaster-go/engine/model"
 	"raycaster-go/engine/raycaster"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -393,7 +394,7 @@ func (g *Game) handleInput() {
 func (g *Game) Move(mSpeed float64) {
 	moveLine := geom.LineFromAngle(g.player.Pos.X, g.player.Pos.Y, g.player.Angle, mSpeed)
 
-	newPos := g.getValidMove(g.player.Pos.X, g.player.Pos.Y, moveLine.X2, moveLine.Y2, true)
+	newPos := g.getValidMove(g.player.Entity, moveLine.X2, moveLine.Y2, true)
 	if !newPos.Equals(g.player.Pos) {
 		g.player.Pos = newPos
 		g.player.Moved = true
@@ -408,7 +409,7 @@ func (g *Game) Strafe(sSpeed float64) {
 	}
 	strafeLine := geom.LineFromAngle(g.player.Pos.X, g.player.Pos.Y, g.player.Angle-strafeAngle, math.Abs(sSpeed))
 
-	newPos := g.getValidMove(g.player.Pos.X, g.player.Pos.Y, strafeLine.X2, strafeLine.Y2, true)
+	newPos := g.getValidMove(g.player.Entity, strafeLine.X2, strafeLine.Y2, true)
 	if !newPos.Equals(g.player.Pos) {
 		g.player.Pos = newPos
 		g.player.Moved = true
@@ -430,10 +431,10 @@ func (g *Game) Rotate(rSpeed float64) {
 }
 
 // checks for valid move from current position, returns valid (x, y) position
-func (g *Game) getValidMove(posX, posY, moveX, moveY float64, checkAlternate bool) *geom.Vector2 {
-	newX := moveX
-	newY := moveY
+func (g *Game) getValidMove(entity *model.Entity, moveX, moveY float64, checkAlternate bool) *geom.Vector2 {
+	newX, newY := moveX, moveY
 
+	posX, posY := entity.Pos.X, entity.Pos.Y
 	if posX == newX && posY == moveY {
 		return &geom.Vector2{X: posX, Y: posY}
 	}
@@ -462,11 +463,43 @@ func (g *Game) getValidMove(posX, posY, moveX, moveY float64, checkAlternate boo
 
 	moveLine := geom.Line{X1: posX, Y1: posY, X2: newX, Y2: newY}
 
-	intersectPoints := [][2]float64{}
+	intersectPoints := []geom.Vector2{}
+
+	// check wall collisions
 	for _, borderLine := range g.collisionMap {
 		// TODO: only check intersection of nearby wall cells instead of all of them
 		if px, py, ok := geom.LineIntersection(moveLine, borderLine); ok {
-			intersectPoints = append(intersectPoints, [2]float64{px, py})
+			intersectPoints = append(intersectPoints, geom.Vector2{X: px, Y: py})
+		}
+	}
+
+	// check sprite against player collision
+	if entity != g.player.Entity {
+		collisionRadius := g.player.CollisionRadius + entity.CollisionRadius
+		collisionCircle := geom.Circle{X: g.player.Pos.X, Y: g.player.Pos.Y, Radius: collisionRadius}
+
+		playerIntersects := geom.CircleIntersection(moveLine, collisionCircle, true)
+		if len(playerIntersects) > 0 {
+			intersectPoints = append(intersectPoints, playerIntersects...)
+		}
+	}
+
+	// check sprite collisions
+	sprites := g.mapObj.GetSprites()
+	for _, sprite := range sprites {
+		// TODO: only check intersection of nearby sprites instead of all of them
+		if entity == sprite.Entity {
+			continue
+		}
+
+		// FIXME: find out why the moving sprite doesn't collide with tree sprite with collision radius of 0.5
+		// FIXME: also need some way to let a moving sprite out of the inside of a collision radius without letting it in
+		collisionRadius := sprite.CollisionRadius + entity.CollisionRadius
+		collisionCircle := geom.Circle{X: sprite.Pos.X, Y: sprite.Pos.Y, Radius: collisionRadius}
+
+		spriteIntersects := geom.CircleIntersection(moveLine, collisionCircle, true)
+		if len(spriteIntersects) > 0 {
+			intersectPoints = append(intersectPoints, spriteIntersects...)
 		}
 	}
 
@@ -475,7 +508,7 @@ func (g *Game) getValidMove(posX, posY, moveX, moveY float64, checkAlternate boo
 		min := math.Inf(1)
 		minI := -1
 		for i, p := range intersectPoints {
-			d2 := geom.Distance2(posX, posY, p[0], p[1])
+			d2 := geom.Distance2(posX, posY, p.X, p.Y)
 			if d2 < min {
 				min = d2
 				minI = i
@@ -483,7 +516,7 @@ func (g *Game) getValidMove(posX, posY, moveX, moveY float64, checkAlternate boo
 		}
 
 		// use the closest intersecting point to determine a safe distance to make the move
-		moveLine = geom.Line{X1: posX, Y1: posY, X2: intersectPoints[minI][0], Y2: intersectPoints[minI][1]}
+		moveLine = geom.Line{X1: posX, Y1: posY, X2: intersectPoints[minI].X, Y2: intersectPoints[minI].Y}
 		dist := math.Sqrt(min)
 		angle := moveLine.Angle()
 
@@ -491,28 +524,30 @@ func (g *Game) getValidMove(posX, posY, moveX, moveY float64, checkAlternate boo
 		moveLine = geom.LineFromAngle(posX, posY, angle, dist-0.01)
 
 		newX, newY = moveLine.X2, moveLine.Y2
-		ix, iy = int(newX), int(newY)
 
 		// if either X or Y direction was already intersecting, attempt move only in the adjacent direction
-		if checkAlternate {
-			xDiff := math.Abs(newX - posX)
-			yDiff := math.Abs(newY - posY)
+		xDiff := math.Abs(newX - posX)
+		yDiff := math.Abs(newY - posY)
+		if xDiff > 0.001 || yDiff > 0.001 {
 			switch {
-			case xDiff <= 0.01:
+			case checkAlternate && xDiff <= 0.001:
 				// no more room to move in X, try to move only Y
 				// fmt.Printf("\t[@%v,%v] move to (%v,%v) try adjacent move to {%v,%v}\n",
 				// 	c.pos.X, c.pos.Y, moveX, moveY, posX, moveY)
-				return g.getValidMove(posX, posY, posX, moveY, false)
-			case yDiff <= 0.01:
+				return g.getValidMove(entity, posX, moveY, false)
+			case checkAlternate && yDiff <= 0.001:
 				// no more room to move in Y, try to move only X
 				// fmt.Printf("\t[@%v,%v] move to (%v,%v) try adjacent move to {%v,%v}\n",
 				// 	c.pos.X, c.pos.Y, moveX, moveY, moveX, posY)
-				return g.getValidMove(posX, posY, moveX, posY, false)
+				return g.getValidMove(entity, moveX, posY, false)
+			default:
+				// try the new position
+				return g.getValidMove(entity, newX, newY, false)
 			}
+		} else {
+			// looks like it cannot move
+			return &geom.Vector2{X: posX, Y: posY}
 		}
-
-		// fmt.Printf("[@%v,%v] move to (%v,%v) intersects at {%v,%v}\n",
-		// 	c.pos.X, c.pos.Y, moveX, moveY, newX, newY)
 	}
 
 	if g.worldMap[ix][iy] <= 0 {
@@ -549,8 +584,8 @@ func (g *Game) updateSprites() {
 			xCheck := s.Pos.X + s.Vx
 			yCheck := s.Pos.Y + s.Vy
 
-			newPos := g.getValidMove(s.Pos.X, s.Pos.Y, xCheck, yCheck, false)
-			if !newPos.Equals(s.Pos) {
+			newPos := g.getValidMove(s.Entity, xCheck, yCheck, false)
+			if !newPos.NearlyEquals(s.Pos, 0.00001) {
 				s.Pos = newPos
 			} else {
 				// for testing purposes, letting the sample sprite ping pong off walls in somewhat random direction
