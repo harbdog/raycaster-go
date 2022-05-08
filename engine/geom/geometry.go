@@ -70,6 +70,11 @@ func (l *Line) Angle() float64 {
 	return math.Atan2(l.Y2-l.Y1, l.X2-l.X1)
 }
 
+// Distance returns the distance between two points
+func Distance(x1, y1, x2, y2 float64) float64 {
+	return math.Sqrt(Distance2(x1, y1, x2, y2))
+}
+
 // Distance2 returns the d^2 of the distance between two points
 func Distance2(x1, y1, x2, y2 float64) float64 {
 	return sq(x2-x1) + sq(y2-y1)
@@ -95,7 +100,7 @@ func Rect(x, y, w, h float64) []Line {
 	}
 }
 
-// LineIntersection calculates the intersection of given two lines.
+// LineIntersection calculates the intersection of two lines.
 func LineIntersection(l1, l2 Line) (float64, float64, bool) {
 	// https://en.wikipedia.org/wiki/Line%E2%80%93line_intersection#Given_two_points_on_each_line
 	denom := (l1.X1-l1.X2)*(l2.Y1-l2.Y2) - (l1.Y1-l1.Y2)*(l2.X1-l2.X2)
@@ -126,9 +131,9 @@ type Circle struct {
 	Radius float64
 }
 
-// CircleIntersection gets the intersection points (if any) of a circle,
+// LineCircleIntersection gets the intersection points (if any) of a circle,
 // and either an infinite line or a line segment.
-func CircleIntersection(li Line, ci Circle, isSegment bool) []Vector2 {
+func LineCircleIntersection(li Line, ci Circle, isSegment bool) []Vector2 {
 	// https://rosettacode.org/wiki/Line_circle_intersection#Go
 	var res []Vector2
 	x0, y0 := ci.X, ci.Y
@@ -203,4 +208,18 @@ func CircleIntersection(li Line, ci Circle, isSegment bool) []Vector2 {
 		}
 	}
 	return res
+}
+
+// CircleCollision checks for collision against another circle
+// and returns distance between their center points
+func (c *Circle) CircleCollision(c2 *Circle) (float64, bool) {
+	dx := (c.X + c.Radius) - (c2.X + c2.Radius)
+	dy := (c.Y + c.Radius) - (c2.Y + c2.Radius)
+	distance := math.Sqrt(dx*dx + dy*dy)
+
+	collision := false
+	if distance < c.Radius+c2.Radius {
+		collision = true
+	}
+	return distance, collision
 }

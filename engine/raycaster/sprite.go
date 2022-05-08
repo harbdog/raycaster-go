@@ -44,7 +44,7 @@ func NewSprite(x, y float64, img *ebiten.Image, uSize int) *Sprite {
 		img = translateImg
 	}
 
-	// for now, setting collision distance to 1/4th the sprite unit width
+	// TODO: have collision radius as param for new sprite...for now, setting collision distance to 1/4th the sprite unit width
 	s.CollisionRadius = float64(s.W/uSize) / 4
 
 	s.textures[0] = img
@@ -112,8 +112,8 @@ func NewAnimatedSprite(x, y, scale float64, animationRate int, img *ebiten.Image
 		}
 	}
 
-	// for now, setting collision distance to half the sprite unit width
-	s.CollisionRadius = float64(s.W/uSize) / 2
+	// for now, setting collision distance to 1/4th the sprite unit width
+	s.CollisionRadius = float64(s.W/uSize) / 4
 
 	return s
 }
