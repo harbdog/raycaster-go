@@ -31,6 +31,7 @@ const (
 	texSize = 256
 
 	// distance to keep away from walls and obstacles to avoid clipping
+	// TODO: may want a smaller distance to test vs. sprites
 	clipDistance = 0.1
 )
 
@@ -462,6 +463,7 @@ func (g *Game) getValidMove(entity *model.Entity, moveX, moveY float64, checkAlt
 	}
 
 	moveLine := geom.Line{X1: posX, Y1: posY, X2: newX, Y2: newY}
+	entityCircle := geom.Circle{X: newX, Y: newY, Radius: entity.CollisionRadius}
 
 	intersectPoints := []geom.Vector2{}
 
@@ -475,12 +477,18 @@ func (g *Game) getValidMove(entity *model.Entity, moveX, moveY float64, checkAlt
 
 	// check sprite against player collision
 	if entity != g.player.Entity {
+		// TODO: only check for collision if player is somewhat nearby
 		collisionRadius := g.player.CollisionRadius + entity.CollisionRadius
 		collisionCircle := geom.Circle{X: g.player.Pos.X, Y: g.player.Pos.Y, Radius: collisionRadius}
 
-		playerIntersects := geom.CircleIntersection(moveLine, collisionCircle, true)
-		if len(playerIntersects) > 0 {
-			intersectPoints = append(intersectPoints, playerIntersects...)
+		_, isCollision := collisionCircle.CircleCollision(&entityCircle)
+		if isCollision {
+			// determine new position which would be the center point of the moment of collision
+			angle := moveLine.Angle()
+
+			// create line using collision radius to determine center point for intersection
+			collisionLine := geom.LineFromAngle(posX, posY, angle, collisionRadius)
+			intersectPoints = append(intersectPoints, geom.Vector2{X: collisionLine.X2, Y: collisionLine.Y2})
 		}
 	}
 
@@ -492,14 +500,18 @@ func (g *Game) getValidMove(entity *model.Entity, moveX, moveY float64, checkAlt
 			continue
 		}
 
-		// FIXME: find out why the moving sprite doesn't collide with tree sprite with collision radius of 0.5
-		// FIXME: also need some way to let a moving sprite out of the inside of a collision radius without letting it in
+		// FIXME: need some way to let a moving sprite out of the inside of a collision radius without letting it in
 		collisionRadius := sprite.CollisionRadius + entity.CollisionRadius
 		collisionCircle := geom.Circle{X: sprite.Pos.X, Y: sprite.Pos.Y, Radius: collisionRadius}
 
-		spriteIntersects := geom.CircleIntersection(moveLine, collisionCircle, true)
-		if len(spriteIntersects) > 0 {
-			intersectPoints = append(intersectPoints, spriteIntersects...)
+		_, isCollision := collisionCircle.CircleCollision(&entityCircle)
+		if isCollision {
+			// determine new position which would be the center point of the moment of collision
+			angle := moveLine.Angle()
+
+			// create line using collision radius to determine center point for intersection
+			collisionLine := geom.LineFromAngle(posX, posY, angle, collisionRadius)
+			intersectPoints = append(intersectPoints, geom.Vector2{X: collisionLine.X2, Y: collisionLine.Y2})
 		}
 	}
 
@@ -528,20 +540,21 @@ func (g *Game) getValidMove(entity *model.Entity, moveX, moveY float64, checkAlt
 		// if either X or Y direction was already intersecting, attempt move only in the adjacent direction
 		xDiff := math.Abs(newX - posX)
 		yDiff := math.Abs(newY - posY)
-		if xDiff > 0.001 || yDiff > 0.001 {
+		if checkAlternate && (xDiff > 0.001 || yDiff > 0.001) {
 			switch {
-			case checkAlternate && xDiff <= 0.001:
+			case xDiff <= 0.001:
 				// no more room to move in X, try to move only Y
 				// fmt.Printf("\t[@%v,%v] move to (%v,%v) try adjacent move to {%v,%v}\n",
 				// 	c.pos.X, c.pos.Y, moveX, moveY, posX, moveY)
 				return g.getValidMove(entity, posX, moveY, false)
-			case checkAlternate && yDiff <= 0.001:
+			case yDiff <= 0.001:
 				// no more room to move in Y, try to move only X
 				// fmt.Printf("\t[@%v,%v] move to (%v,%v) try adjacent move to {%v,%v}\n",
 				// 	c.pos.X, c.pos.Y, moveX, moveY, moveX, posY)
 				return g.getValidMove(entity, moveX, posY, false)
 			default:
 				// try the new position
+				// TODO: need some way to try a potentially valid shorter move without checkAlternate while also avoiding infinite loop
 				return g.getValidMove(entity, newX, newY, false)
 			}
 		} else {
