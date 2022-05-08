@@ -31,15 +31,15 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 	floorRect := image.Rect(0, int(float64(g.height)*0.5)+g.camera.GetPitch(),
 		g.width, 2*int(float64(g.height)*0.5)-g.camera.GetPitch())
-	g.spriteBatch.draw(g.floor, &floorRect, &texRect, whiteRGBA)
+	g.spriteBatch.drawTexture(g.floor, &floorRect, &texRect, whiteRGBA)
 
 	skyRect := image.Rect(0, 0, g.width, int(float64(g.height)*0.5)+g.camera.GetPitch())
-	g.spriteBatch.draw(g.sky, &skyRect, &texRect, whiteRGBA)
+	g.spriteBatch.drawTexture(g.sky, &skyRect, &texRect, whiteRGBA)
 
 	//--draw walls--//
 	for x := 0; x < g.width; x++ {
 		for i := cap(g.levels) - 1; i >= 0; i-- {
-			g.spriteBatch.draw(g.levels[i].CurrTex[x], g.levels[i].Sv[x], g.levels[i].Cts[x], g.levels[i].St[x])
+			g.spriteBatch.drawTexture(g.levels[i].CurrTex[x], g.levels[i].Sv[x], g.levels[i].Cts[x], g.levels[i].St[x])
 		}
 	}
 
@@ -63,9 +63,22 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 			texture := spriteLvl.CurrTex[x]
 			if texture != nil {
-				g.spriteBatch.draw(texture, spriteLvl.Sv[x], spriteLvl.Cts[x], spriteLvl.St[x])
+				g.spriteBatch.drawTexture(texture, spriteLvl.Sv[x], spriteLvl.Cts[x], spriteLvl.St[x])
 			}
 		}
+	}
+
+	// draw minimap
+	mm := g.miniMap()
+	mmImg := ebiten.NewImageFromImage(mm)
+	if mmImg != nil {
+		op := &ebiten.DrawImageOptions{}
+		op.Filter = ebiten.FilterNearest
+
+		op.GeoM.Scale(5.0, 5.0)
+		op.GeoM.Translate(0, 50)
+		view := g.view
+		view.DrawImage(mmImg, op)
 	}
 
 	if g.DebugOnce {
@@ -90,7 +103,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	ebitenutil.DebugPrint(g.view, fps)
 }
 
-func (s *SpriteBatch) draw(texture *ebiten.Image, destinationRectangle *image.Rectangle, sourceRectangle *image.Rectangle, color *color.RGBA) {
+func (s *SpriteBatch) drawTexture(texture *ebiten.Image, destinationRectangle *image.Rectangle, sourceRectangle *image.Rectangle, color *color.RGBA) {
 	if texture == nil || destinationRectangle == nil || sourceRectangle == nil {
 		return
 	}
