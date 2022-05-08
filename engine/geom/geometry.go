@@ -39,6 +39,27 @@ func (v *Vector2) Equals(v2 *Vector2) bool {
 	return v.X == v2.X && v.Y == v2.Y
 }
 
+func (v *Vector2) NearlyEquals(v2 *Vector2, epsilon float64) bool {
+	return NearlyEqual(v.X, v2.X, epsilon) && NearlyEqual(v.Y, v2.Y, epsilon)
+}
+
+func NearlyEqual(a, b, epsilon float64) bool {
+	// https://floating-point-gui.de/errors/comparison/#look-out-for-edge-cases
+	absA := math.Abs(a)
+	absB := math.Abs(b)
+	diff := math.Abs(a - b)
+
+	if a == b { // shortcut, handles infinities
+		return true
+	} else if a == 0 || b == 0 || (absA+absB < math.SmallestNonzeroFloat64) {
+		// a or b is zero or both are extremely close to it
+		// relative error is less meaningful here
+		return diff < (epsilon * math.SmallestNonzeroFloat64)
+	} else { // use relative error
+		return diff/math.Min((absA+absB), math.MaxFloat64) < epsilon
+	}
+}
+
 // Line implementation for Geometry applications
 type Line struct {
 	X1, Y1, X2, Y2 float64

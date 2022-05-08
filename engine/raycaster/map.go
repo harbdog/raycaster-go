@@ -107,7 +107,7 @@ func (m *Map) LoadSprites() {
 		NewAnimatedSprite(20, 11.5, 1.4, 5, m.tex.Textures[15], 10, 1, 256), // FIXME: 256 should come from g.texSize
 
 		// // line of trees for testing in front of initial view
-		NewSprite(19.5, 11.5, m.tex.Textures[10], 256),
+		//NewSprite(19.5, 11.5, m.tex.Textures[10], 256), // FIXME: commented out because trapping moving sprite inside its collision radius
 		NewSprite(17.5, 11.5, m.tex.Textures[14], 256),
 		NewSprite(15.5, 11.5, m.tex.Textures[9], 256),
 		// // render a forest!
