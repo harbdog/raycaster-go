@@ -476,7 +476,7 @@ func (g *Game) getValidMove(entity *model.Entity, moveX, moveY float64, checkAlt
 	}
 
 	// check sprite against player collision
-	if entity != g.player.Entity {
+	if entity != g.player.Entity && entity.CollisionRadius > 0 {
 		// TODO: only check for collision if player is somewhat nearby
 		collisionRadius := g.player.CollisionRadius + entity.CollisionRadius
 		collisionCircle := geom.Circle{X: g.player.Pos.X, Y: g.player.Pos.Y, Radius: collisionRadius}
@@ -496,7 +496,7 @@ func (g *Game) getValidMove(entity *model.Entity, moveX, moveY float64, checkAlt
 	sprites := g.mapObj.GetSprites()
 	for _, sprite := range sprites {
 		// TODO: only check intersection of nearby sprites instead of all of them
-		if entity == sprite.Entity {
+		if entity == sprite.Entity || entity.CollisionRadius <= 0 || sprite.CollisionRadius <= 0 {
 			continue
 		}
 
