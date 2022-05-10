@@ -21,11 +21,12 @@ type Sprite struct {
 	textures       []*ebiten.Image
 }
 
-func NewSprite(x, y float64, img *ebiten.Image, uSize int) *Sprite {
+func NewSprite(x, y float64, img *ebiten.Image, uSize int, collisionRadius float64) *Sprite {
 	s := &Sprite{
 		Entity: &model.Entity{
-			Pos:   &geom.Vector2{X: x, Y: y},
-			Angle: 0,
+			Pos:             &geom.Vector2{X: x, Y: y},
+			Angle:           0,
+			CollisionRadius: collisionRadius,
 		},
 	}
 	s.Scale = 1.0
@@ -44,19 +45,20 @@ func NewSprite(x, y float64, img *ebiten.Image, uSize int) *Sprite {
 		img = translateImg
 	}
 
-	// TODO: have collision radius as param for new sprite...for now, setting collision distance to 1/4th the sprite unit width
-	s.CollisionRadius = float64(s.W/uSize) / 4
-
 	s.textures[0] = img
 
 	return s
 }
 
-func NewAnimatedSprite(x, y, scale float64, animationRate int, img *ebiten.Image, columns, rows int, uSize int) *Sprite {
+func NewAnimatedSprite(
+	x, y, scale float64, animationRate int, img *ebiten.Image, columns, rows int,
+	uSize int, collisionRadius float64,
+) *Sprite {
 	s := &Sprite{
 		Entity: &model.Entity{
-			Pos:   &geom.Vector2{X: x, Y: y},
-			Angle: 0,
+			Pos:             &geom.Vector2{X: x, Y: y},
+			Angle:           0,
+			CollisionRadius: collisionRadius,
 		},
 	}
 	s.Scale = scale
@@ -111,9 +113,6 @@ func NewAnimatedSprite(x, y, scale float64, animationRate int, img *ebiten.Image
 			s.textures[c+r*c] = cellTarget
 		}
 	}
-
-	// for now, setting collision distance to 1/4th the sprite unit width
-	s.CollisionRadius = float64(s.W/uSize) / 4
 
 	return s
 }
