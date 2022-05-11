@@ -61,6 +61,9 @@ type Game struct {
 	floor *ebiten.Image
 	sky   *ebiten.Image
 
+	crosshairs     *raycaster.Sprite
+	crosshairScale float64
+
 	//--array of levels, levels refer to "floors" of the world--//
 	mapObj       *raycaster.Map
 	levels       []*raycaster.Level
@@ -119,6 +122,11 @@ func NewGame() *Game {
 	// load content once when first run
 	g.loadContent()
 
+	// TODO: make crosshairs its own class since it doesn't behave like other sprites
+	g.crosshairScale = 2.0
+	g.crosshairs = raycaster.NewAnimatedSprite(1, 1, 1.0, 0, g.tex.Textures[16], 8, 8, 64, 0)
+	g.crosshairs.SetAnimationFrame(57)
+
 	// init the sprites
 	g.mapObj.LoadSprites()
 	g.spriteLvls = g.createSpriteLevels()
@@ -126,9 +134,6 @@ func NewGame() *Game {
 	// give sprite a sample velocity for movement
 	s := g.mapObj.GetSprite(0)
 	s.Vx = -0.02
-	// give sprite custom bounds for collision instead of using image bounds
-	s.W = int(s.Scale * 85)
-	s.H = int(s.Scale * 126)
 
 	// init mouse movement mode
 	ebiten.SetCursorMode(ebiten.CursorModeCaptured)
@@ -157,7 +162,7 @@ func (g *Game) loadContent() {
 	// Create a new SpriteBatch, which can be used to draw textures.
 	g.spriteBatch = &SpriteBatch{g: g}
 
-	g.tex.Textures = make([]*ebiten.Image, 16)
+	g.tex.Textures = make([]*ebiten.Image, 32)
 
 	// load wall textures
 	g.tex.Textures[0] = getTextureFromFile("stone.png")
@@ -171,7 +176,9 @@ func (g *Game) loadContent() {
 	g.tex.Textures[10] = getSpriteFromFile("tree_10.png")
 	g.tex.Textures[14] = getSpriteFromFile("tree_14.png")
 
+	// load texture sheets
 	g.tex.Textures[15] = getSpriteFromFile("sorcerer_sheet.png")
+	g.tex.Textures[16] = getSpriteFromFile("crosshairs_sheet.png")
 
 	g.floor = getTextureFromFile("floor.png")
 	g.sky = getTextureFromFile("sky.png")
