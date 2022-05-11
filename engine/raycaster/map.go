@@ -7,8 +7,7 @@ type Map struct {
 	midMap   [][]int
 	upMap    [][]int
 
-	sprite     []*Sprite
-	numSprites int
+	sprite []*Sprite
 
 	tex *TextureHandler
 }
@@ -161,7 +160,10 @@ func (m *Map) LoadSprites() {
 		NewSprite(13.5, 7.5, m.tex.Textures[14], 256, 0),
 		NewSprite(13.5, 8, m.tex.Textures[14], 256, 0),
 	}
-	m.numSprites = len(m.sprite)
+}
+
+func (m *Map) AppendSprite(sprite *Sprite) {
+	m.sprite = append(m.sprite, sprite)
 }
 
 func (m *Map) GetAt(x, y int) int {
@@ -177,7 +179,7 @@ func (m *Map) GetSprite(index int) *Sprite {
 }
 
 func (m *Map) GetNumSprites() int {
-	return m.numSprites
+	return len(m.sprite)
 }
 
 func (m *Map) GetGrid() [][]int {
