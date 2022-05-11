@@ -64,6 +64,8 @@ type Game struct {
 	crosshairs     *raycaster.Sprite
 	crosshairScale float64
 
+	projectileCooldown float64
+
 	//--array of levels, levels refer to "floors" of the world--//
 	mapObj       *raycaster.Map
 	levels       []*raycaster.Level
@@ -127,6 +129,9 @@ func NewGame() *Game {
 	g.crosshairs = raycaster.NewAnimatedSprite(1, 1, 1.0, 0, g.tex.Textures[16], 8, 8, 64, 0)
 	g.crosshairs.SetAnimationFrame(57)
 
+	// TODO: make projectile its own class to keep track of its cooldown to fire again
+	g.projectileCooldown = 0
+
 	// init the sprites
 	g.mapObj.LoadSprites()
 	g.spriteLvls = g.createSpriteLevels()
@@ -179,6 +184,7 @@ func (g *Game) loadContent() {
 	// load texture sheets
 	g.tex.Textures[15] = getSpriteFromFile("sorcerer_sheet.png")
 	g.tex.Textures[16] = getSpriteFromFile("crosshairs_sheet.png")
+	g.tex.Textures[17] = getSpriteFromFile("charged_bolt_sheet.png")
 
 	g.floor = getTextureFromFile("floor.png")
 	g.sky = getTextureFromFile("sky.png")
@@ -266,6 +272,10 @@ func (g *Game) handleInput() {
 		moveModifier = 2.0
 	}
 
+	if g.projectileCooldown > 0 {
+		g.projectileCooldown -= 1 / float64(ebiten.MaxTPS())
+	}
+
 	switch {
 	case ebiten.IsKeyPressed(ebiten.KeyControl):
 		if g.mouseMode != raycaster.MouseModeCursor {
@@ -312,6 +322,11 @@ func (g *Game) handleInput() {
 
 	case raycaster.MouseModeMove:
 		x, y := ebiten.CursorPosition()
+
+		if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
+			g.fireTestProjectile()
+		}
+
 		switch {
 		case g.mouseX == math.MinInt32 && g.mouseY == math.MinInt32:
 			// initialize first position to establish delta
@@ -333,6 +348,11 @@ func (g *Game) handleInput() {
 		}
 	case raycaster.MouseModeLook:
 		x, y := ebiten.CursorPosition()
+
+		if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
+			g.fireTestProjectile()
+		}
+
 		switch {
 		case g.mouseX == math.MinInt32 && g.mouseY == math.MinInt32:
 			// initialize first position to establish delta
@@ -578,6 +598,36 @@ func (g *Game) getValidMove(entity *model.Entity, moveX, moveY float64, checkAlt
 	return &geom.Vector2{X: posX, Y: posY}
 }
 
+func (g *Game) fireTestProjectile() {
+	if g.projectileCooldown > 0 {
+		return
+	}
+
+	g.projectileCooldown = 0.1
+
+	// fire test projectile spawning near but in front of current player position and angle
+	projectileSpawnDistance := 0.4
+	projectileCollisionRadius := 16.0 / 256.0
+	projectileSpawn := geom.LineFromAngle(g.player.Pos.X, g.player.Pos.Y, g.player.Angle, projectileSpawnDistance)
+	projectile := raycaster.NewAnimatedSprite(
+		projectileSpawn.X2, projectileSpawn.Y2, 0.5, 4, g.tex.Textures[17], 48, 1, 256, projectileCollisionRadius,
+	)
+
+	// dertermine velocity based on angle and distance per tick
+	// TODO: make projectile class use angle and velocity instead?
+	projectileVelocity := 0.1
+	projectileLine := geom.LineFromAngle(projectile.Pos.X, projectile.Pos.Y, g.player.Angle, projectileVelocity)
+	projectile.Vx = projectileLine.X2 - projectileLine.X1
+	projectile.Vy = projectileLine.Y2 - projectileLine.Y1
+
+	// TODO: make projectile disappear after it hits something
+
+	g.mapObj.AppendSprite(projectile)
+
+	// TODO: refactor the need for this extra update needed when the sprite list expands
+	g.updateSpriteLevels()
+}
+
 // Update camera to match player position and orientation
 func (g *Game) updatePlayerCamera(forceUpdate bool) {
 	if !g.player.Moved && !forceUpdate {
@@ -646,6 +696,15 @@ func (g *Game) createSpriteLevels() []*raycaster.Level {
 	spriteArr := make([]*raycaster.Level, numSprites)
 
 	return spriteArr
+}
+
+func (g *Game) updateSpriteLevels() {
+	// update empty "level" for all sprites used by camera
+	// TODO: this should be refactored so to be not necessary
+	numSprites := g.mapObj.GetNumSprites()
+
+	g.spriteLvls = make([]*raycaster.Level, numSprites)
+	g.camera.UpdateSpriteLevels(g.spriteLvls)
 }
 
 // DebugPrintfOnce prints info to screen only one time until g.DebugFlag cleared again

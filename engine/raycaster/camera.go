@@ -77,7 +77,7 @@ type Camera struct {
 	// zbuffer for sprite casting
 	zBuffer []float64
 	// sprites
-	sprite []*Sprite
+	sprites []*Sprite
 	//arrays used to sort the sprites
 	spriteOrder    []int
 	spriteDistance []float64
@@ -138,10 +138,6 @@ func NewCamera(width int, height int, texWid int, mapObj *Map, slices []*image.R
 	c.mapWidth = len(c.worldMap)
 	c.mapHeight = len(c.worldMap[0])
 
-	c.sprite = c.mapObj.GetSprites()
-	c.spriteOrder = make([]int, c.mapObj.numSprites)
-	c.spriteDistance = make([]float64, c.mapObj.numSprites)
-
 	c.tex = tex
 
 	// initialize a pool of channels to limit concurrent floor and sprite casting
@@ -175,11 +171,14 @@ func (c *Camera) raycast() {
 	wg.Wait()
 
 	//SPRITE CASTING
+	c.sprites = c.mapObj.GetSprites()
+	c.spriteOrder = make([]int, c.mapObj.GetNumSprites())
+	c.spriteDistance = make([]float64, c.mapObj.GetNumSprites())
 	//sort sprites from far to close
-	numSprites := c.mapObj.numSprites
+	numSprites := c.mapObj.GetNumSprites()
 	for i := 0; i < numSprites; i++ {
 		c.spriteOrder[i] = i
-		c.spriteDistance[i] = (math.Pow(c.pos.X-c.sprite[i].Pos.X, 2) + math.Pow(c.pos.Y-c.sprite[i].Pos.Y, 2))
+		c.spriteDistance[i] = (math.Pow(c.pos.X-c.sprites[i].Pos.X, 2) + math.Pow(c.pos.Y-c.sprites[i].Pos.Y, 2))
 	}
 	combSort(c.spriteOrder, c.spriteDistance, numSprites)
 
@@ -498,10 +497,10 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 	rayPosY := c.pos.Y
 
 	//translate sprite position to relative to camera
-	spriteX := c.sprite[c.spriteOrder[spriteOrdIndex]].Pos.X - rayPosX
-	spriteY := c.sprite[c.spriteOrder[spriteOrdIndex]].Pos.Y - rayPosY
+	spriteX := c.sprites[c.spriteOrder[spriteOrdIndex]].Pos.X - rayPosX
+	spriteY := c.sprites[c.spriteOrder[spriteOrdIndex]].Pos.Y - rayPosY
 
-	spriteTex := c.sprite[c.spriteOrder[spriteOrdIndex]].GetTexture()
+	spriteTex := c.sprites[c.spriteOrder[spriteOrdIndex]].GetTexture()
 	spriteW, spriteH := spriteTex.Size()
 
 	//transform sprite with the inverse camera matrix
@@ -616,6 +615,11 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 	if !renderSprite {
 		c.clearSpriteLevel(spriteOrdIndex)
 	}
+}
+
+func (c *Camera) UpdateSpriteLevels(spriteLvls []*Level) {
+	// TODO: this should be refactored rather than bouncing it around between game/camera
+	c.spriteLvls = spriteLvls
 }
 
 func (c *Camera) makeSpriteLevel(spriteOrdIndex int) *Level {
