@@ -117,6 +117,10 @@ func NewAnimatedSprite(
 	return s
 }
 
+func (s *Sprite) SetAnimationFrame(animationFrame int) {
+	s.animCounter = animationFrame
+}
+
 func (s *Sprite) Update() {
 	if s.AnimationRate <= 0 {
 		return

@@ -81,6 +81,20 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		view.DrawImage(mmImg, op)
 	}
 
+	// draw crosshairs
+	if g.crosshairs != nil {
+		op := &ebiten.DrawImageOptions{}
+		op.Filter = ebiten.FilterNearest
+
+		op.GeoM.Scale(g.crosshairScale, g.crosshairScale)
+		op.GeoM.Translate(
+			float64(g.width)/2-float64(g.crosshairs.W)*g.crosshairScale/2,
+			float64(g.height)/2-float64(g.crosshairs.H)*g.crosshairScale/2,
+		)
+		view := g.view
+		view.DrawImage(g.crosshairs.GetTexture(), op)
+	}
+
 	if g.DebugOnce {
 		// end DebugOnce after one loop
 		g.DebugOnce = false
