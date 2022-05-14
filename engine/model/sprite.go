@@ -1,17 +1,16 @@
-package raycaster
+package model
 
 import (
 	"image"
 	_ "image/png"
 
 	"raycaster-go/engine/geom"
-	"raycaster-go/engine/model"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
 type Sprite struct {
-	*model.Entity
+	*Entity
 	Vx, Vy         float64
 	W, H           int
 	Scale          float64
@@ -23,7 +22,7 @@ type Sprite struct {
 
 func NewSprite(x, y float64, img *ebiten.Image, uSize int, collisionRadius float64) *Sprite {
 	s := &Sprite{
-		Entity: &model.Entity{
+		Entity: &Entity{
 			Pos:             &geom.Vector2{X: x, Y: y},
 			Angle:           0,
 			CollisionRadius: collisionRadius,
@@ -55,7 +54,7 @@ func NewAnimatedSprite(
 	uSize int, collisionRadius float64,
 ) *Sprite {
 	s := &Sprite{
-		Entity: &model.Entity{
+		Entity: &Entity{
 			Pos:             &geom.Vector2{X: x, Y: y},
 			Angle:           0,
 			CollisionRadius: collisionRadius,

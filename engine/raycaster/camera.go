@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"raycaster-go/engine/geom"
+	"raycaster-go/engine/model"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -77,7 +78,7 @@ type Camera struct {
 	// zbuffer for sprite casting
 	zBuffer []float64
 	// sprites
-	sprites []*Sprite
+	sprites []*model.Sprite
 	//arrays used to sort the sprites
 	spriteOrder    []int
 	spriteDistance []float64
