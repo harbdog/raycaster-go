@@ -11,7 +11,6 @@ import (
 
 type Sprite struct {
 	*Entity
-	Vx, Vy         float64
 	W, H           int
 	Scale          float64
 	AnimationRate  int
@@ -25,6 +24,7 @@ func NewSprite(x, y float64, img *ebiten.Image, uSize int, collisionRadius float
 		Entity: &Entity{
 			Pos:             &geom.Vector2{X: x, Y: y},
 			Angle:           0,
+			Velocity:        0,
 			CollisionRadius: collisionRadius,
 		},
 	}
@@ -57,6 +57,7 @@ func NewAnimatedSprite(
 		Entity: &Entity{
 			Pos:             &geom.Vector2{X: x, Y: y},
 			Angle:           0,
+			Velocity:        0,
 			CollisionRadius: collisionRadius,
 		},
 	}
