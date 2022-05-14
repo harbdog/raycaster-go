@@ -6,8 +6,9 @@ import (
 
 type Player struct {
 	*Entity
-	Pitch float64
-	Moved bool
+	Pitch          float64
+	Moved          bool
+	WeaponCooldown float64
 }
 
 func NewPlayer(x, y, angle, pitch float64) *Player {
@@ -17,8 +18,9 @@ func NewPlayer(x, y, angle, pitch float64) *Player {
 			Angle:    angle,
 			Velocity: 0,
 		},
-		Pitch: pitch,
-		Moved: false,
+		Pitch:          pitch,
+		Moved:          false,
+		WeaponCooldown: 0,
 	}
 
 	return p

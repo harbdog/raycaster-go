@@ -66,6 +66,10 @@ type Camera struct {
 	upMap     [][]int
 	midMap    [][]int
 
+	//--test texture--//
+	floor *ebiten.Image
+	sky   *ebiten.Image
+
 	//--texture width--//
 	texWidth int
 
@@ -73,7 +77,7 @@ type Camera struct {
 	s []*image.Rectangle
 
 	//--structs that contain rects and tints for each level render--//
-	lvls []*Level
+	levels []*Level
 
 	// zbuffer for sprite casting
 	zBuffer []float64
@@ -86,7 +90,7 @@ type Camera struct {
 	spriteLvls []*Level
 	tex        *TextureHandler
 
-	horLvl *HorLevel
+	floorLvl *HorLevel
 
 	// used for concurrency
 	semaphore chan struct{}
@@ -123,9 +127,9 @@ func NewCamera(width int, height int, texWid int, mapObj *Map, slices []*image.R
 	c.pitch = 0
 	c.texWidth = texWid
 	c.s = slices
-	c.lvls = levels
+	c.levels = levels
 
-	c.horLvl = horizontalLevel
+	c.floorLvl = horizontalLevel
 	c.spriteLvls = spriteLvls
 
 	// set zbuffer based on screen width
@@ -154,7 +158,7 @@ func NewCamera(width int, height int, texWid int, mapObj *Map, slices []*image.R
 // Update - updates the camera view
 func (c *Camera) Update() {
 	// clear horizontal buffer by making a new one
-	c.horLvl.Clear(c.w, c.h)
+	c.floorLvl.Clear(c.w, c.h)
 
 	//--do raycast--//
 	c.raycast()
@@ -162,7 +166,7 @@ func (c *Camera) Update() {
 
 func (c *Camera) raycast() {
 	// cast level
-	numLevels := cap(c.lvls)
+	numLevels := cap(c.levels)
 	var wg sync.WaitGroup
 	for i := 0; i < numLevels; i++ {
 		wg.Add(1)
@@ -205,7 +209,7 @@ func (c *Camera) asyncCastLevel(levelNum int, wg *sync.WaitGroup) {
 	}
 
 	for x := 0; x < c.w; x++ {
-		c.castLevel(x, rMap, c.lvls[levelNum], levelNum, wg)
+		c.castLevel(x, rMap, c.levels[levelNum], levelNum, wg)
 	}
 }
 
@@ -352,7 +356,7 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *Level, levelNum int, wg *sy
 		}
 	}
 
-	c.lvls[levelNum].CurrTex[x] = c.tex.Textures[texNum]
+	c.levels[levelNum].CurrTex[x] = c.tex.Textures[texNum]
 
 	//calculate value of wallX
 	var wallX float64 //where exactly the wall was hit
@@ -460,7 +464,7 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *Level, levelNum int, wg *sy
 				// buffer[y][x] = (texture[3][texWidth * floorTexY + floorTexX] >> 1) & 8355711;
 				// the same vertical slice method cannot be used for floor rendering
 				floorTexNum := 0
-				floorTex := c.horLvl.TexRGBA[floorTexNum]
+				floorTex := c.floorLvl.TexRGBA[floorTexNum]
 
 				//pixel := floorTex.RGBAAt(floorTexX, floorTexY)
 				pxOffset := floorTex.PixOffset(floorTexX, floorTexY)
@@ -480,11 +484,11 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *Level, levelNum int, wg *sy
 				pixel.B = uint8(float64(pixel.B) * float64(pixelSt.B) / 256)
 
 				//c.horLvl.HorBuffer.SetRGBA(x, y, pixel)
-				pxOffset = c.horLvl.HorBuffer.PixOffset(x, y)
-				c.horLvl.HorBuffer.Pix[pxOffset] = pixel.R
-				c.horLvl.HorBuffer.Pix[pxOffset+1] = pixel.G
-				c.horLvl.HorBuffer.Pix[pxOffset+2] = pixel.B
-				c.horLvl.HorBuffer.Pix[pxOffset+3] = pixel.A
+				pxOffset = c.floorLvl.HorBuffer.PixOffset(x, y)
+				c.floorLvl.HorBuffer.Pix[pxOffset] = pixel.R
+				c.floorLvl.HorBuffer.Pix[pxOffset+1] = pixel.G
+				c.floorLvl.HorBuffer.Pix[pxOffset+2] = pixel.B
+				c.floorLvl.HorBuffer.Pix[pxOffset+3] = pixel.A
 			}
 		}()
 	}
@@ -705,6 +709,14 @@ func (c *Camera) getValidCameraMove(moveX, moveY float64, checkAlternate bool) (
 	}
 
 	return posX, posY
+}
+
+func (c *Camera) SetFloorTexture(floor *ebiten.Image) {
+	c.floor = floor
+}
+
+func (c *Camera) SetSkyTexture(sky *ebiten.Image) {
+	c.sky = sky
 }
 
 // Set camera position vector
