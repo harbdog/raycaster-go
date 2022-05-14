@@ -28,7 +28,7 @@ const (
 
 	//--RaycastEngine constants
 	//--set constant, texture size to be the wall (and sprite) texture size--//
-	texSize = 256
+	texWidth = 256
 
 	// distance to keep away from walls and obstacles to avoid clipping
 	// TODO: may want a smaller distance to test vs. sprites
@@ -41,30 +41,20 @@ type Game struct {
 	tex    *raycaster.TextureHandler
 	slices []*image.Rectangle
 
-	//--viewport and width / height--//
-	view   *ebiten.Image
+	//--viewport width / height--//
 	width  int
 	height int
 
 	player *model.Player
 
-	//--define camera--//
+	//--define camera and renderer--//
 	camera *raycaster.Camera
 
 	mouseMode      raycaster.MouseMode
 	mouseX, mouseY int
 
-	//--graphics manager and sprite batch--//
-	spriteBatch *SpriteBatch
-
-	//--test texture--//
-	floor *ebiten.Image
-	sky   *ebiten.Image
-
 	crosshairs     *model.Sprite
 	crosshairScale float64
-
-	projectileCooldown float64
 
 	//--array of levels, levels refer to "floors" of the world--//
 	mapObj       *raycaster.Map
@@ -75,17 +65,6 @@ type Game struct {
 
 	worldMap            [][]int
 	mapWidth, mapHeight int
-
-	// for debugging
-	DebugX    int
-	DebugY    int
-	DebugOnce bool
-}
-
-// SpriteBatch - converted C# method Graphics.SpriteBatch
-// Enables a group of sprites to be drawn using the same settings.
-type SpriteBatch struct {
-	g *Game
 }
 
 // NewGame - Allows the game to perform any initialization it needs to before starting to run.
@@ -105,7 +84,7 @@ func NewGame() *Game {
 	g.width = int(math.Floor(float64(screenWidth) * renderScale))
 	g.height = int(math.Floor(float64(screenHeight) * renderScale))
 
-	g.tex = raycaster.NewTextureHandler(texSize)
+	g.tex = raycaster.NewTextureHandler(texWidth)
 
 	//--init texture slices--//
 	g.slices = g.tex.GetSlices()
@@ -129,9 +108,6 @@ func NewGame() *Game {
 	g.crosshairs = model.NewAnimatedSprite(1, 1, 1.0, 0, g.tex.Textures[16], 8, 8, 64, 0)
 	g.crosshairs.SetAnimationFrame(57)
 
-	// TODO: make projectile its own class to keep track of its cooldown to fire again
-	g.projectileCooldown = 0
-
 	// init the sprites
 	g.mapObj.LoadSprites()
 	g.spriteLvls = g.createSpriteLevels()
@@ -146,8 +122,10 @@ func NewGame() *Game {
 	g.mouseMode = raycaster.MouseModeMove
 	g.mouseX, g.mouseY = math.MinInt32, math.MinInt32
 
-	//--init camera--//
-	g.camera = raycaster.NewCamera(g.width, g.height, texSize, g.mapObj, g.slices, g.levels, g.floorLvl, g.spriteLvls, g.tex)
+	//--init camera and renderer--//
+	g.camera = raycaster.NewCamera(g.width, g.height, texWidth, g.mapObj, g.slices, g.levels, g.floorLvl, g.spriteLvls, g.tex)
+	g.camera.SetFloorTexture(getTextureFromFile("floor.png"))
+	g.camera.SetSkyTexture(getTextureFromFile("sky.png"))
 
 	// init player model and initialize camera to their position
 	angleDegrees := 90.0
@@ -155,19 +133,12 @@ func NewGame() *Game {
 	g.player.CollisionRadius = clipDistance
 	g.updatePlayerCamera(true)
 
-	// for debugging
-	g.DebugX = -1
-	g.DebugY = -1
-
 	return g
 }
 
 // loadContent will be called once per game and is the place to load
 // all of your content.
 func (g *Game) loadContent() {
-	// Create a new SpriteBatch, which can be used to draw textures.
-	g.spriteBatch = &SpriteBatch{g: g}
-
 	g.tex.Textures = make([]*ebiten.Image, 32)
 
 	// load wall textures
@@ -187,9 +158,6 @@ func (g *Game) loadContent() {
 	g.tex.Textures[16] = getSpriteFromFile("crosshairs_sheet.png")
 	g.tex.Textures[17] = getSpriteFromFile("charged_bolt_sheet.png")
 
-	g.floor = getTextureFromFile("floor.png")
-	g.sky = getTextureFromFile("sky.png")
-
 	// just setting the grass texture apart from the rest since it gets special handling
 	g.floorLvl.TexRGBA = make([]*image.RGBA, 1)
 	g.floorLvl.TexRGBA[0] = getRGBAFromFile("grass.png")
@@ -203,10 +171,10 @@ func getRGBAFromFile(texFile string) *image.RGBA {
 		log.Fatal(err)
 	}
 	if tex != nil {
-		rgba = image.NewRGBA(image.Rect(0, 0, texSize, texSize))
+		rgba = image.NewRGBA(image.Rect(0, 0, texWidth, texWidth))
 		// convert into RGBA format
-		for x := 0; x < texSize; x++ {
-			for y := 0; y < texSize; y++ {
+		for x := 0; x < texWidth; x++ {
+			for y := 0; y < texWidth; y++ {
 				clr := tex.At(x, y).(color.RGBA)
 				rgba.SetRGBA(x, y, clr)
 			}
@@ -247,6 +215,48 @@ func (g *Game) Run() {
 	}
 }
 
+// Layout takes the outside size (e.g., the window size) and returns the (logical) screen size.
+// If you don't have to adjust the screen size with the outside size, just return a fixed size.
+func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
+	return screenWidth * renderScale, screenHeight * renderScale
+}
+
+// Draw draws the game screen.
+// Draw is called every frame (typically 1/60[s] for 60Hz display).
+func (g *Game) Draw(screen *ebiten.Image) {
+
+	// Update camera (calculate raycast)
+	g.camera.Update()
+
+	// Render to screen
+	g.camera.Draw(screen)
+
+	// draw minimap
+	mm := g.miniMap()
+	mmImg := ebiten.NewImageFromImage(mm)
+	if mmImg != nil {
+		op := &ebiten.DrawImageOptions{}
+		op.Filter = ebiten.FilterNearest
+
+		op.GeoM.Scale(5.0, 5.0)
+		op.GeoM.Translate(0, 50)
+		screen.DrawImage(mmImg, op)
+	}
+
+	// draw crosshairs
+	if g.crosshairs != nil {
+		op := &ebiten.DrawImageOptions{}
+		op.Filter = ebiten.FilterNearest
+
+		op.GeoM.Scale(g.crosshairScale, g.crosshairScale)
+		op.GeoM.Translate(
+			float64(g.width)/2-float64(g.crosshairs.W)*g.crosshairScale/2,
+			float64(g.height)/2-float64(g.crosshairs.H)*g.crosshairScale/2,
+		)
+		screen.DrawImage(g.crosshairs.GetTexture(), op)
+	}
+}
+
 // Update - Allows the game to run logic such as updating the world, gathering input, and playing audio.
 // Update is called every tick (1/60 [s] by default).
 func (g *Game) Update() error {
@@ -273,8 +283,8 @@ func (g *Game) handleInput() {
 		moveModifier = 2.0
 	}
 
-	if g.projectileCooldown > 0 {
-		g.projectileCooldown -= 1 / float64(ebiten.MaxTPS())
+	if g.player.WeaponCooldown > 0 {
+		g.player.WeaponCooldown -= 1 / float64(ebiten.MaxTPS())
 	}
 
 	switch {
@@ -302,23 +312,10 @@ func (g *Game) handleInput() {
 		g.mouseX, g.mouseY = ebiten.CursorPosition()
 		if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
 			fmt.Printf("mouse left clicked: (%v, %v)\n", g.mouseX, g.mouseY)
-
-			// using left click for debugging graphical issues
-			if g.DebugX == -1 && g.DebugY == -1 {
-				// only allow setting once between clears to debounce
-				g.DebugX = g.mouseX
-				g.DebugY = g.mouseY
-				g.DebugOnce = true
-			}
 		}
 
 		if ebiten.IsMouseButtonPressed(ebiten.MouseButtonRight) {
 			fmt.Printf("mouse right clicked: (%v, %v)\n", g.mouseX, g.mouseY)
-
-			// using right click to clear the debugging flag
-			g.DebugX = -1
-			g.DebugY = -1
-			g.DebugOnce = false
 		}
 
 	case raycaster.MouseModeMove:
@@ -600,28 +597,27 @@ func (g *Game) getValidMove(entity *model.Entity, moveX, moveY float64, checkAlt
 }
 
 func (g *Game) fireTestProjectile() {
-	if g.projectileCooldown > 0 {
+	if g.player.WeaponCooldown > 0 {
 		return
 	}
 
-	g.projectileCooldown = 0.1
+	g.player.WeaponCooldown = 0.1
 
 	// fire test projectile spawning near but in front of current player position and angle
 	projectileSpawnDistance := 0.4
 	projectileCollisionRadius := 16.0 / 256.0
 	projectileSpawn := geom.LineFromAngle(g.player.Pos.X, g.player.Pos.Y, g.player.Angle, projectileSpawnDistance)
-	projectile := model.NewAnimatedSprite(
+	projectile := model.NewAnimatedProjectile(
 		projectileSpawn.X2, projectileSpawn.Y2, 0.5, 4, g.tex.Textures[17], 48, 1, 256, projectileCollisionRadius,
 	)
 
-	// dertermine velocity based on angle and distance per tick
-	// TODO: make projectile class use angle and velocity instead?
+	// velocity based on distance per tick (1/60sec)
 	projectile.Angle = g.player.Angle
 	projectile.Velocity = 0.1
 
 	// TODO: make projectile disappear after it hits something
 
-	g.mapObj.AppendSprite(projectile)
+	g.mapObj.AppendSprite(projectile.Sprite)
 
 	// TODO: refactor the need for this extra update needed when the sprite list expands
 	g.updateSpriteLevels()
@@ -707,11 +703,4 @@ func (g *Game) updateSpriteLevels() {
 
 	g.spriteLvls = make([]*raycaster.Level, numSprites)
 	g.camera.UpdateSpriteLevels(g.spriteLvls)
-}
-
-// DebugPrintfOnce prints info to screen only one time until g.DebugFlag cleared again
-func (g *Game) DebugPrintfOnce(format string, a ...interface{}) {
-	if g.DebugOnce {
-		fmt.Printf(format, a...)
-	}
 }
