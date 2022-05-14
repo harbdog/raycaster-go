@@ -13,8 +13,9 @@ type Player struct {
 func NewPlayer(x, y, angle, pitch float64) *Player {
 	p := &Player{
 		Entity: &Entity{
-			Pos:   &geom.Vector2{X: x, Y: y},
-			Angle: angle,
+			Pos:      &geom.Vector2{X: x, Y: y},
+			Angle:    angle,
+			Velocity: 0,
 		},
 		Pitch: pitch,
 		Moved: false,

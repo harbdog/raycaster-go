@@ -138,7 +138,8 @@ func NewGame() *Game {
 
 	// give sprite a sample velocity for movement
 	s := g.mapObj.GetSprite(0)
-	s.Vx = -0.02
+	s.Angle = geom.Radians(180)
+	s.Velocity = 0.02
 
 	// init mouse movement mode
 	ebiten.SetCursorMode(ebiten.CursorModeCaptured)
@@ -615,10 +616,8 @@ func (g *Game) fireTestProjectile() {
 
 	// dertermine velocity based on angle and distance per tick
 	// TODO: make projectile class use angle and velocity instead?
-	projectileVelocity := 0.1
-	projectileLine := geom.LineFromAngle(projectile.Pos.X, projectile.Pos.Y, g.player.Angle, projectileVelocity)
-	projectile.Vx = projectileLine.X2 - projectileLine.X1
-	projectile.Vy = projectileLine.Y2 - projectileLine.Y1
+	projectile.Angle = g.player.Angle
+	projectile.Velocity = 0.1
 
 	// TODO: make projectile disappear after it hits something
 
@@ -650,17 +649,20 @@ func (g *Game) updateSprites() {
 	sprites := g.mapObj.GetSprites()
 
 	for _, s := range sprites {
-		if s.Vx != 0 || s.Vy != 0 {
-			xCheck := s.Pos.X + s.Vx
-			yCheck := s.Pos.Y + s.Vy
+		if s.Velocity != 0 {
+			vLine := geom.LineFromAngle(s.Pos.X, s.Pos.Y, s.Angle, s.Velocity)
+
+			xCheck := vLine.X2
+			yCheck := vLine.Y2
 
 			newPos := g.getValidMove(s.Entity, xCheck, yCheck, false)
 			if !newPos.NearlyEquals(s.Pos, 0.00001) {
 				s.Pos = newPos
 			} else {
 				// for testing purposes, letting the sample sprite ping pong off walls in somewhat random direction
-				s.Vx = randFloat(-0.03, 0.03)
-				s.Vy = randFloat(-0.03, 0.03)
+				s.Angle = randFloat(-180, 180)
+				s.Velocity = randFloat(0.01, 0.03)
+
 			}
 		}
 		s.Update()
