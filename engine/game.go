@@ -46,7 +46,7 @@ type Game struct {
 	width  int
 	height int
 
-	player *Player
+	player *model.Player
 
 	//--define camera--//
 	camera *raycaster.Camera
@@ -61,7 +61,7 @@ type Game struct {
 	floor *ebiten.Image
 	sky   *ebiten.Image
 
-	crosshairs     *raycaster.Sprite
+	crosshairs     *model.Sprite
 	crosshairScale float64
 
 	projectileCooldown float64
@@ -126,7 +126,7 @@ func NewGame() *Game {
 
 	// TODO: make crosshairs its own class since it doesn't behave like other sprites
 	g.crosshairScale = 2.0
-	g.crosshairs = raycaster.NewAnimatedSprite(1, 1, 1.0, 0, g.tex.Textures[16], 8, 8, 64, 0)
+	g.crosshairs = model.NewAnimatedSprite(1, 1, 1.0, 0, g.tex.Textures[16], 8, 8, 64, 0)
 	g.crosshairs.SetAnimationFrame(57)
 
 	// TODO: make projectile its own class to keep track of its cooldown to fire again
@@ -150,7 +150,7 @@ func NewGame() *Game {
 
 	// init player model and initialize camera to their position
 	angleDegrees := 90.0
-	g.player = NewPlayer(10.5, 1.5, geom.Radians(angleDegrees), 0)
+	g.player = model.NewPlayer(10.5, 1.5, geom.Radians(angleDegrees), 0)
 	g.player.CollisionRadius = clipDistance
 	g.updatePlayerCamera(true)
 
@@ -609,7 +609,7 @@ func (g *Game) fireTestProjectile() {
 	projectileSpawnDistance := 0.4
 	projectileCollisionRadius := 16.0 / 256.0
 	projectileSpawn := geom.LineFromAngle(g.player.Pos.X, g.player.Pos.Y, g.player.Angle, projectileSpawnDistance)
-	projectile := raycaster.NewAnimatedSprite(
+	projectile := model.NewAnimatedSprite(
 		projectileSpawn.X2, projectileSpawn.Y2, 0.5, 4, g.tex.Textures[17], 48, 1, 256, projectileCollisionRadius,
 	)
 
