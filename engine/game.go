@@ -168,7 +168,7 @@ func (g *Game) loadContent() {
 
 func getRGBAFromFile(texFile string) *image.RGBA {
 	var rgba *image.RGBA
-	resourcePath := filepath.Join("engine", "content", "textures")
+	resourcePath := filepath.Join("engine", "resources", "textures")
 	_, tex, err := ebitenutil.NewImageFromFile(filepath.Join(resourcePath, texFile))
 	if err != nil {
 		log.Fatal(err)
@@ -188,7 +188,7 @@ func getRGBAFromFile(texFile string) *image.RGBA {
 }
 
 func getTextureFromFile(texFile string) *ebiten.Image {
-	resourcePath := filepath.Join("engine", "content", "textures")
+	resourcePath := filepath.Join("engine", "resources", "textures")
 	eImg, _, err := ebitenutil.NewImageFromFile(filepath.Join(resourcePath, texFile))
 	if err != nil {
 		log.Fatal(err)
@@ -197,7 +197,7 @@ func getTextureFromFile(texFile string) *ebiten.Image {
 }
 
 func getSpriteFromFile(sFile string) *ebiten.Image {
-	resourcePath := filepath.Join("engine", "content", "sprites")
+	resourcePath := filepath.Join("engine", "resources", "sprites")
 	eImg, _, err := ebitenutil.NewImageFromFile(filepath.Join(resourcePath, sFile))
 	if err != nil {
 		log.Fatal(err)
