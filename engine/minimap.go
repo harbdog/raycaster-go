@@ -20,7 +20,7 @@ func (g *Game) miniMap() *image.RGBA {
 	}
 
 	// sprite positions
-	sprites := g.mapObj.GetSprites()
+	sprites := g.getSprites()
 	for sIndex, sprite := range sprites {
 		// TODO: add map color variable to sprite object
 		var spriteColor color.RGBA

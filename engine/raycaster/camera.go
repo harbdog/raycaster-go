@@ -59,7 +59,7 @@ type Camera struct {
 	targetTPS int
 
 	//--world map--//
-	mapObj    *Map
+	mapObj    *model.Map
 	mapWidth  int
 	mapHeight int
 	worldMap  [][]int
@@ -97,7 +97,7 @@ type Camera struct {
 }
 
 // NewCamera initalizes a Camera object
-func NewCamera(width int, height int, texWid int, mapObj *Map, slices []*image.Rectangle,
+func NewCamera(width int, height int, texWid int, mapObj *model.Map, slices []*image.Rectangle,
 	levels []*Level, horizontalLevel *HorLevel, spriteLvls []*Level, tex *TextureHandler) *Camera {
 
 	fmt.Printf("Initializing Camera\n")
@@ -143,6 +143,7 @@ func NewCamera(width int, height int, texWid int, mapObj *Map, slices []*image.R
 	c.mapWidth = len(c.worldMap)
 	c.mapHeight = len(c.worldMap[0])
 
+	c.sprites = []*model.Sprite{}
 	c.tex = tex
 
 	// initialize a pool of channels to limit concurrent floor and sprite casting
@@ -156,11 +157,12 @@ func NewCamera(width int, height int, texWid int, mapObj *Map, slices []*image.R
 }
 
 // Update - updates the camera view
-func (c *Camera) Update() {
+func (c *Camera) Update(sprites []*model.Sprite) {
 	// clear horizontal buffer by making a new one
 	c.floorLvl.Clear(c.w, c.h)
 
 	//--do raycast--//
+	c.sprites = sprites
 	c.raycast()
 }
 
@@ -176,11 +178,10 @@ func (c *Camera) raycast() {
 	wg.Wait()
 
 	//SPRITE CASTING
-	c.sprites = c.mapObj.GetSprites()
-	c.spriteOrder = make([]int, c.mapObj.GetNumSprites())
-	c.spriteDistance = make([]float64, c.mapObj.GetNumSprites())
+	numSprites := len(c.sprites)
+	c.spriteOrder = make([]int, numSprites)
+	c.spriteDistance = make([]float64, numSprites)
 	//sort sprites from far to close
-	numSprites := c.mapObj.GetNumSprites()
 	for i := 0; i < numSprites; i++ {
 		c.spriteOrder[i] = i
 		c.spriteDistance[i] = (math.Pow(c.pos.X-c.sprites[i].Pos.X, 2) + math.Pow(c.pos.Y-c.sprites[i].Pos.Y, 2))
