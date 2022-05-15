@@ -216,7 +216,7 @@ func (g *Game) loadSprites() {
 	yellow := color.RGBA{255, 200, 0, 196}
 
 	// preload projectile sprite
-	projectileCollisionRadius := 24.0 / 256.0
+	projectileCollisionRadius := 20.0 / 256.0
 	g.preloadedSprites["charged_bolt"] = *model.NewAnimatedSprite(
 		0, 0, 0.5, 4, g.tex.Textures[17], blueish,
 		48, 1, 256, projectileCollisionRadius,
@@ -543,7 +543,7 @@ func (g *Game) handleInput() {
 func (g *Game) Move(mSpeed float64) {
 	moveLine := geom.LineFromAngle(g.player.Pos.X, g.player.Pos.Y, g.player.Angle, mSpeed)
 
-	newPos := g.getValidMove(g.player.Entity, moveLine.X2, moveLine.Y2, true)
+	newPos, _ := g.getValidMove(g.player.Entity, moveLine.X2, moveLine.Y2, true)
 	if !newPos.Equals(g.player.Pos) {
 		g.player.Pos = newPos
 		g.player.Moved = true
@@ -558,7 +558,7 @@ func (g *Game) Strafe(sSpeed float64) {
 	}
 	strafeLine := geom.LineFromAngle(g.player.Pos.X, g.player.Pos.Y, g.player.Angle-strafeAngle, math.Abs(sSpeed))
 
-	newPos := g.getValidMove(g.player.Entity, strafeLine.X2, strafeLine.Y2, true)
+	newPos, _ := g.getValidMove(g.player.Entity, strafeLine.X2, strafeLine.Y2, true)
 	if !newPos.Equals(g.player.Pos) {
 		g.player.Pos = newPos
 		g.player.Moved = true
@@ -579,13 +579,13 @@ func (g *Game) Rotate(rSpeed float64) {
 	g.player.Moved = true
 }
 
-// checks for valid move from current position, returns valid (x, y) position
-func (g *Game) getValidMove(entity *model.Entity, moveX, moveY float64, checkAlternate bool) *geom.Vector2 {
+// checks for valid move from current position, returns valid (x, y) position and whether a collision was encountered
+func (g *Game) getValidMove(entity *model.Entity, moveX, moveY float64, checkAlternate bool) (*geom.Vector2, bool) {
 	newX, newY := moveX, moveY
 
 	posX, posY := entity.Pos.X, entity.Pos.Y
 	if posX == newX && posY == moveY {
-		return &geom.Vector2{X: posX, Y: posY}
+		return &geom.Vector2{X: posX, Y: posY}, false
 	}
 
 	ix := int(newX)
@@ -662,7 +662,9 @@ func (g *Game) getValidMove(entity *model.Entity, moveX, moveY float64, checkAlt
 		}
 	}
 
-	if len(intersectPoints) > 0 {
+	isCollision := len(intersectPoints) > 0
+
+	if isCollision {
 		if checkAlternate {
 			// find the point closest to the start position
 			min := math.Inf(1)
@@ -707,11 +709,11 @@ func (g *Game) getValidMove(entity *model.Entity, moveX, moveY float64, checkAlt
 				}
 			} else {
 				// looks like it cannot move
-				return &geom.Vector2{X: posX, Y: posY}
+				return &geom.Vector2{X: posX, Y: posY}, isCollision
 			}
 		} else {
 			// looks like it cannot move
-			return &geom.Vector2{X: posX, Y: posY}
+			return &geom.Vector2{X: posX, Y: posY}, isCollision
 		}
 	}
 
@@ -720,7 +722,7 @@ func (g *Game) getValidMove(entity *model.Entity, moveX, moveY float64, checkAlt
 		posY = newY
 	}
 
-	return &geom.Vector2{X: posX, Y: posY}
+	return &geom.Vector2{X: posX, Y: posY}, isCollision
 }
 
 func (g *Game) fireTestProjectile() {
@@ -773,14 +775,14 @@ func (g *Game) updateProjectiles() {
 			xCheck := vLine.X2
 			yCheck := vLine.Y2
 
-			newPos := g.getValidMove(p.Entity, xCheck, yCheck, false)
-			if !newPos.NearlyEquals(p.Pos, 0.00001) {
-				p.Pos = newPos
-			} else {
+			newPos, isCollision := g.getValidMove(p.Entity, xCheck, yCheck, false)
+			if isCollision {
 				// for testing purposes, projectiles instantly get deleted when collision occurs
 				g.deleteProjectile(p)
 
 				// TODO: make a sprite/wall getting hit by projectile cause some visual effect
+			} else {
+				p.Pos = newPos
 			}
 		}
 		p.Update()
@@ -796,14 +798,13 @@ func (g *Game) updateSprites() {
 			xCheck := vLine.X2
 			yCheck := vLine.Y2
 
-			newPos := g.getValidMove(s.Entity, xCheck, yCheck, false)
-			if !newPos.NearlyEquals(s.Pos, 0.00001) {
-				s.Pos = newPos
-			} else {
+			newPos, isCollision := g.getValidMove(s.Entity, xCheck, yCheck, false)
+			if isCollision {
 				// for testing purposes, letting the sample sprite ping pong off walls in somewhat random direction
 				s.Angle = randFloat(-180, 180)
 				s.Velocity = randFloat(0.01, 0.03)
-
+			} else {
+				s.Pos = newPos
 			}
 		}
 		s.Update()
