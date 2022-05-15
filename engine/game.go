@@ -18,6 +18,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
+	"github.com/jinzhu/copier"
 )
 
 const (
@@ -63,8 +64,10 @@ type Game struct {
 	floorLvl     *raycaster.HorLevel
 	collisionMap []geom.Line
 
-	sprites     map[*model.Sprite]interface{}
-	projectiles map[*model.Projectile]interface{}
+	sprites     map[*model.Sprite]struct{}
+	projectiles map[*model.Projectile]struct{}
+
+	preloadedSprites map[string]model.Sprite
 
 	worldMap            [][]int
 	mapWidth, mapHeight int
@@ -201,17 +204,27 @@ func getSpriteFromFile(sFile string) *ebiten.Image {
 }
 
 func (g *Game) loadSprites() {
-	g.projectiles = make(map[*model.Projectile]interface{})
-	g.sprites = make(map[*model.Sprite]interface{})
+	g.projectiles = make(map[*model.Projectile]struct{}, 1024)
+	g.sprites = make(map[*model.Sprite]struct{}, 128)
+	g.preloadedSprites = make(map[string]model.Sprite, 16)
 
 	// colors for minimap representation
+	blueish := color.RGBA{62, 62, 100, 96}
 	brown := color.RGBA{47, 40, 30, 196}
 	green := color.RGBA{27, 37, 7, 196}
 	orange := color.RGBA{69, 30, 5, 196}
 	yellow := color.RGBA{255, 200, 0, 196}
 
+	// preload projectile sprite
+	projectileCollisionRadius := 24.0 / 256.0
+	g.preloadedSprites["charged_bolt"] = *model.NewAnimatedSprite(
+		0, 0, 0.5, 4, g.tex.Textures[17], blueish,
+		48, 1, 256, projectileCollisionRadius,
+	)
+
 	// // sorcerer
-	sorc := model.NewAnimatedSprite(20, 11.5, 1.4, 5, g.tex.Textures[15], yellow, 10, 1, 256, 32.0/256.0) // FIXME: 256 should come from g.texSize
+	sorcCollisionRadius := 32.0 / 256.0
+	sorc := model.NewAnimatedSprite(20, 11.5, 1.4, 5, g.tex.Textures[15], yellow, 10, 1, 256, sorcCollisionRadius) // FIXME: 256 should come from g.texSize
 	// give sprite a sample velocity for movement
 	sorc.Angle = geom.Radians(180)
 	sorc.Velocity = 0.02
@@ -274,7 +287,7 @@ func (g *Game) loadSprites() {
 }
 
 func (g *Game) addSprite(sprite *model.Sprite) {
-	g.sprites[sprite] = nil
+	g.sprites[sprite] = struct{}{}
 }
 
 func (g *Game) deleteSprite(sprite *model.Sprite) {
@@ -286,7 +299,7 @@ func (g *Game) deleteSprite(sprite *model.Sprite) {
 
 func (g *Game) addProjectile(projectile *model.Projectile) {
 	// TODO: improve performance hit of adding a lot of new projectiles in small amount of time (map growth)
-	g.projectiles[projectile] = nil
+	g.projectiles[projectile] = struct{}{}
 
 	// TODO: refactor the need for this extra update needed when the projectile list expands
 	g.updateSpriteLevels()
@@ -718,13 +731,14 @@ func (g *Game) fireTestProjectile() {
 	g.player.WeaponCooldown = 0.1
 
 	// fire test projectile spawning near but in front of current player position and angle
+	spriteTemplate := g.preloadedSprites["charged_bolt"]
+	projectileSprite := &model.Sprite{}
+	copier.Copy(projectileSprite, spriteTemplate)
+
 	projectileSpawnDistance := 0.4
-	projectileCollisionRadius := 24.0 / 256.0
 	projectileSpawn := geom.LineFromAngle(g.player.Pos.X, g.player.Pos.Y, g.player.Angle, projectileSpawnDistance)
-	projectile := model.NewAnimatedProjectile(
-		projectileSpawn.X2, projectileSpawn.Y2, 0.5, 4, g.tex.Textures[17], color.RGBA{62, 62, 100, 96},
-		48, 1, 256, projectileCollisionRadius,
-	)
+	projectile := &model.Projectile{Sprite: projectileSprite}
+	projectile.Pos = &geom.Vector2{X: projectileSpawn.X2, Y: projectileSpawn.Y2}
 
 	// velocity based on distance per tick (1/60sec)
 	projectile.Angle = g.player.Angle
