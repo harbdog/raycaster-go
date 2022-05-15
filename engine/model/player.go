@@ -1,6 +1,8 @@
 package model
 
 import (
+	"image/color"
+
 	"raycaster-go/engine/geom"
 )
 
@@ -17,6 +19,7 @@ func NewPlayer(x, y, angle, pitch float64) *Player {
 			Pos:      &geom.Vector2{X: x, Y: y},
 			Angle:    angle,
 			Velocity: 0,
+			MapColor: color.RGBA{255, 0, 0, 255},
 		},
 		Pitch:          pitch,
 		Moved:          false,
