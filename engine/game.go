@@ -63,8 +63,8 @@ type Game struct {
 	floorLvl     *raycaster.HorLevel
 	collisionMap []geom.Line
 
-	sprites     []*model.Sprite
-	projectiles []*model.Projectile
+	sprites     map[*model.Sprite]interface{}
+	projectiles map[*model.Projectile]interface{}
 
 	worldMap            [][]int
 	mapWidth, mapHeight int
@@ -114,11 +114,6 @@ func NewGame() *Game {
 	// init the sprites
 	g.loadSprites()
 	g.spriteLvls = g.createSpriteLevels()
-
-	// give sprite a sample velocity for movement
-	s := g.getSprite(0)
-	s.Angle = geom.Radians(180)
-	s.Velocity = 0.02
 
 	// init mouse movement mode
 	ebiten.SetCursorMode(ebiten.CursorModeCaptured)
@@ -206,85 +201,96 @@ func getSpriteFromFile(sFile string) *ebiten.Image {
 }
 
 func (g *Game) loadSprites() {
-	g.sprites = []*model.Sprite{
-		// // sorcerer
-		model.NewAnimatedSprite(20, 11.5, 1.4, 5, g.tex.Textures[15], 10, 1, 256, 32.0/256.0), // FIXME: 256 should come from g.texSize
+	g.projectiles = make(map[*model.Projectile]interface{})
+	g.sprites = make(map[*model.Sprite]interface{})
 
-		// // line of trees for testing in front of initial view
-		// Setting CollisionRadius=0 to disable collision checks against small trees
-		//model.NewSprite(19.5, 11.5, m.tex.Textures[10], 256, 0), // FIXME: commented out because trapping moving sprite inside its collision radius
-		model.NewSprite(17.5, 11.5, g.tex.Textures[14], 256, 0),
-		model.NewSprite(15.5, 11.5, g.tex.Textures[9], 256, 0),
-		// // render a forest!
-		model.NewSprite(11.5, 1.5, g.tex.Textures[9], 256, 0),
-		model.NewSprite(12.5, 1.5, g.tex.Textures[9], 256, 0),
-		model.NewSprite(132.5, 1.5, g.tex.Textures[9], 256, 0),
-		model.NewSprite(11.5, 2, g.tex.Textures[9], 256, 0),
-		model.NewSprite(12.5, 2, g.tex.Textures[9], 256, 0),
-		model.NewSprite(13.5, 2, g.tex.Textures[9], 256, 0),
-		model.NewSprite(11.5, 2.5, g.tex.Textures[9], 256, 0),
-		model.NewSprite(12.25, 2.5, g.tex.Textures[9], 256, 0),
-		model.NewSprite(13.5, 2.25, g.tex.Textures[9], 256, 0),
-		model.NewSprite(11.5, 3, g.tex.Textures[9], 256, 0),
-		model.NewSprite(12.5, 3, g.tex.Textures[9], 256, 0),
-		model.NewSprite(13.25, 3, g.tex.Textures[9], 256, 0),
-		model.NewSprite(10.5, 3.5, g.tex.Textures[9], 256, 0),
-		model.NewSprite(11.5, 3.25, g.tex.Textures[9], 256, 0),
-		model.NewSprite(12.5, 3.5, g.tex.Textures[9], 256, 0),
-		model.NewSprite(13.25, 3.5, g.tex.Textures[14], 256, 0),
-		model.NewSprite(10.5, 4, g.tex.Textures[9], 256, 0),
-		model.NewSprite(11.5, 4, g.tex.Textures[9], 256, 0),
-		model.NewSprite(12.5, 4, g.tex.Textures[9], 256, 0),
-		model.NewSprite(13.5, 4, g.tex.Textures[14], 256, 0),
-		model.NewSprite(10.5, 4.5, g.tex.Textures[9], 256, 0),
-		model.NewSprite(11.25, 4.5, g.tex.Textures[9], 256, 0),
-		model.NewSprite(12.5, 4.5, g.tex.Textures[14], 256, 0),
-		model.NewSprite(13.5, 4.5, g.tex.Textures[10], 256, 0),
-		model.NewSprite(14.5, 4.25, g.tex.Textures[14], 256, 0),
-		model.NewSprite(10.5, 5, g.tex.Textures[9], 256, 0),
-		model.NewSprite(11.5, 5, g.tex.Textures[9], 256, 0),
-		model.NewSprite(12.5, 5, g.tex.Textures[14], 256, 0),
-		model.NewSprite(13.25, 5, g.tex.Textures[10], 256, 0),
-		model.NewSprite(14.5, 5, g.tex.Textures[14], 256, 0),
-		model.NewSprite(11.5, 5.5, g.tex.Textures[14], 256, 0),
-		model.NewSprite(12.5, 5.25, g.tex.Textures[10], 256, 0),
-		model.NewSprite(13.5, 5.25, g.tex.Textures[10], 256, 0),
-		model.NewSprite(14.5, 5.5, g.tex.Textures[10], 256, 0),
-		model.NewSprite(15.5, 5.5, g.tex.Textures[14], 256, 0),
-		model.NewSprite(11.5, 6, g.tex.Textures[14], 256, 0),
-		model.NewSprite(12.5, 6, g.tex.Textures[10], 256, 0),
-		model.NewSprite(13.25, 6, g.tex.Textures[10], 256, 0),
-		model.NewSprite(14.25, 6, g.tex.Textures[10], 256, 0),
-		model.NewSprite(15.5, 6, g.tex.Textures[14], 256, 0),
-		model.NewSprite(12.5, 6.5, g.tex.Textures[14], 256, 0),
-		model.NewSprite(13.5, 6.25, g.tex.Textures[10], 256, 0),
-		model.NewSprite(14.5, 6.5, g.tex.Textures[14], 256, 0),
-		model.NewSprite(12.5, 7, g.tex.Textures[14], 256, 0),
-		model.NewSprite(13.5, 7, g.tex.Textures[10], 256, 0),
-		model.NewSprite(14.5, 7, g.tex.Textures[14], 256, 0),
-		model.NewSprite(13.5, 7.5, g.tex.Textures[14], 256, 0),
-		model.NewSprite(13.5, 8, g.tex.Textures[14], 256, 0),
-	}
+	// // sorcerer
+	sorc := model.NewAnimatedSprite(20, 11.5, 1.4, 5, g.tex.Textures[15], 10, 1, 256, 32.0/256.0) // FIXME: 256 should come from g.texSize
+	// give sprite a sample velocity for movement
+	sorc.Angle = geom.Radians(180)
+	sorc.Velocity = 0.02
+	g.addSprite(sorc)
+
+	// // line of trees for testing in front of initial view
+	// Setting CollisionRadius=0 to disable collision against small trees
+	g.addSprite(model.NewSprite(19.5, 11.5, g.tex.Textures[10], 256, 0))
+	g.addSprite(model.NewSprite(17.5, 11.5, g.tex.Textures[14], 256, 0))
+	g.addSprite(model.NewSprite(15.5, 11.5, g.tex.Textures[9], 256, 0))
+	// // // render a forest!
+	g.addSprite(model.NewSprite(11.5, 1.5, g.tex.Textures[9], 256, 0))
+	g.addSprite(model.NewSprite(12.5, 1.5, g.tex.Textures[9], 256, 0))
+	g.addSprite(model.NewSprite(132.5, 1.5, g.tex.Textures[9], 256, 0))
+	g.addSprite(model.NewSprite(11.5, 2, g.tex.Textures[9], 256, 0))
+	g.addSprite(model.NewSprite(12.5, 2, g.tex.Textures[9], 256, 0))
+	g.addSprite(model.NewSprite(13.5, 2, g.tex.Textures[9], 256, 0))
+	g.addSprite(model.NewSprite(11.5, 2.5, g.tex.Textures[9], 256, 0))
+	g.addSprite(model.NewSprite(12.25, 2.5, g.tex.Textures[9], 256, 0))
+	g.addSprite(model.NewSprite(13.5, 2.25, g.tex.Textures[9], 256, 0))
+	g.addSprite(model.NewSprite(11.5, 3, g.tex.Textures[9], 256, 0))
+	g.addSprite(model.NewSprite(12.5, 3, g.tex.Textures[9], 256, 0))
+	g.addSprite(model.NewSprite(13.25, 3, g.tex.Textures[9], 256, 0))
+	g.addSprite(model.NewSprite(10.5, 3.5, g.tex.Textures[9], 256, 0))
+	g.addSprite(model.NewSprite(11.5, 3.25, g.tex.Textures[9], 256, 0))
+	g.addSprite(model.NewSprite(12.5, 3.5, g.tex.Textures[9], 256, 0))
+	g.addSprite(model.NewSprite(13.25, 3.5, g.tex.Textures[14], 256, 0))
+	g.addSprite(model.NewSprite(10.5, 4, g.tex.Textures[9], 256, 0))
+	g.addSprite(model.NewSprite(11.5, 4, g.tex.Textures[9], 256, 0))
+	g.addSprite(model.NewSprite(12.5, 4, g.tex.Textures[9], 256, 0))
+	g.addSprite(model.NewSprite(13.5, 4, g.tex.Textures[14], 256, 0))
+	g.addSprite(model.NewSprite(10.5, 4.5, g.tex.Textures[9], 256, 0))
+	g.addSprite(model.NewSprite(11.25, 4.5, g.tex.Textures[9], 256, 0))
+	g.addSprite(model.NewSprite(12.5, 4.5, g.tex.Textures[14], 256, 0))
+	g.addSprite(model.NewSprite(13.5, 4.5, g.tex.Textures[10], 256, 0))
+	g.addSprite(model.NewSprite(14.5, 4.25, g.tex.Textures[14], 256, 0))
+	g.addSprite(model.NewSprite(10.5, 5, g.tex.Textures[9], 256, 0))
+	g.addSprite(model.NewSprite(11.5, 5, g.tex.Textures[9], 256, 0))
+	g.addSprite(model.NewSprite(12.5, 5, g.tex.Textures[14], 256, 0))
+	g.addSprite(model.NewSprite(13.25, 5, g.tex.Textures[10], 256, 0))
+	g.addSprite(model.NewSprite(14.5, 5, g.tex.Textures[14], 256, 0))
+	g.addSprite(model.NewSprite(11.5, 5.5, g.tex.Textures[14], 256, 0))
+	g.addSprite(model.NewSprite(12.5, 5.25, g.tex.Textures[10], 256, 0))
+	g.addSprite(model.NewSprite(13.5, 5.25, g.tex.Textures[10], 256, 0))
+	g.addSprite(model.NewSprite(14.5, 5.5, g.tex.Textures[10], 256, 0))
+	g.addSprite(model.NewSprite(15.5, 5.5, g.tex.Textures[14], 256, 0))
+	g.addSprite(model.NewSprite(11.5, 6, g.tex.Textures[14], 256, 0))
+	g.addSprite(model.NewSprite(12.5, 6, g.tex.Textures[10], 256, 0))
+	g.addSprite(model.NewSprite(13.25, 6, g.tex.Textures[10], 256, 0))
+	g.addSprite(model.NewSprite(14.25, 6, g.tex.Textures[10], 256, 0))
+	g.addSprite(model.NewSprite(15.5, 6, g.tex.Textures[14], 256, 0))
+	g.addSprite(model.NewSprite(12.5, 6.5, g.tex.Textures[14], 256, 0))
+	g.addSprite(model.NewSprite(13.5, 6.25, g.tex.Textures[10], 256, 0))
+	g.addSprite(model.NewSprite(14.5, 6.5, g.tex.Textures[14], 256, 0))
+	g.addSprite(model.NewSprite(12.5, 7, g.tex.Textures[14], 256, 0))
+	g.addSprite(model.NewSprite(13.5, 7, g.tex.Textures[10], 256, 0))
+	g.addSprite(model.NewSprite(14.5, 7, g.tex.Textures[14], 256, 0))
+	g.addSprite(model.NewSprite(13.5, 7.5, g.tex.Textures[14], 256, 0))
+	g.addSprite(model.NewSprite(13.5, 8, g.tex.Textures[14], 256, 0))
 }
 
-func (g *Game) appendSprite(sprite *model.Sprite) {
-	g.sprites = append(g.sprites, sprite)
+func (g *Game) addSprite(sprite *model.Sprite) {
+	g.sprites[sprite] = nil
 }
 
-func (g *Game) getAt(x, y int) int {
-	return g.worldMap[x][y]
+func (g *Game) deleteSprite(sprite *model.Sprite) {
+	delete(g.sprites, sprite)
+
+	// TODO: refactor the need for this extra update needed when the sprite list expands/contracts
+	g.updateSpriteLevels()
 }
 
-func (g *Game) getSprites() []*model.Sprite {
-	return g.sprites
+func (g *Game) addProjectile(projectile *model.Projectile) {
+	// TODO: improve performance hit of adding a lot of new projectiles in small amount of time (map growth)
+	g.projectiles[projectile] = nil
+
+	// TODO: refactor the need for this extra update needed when the projectile list expands
+	g.updateSpriteLevels()
 }
 
-func (g *Game) getSprite(index int) *model.Sprite {
-	return g.sprites[index]
-}
+func (g *Game) deleteProjectile(projectile *model.Projectile) {
+	delete(g.projectiles, projectile)
 
-func (g *Game) getNumSprites() int {
-	return len(g.sprites)
+	// TODO: refactor the need for this extra update needed when the projectile list contracts
+	g.updateSpriteLevels()
 }
 
 // Run is the Ebiten Run loop caller
@@ -309,9 +315,21 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 // Draw draws the game screen.
 // Draw is called every frame (typically 1/60[s] for 60Hz display).
 func (g *Game) Draw(screen *ebiten.Image) {
+	// Put projectiles together with sprites for raycasting both as sprites
+	numSprites, numProjectiles := len(g.sprites), len(g.projectiles)
+	raycastSprites := make([]*model.Sprite, numSprites+numProjectiles)
+	index := 0
+	for sprite := range g.sprites {
+		raycastSprites[index] = sprite
+		index += 1
+	}
+	for projectile := range g.projectiles {
+		raycastSprites[index] = projectile.Sprite
+		index += 1
+	}
 
 	// Update camera (calculate raycast)
-	g.camera.Update(g.sprites)
+	g.camera.Update(raycastSprites)
 
 	// Render to screen
 	g.camera.Draw(screen)
@@ -346,6 +364,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 // Update is called every tick (1/60 [s] by default).
 func (g *Game) Update() error {
 	// Perform logical updates
+	g.updateProjectiles()
 	g.updateSprites()
 
 	// handle input
@@ -603,8 +622,7 @@ func (g *Game) getValidMove(entity *model.Entity, moveX, moveY float64, checkAlt
 	}
 
 	// check sprite collisions
-	sprites := g.getSprites()
-	for _, sprite := range sprites {
+	for sprite := range g.sprites {
 		// TODO: only check intersection of nearby sprites instead of all of them
 		if entity == sprite.Entity || entity.CollisionRadius <= 0 || sprite.CollisionRadius <= 0 {
 			continue
@@ -626,46 +644,51 @@ func (g *Game) getValidMove(entity *model.Entity, moveX, moveY float64, checkAlt
 	}
 
 	if len(intersectPoints) > 0 {
-		// find the point closest to the start position
-		min := math.Inf(1)
-		minI := -1
-		for i, p := range intersectPoints {
-			d2 := geom.Distance2(posX, posY, p.X, p.Y)
-			if d2 < min {
-				min = d2
-				minI = i
+		if checkAlternate {
+			// find the point closest to the start position
+			min := math.Inf(1)
+			minI := -1
+			for i, p := range intersectPoints {
+				d2 := geom.Distance2(posX, posY, p.X, p.Y)
+				if d2 < min {
+					min = d2
+					minI = i
+				}
 			}
-		}
 
-		// use the closest intersecting point to determine a safe distance to make the move
-		moveLine = geom.Line{X1: posX, Y1: posY, X2: intersectPoints[minI].X, Y2: intersectPoints[minI].Y}
-		dist := math.Sqrt(min)
-		angle := moveLine.Angle()
+			// use the closest intersecting point to determine a safe distance to make the move
+			moveLine = geom.Line{X1: posX, Y1: posY, X2: intersectPoints[minI].X, Y2: intersectPoints[minI].Y}
+			dist := math.Sqrt(min)
+			angle := moveLine.Angle()
 
-		// generate new move line using calculated angle and safe distance from intersecting point
-		moveLine = geom.LineFromAngle(posX, posY, angle, dist-0.01)
+			// generate new move line using calculated angle and safe distance from intersecting point
+			moveLine = geom.LineFromAngle(posX, posY, angle, dist-0.01)
 
-		newX, newY = moveLine.X2, moveLine.Y2
+			newX, newY = moveLine.X2, moveLine.Y2
 
-		// if either X or Y direction was already intersecting, attempt move only in the adjacent direction
-		xDiff := math.Abs(newX - posX)
-		yDiff := math.Abs(newY - posY)
-		if checkAlternate && (xDiff > 0.001 || yDiff > 0.001) {
-			switch {
-			case xDiff <= 0.001:
-				// no more room to move in X, try to move only Y
-				// fmt.Printf("\t[@%v,%v] move to (%v,%v) try adjacent move to {%v,%v}\n",
-				// 	c.pos.X, c.pos.Y, moveX, moveY, posX, moveY)
-				return g.getValidMove(entity, posX, moveY, false)
-			case yDiff <= 0.001:
-				// no more room to move in Y, try to move only X
-				// fmt.Printf("\t[@%v,%v] move to (%v,%v) try adjacent move to {%v,%v}\n",
-				// 	c.pos.X, c.pos.Y, moveX, moveY, moveX, posY)
-				return g.getValidMove(entity, moveX, posY, false)
-			default:
-				// try the new position
-				// TODO: need some way to try a potentially valid shorter move without checkAlternate while also avoiding infinite loop
-				return g.getValidMove(entity, newX, newY, false)
+			// if either X or Y direction was already intersecting, attempt move only in the adjacent direction
+			xDiff := math.Abs(newX - posX)
+			yDiff := math.Abs(newY - posY)
+			if xDiff > 0.001 || yDiff > 0.001 {
+				switch {
+				case xDiff <= 0.001:
+					// no more room to move in X, try to move only Y
+					// fmt.Printf("\t[@%v,%v] move to (%v,%v) try adjacent move to {%v,%v}\n",
+					// 	c.pos.X, c.pos.Y, moveX, moveY, posX, moveY)
+					return g.getValidMove(entity, posX, moveY, false)
+				case yDiff <= 0.001:
+					// no more room to move in Y, try to move only X
+					// fmt.Printf("\t[@%v,%v] move to (%v,%v) try adjacent move to {%v,%v}\n",
+					// 	c.pos.X, c.pos.Y, moveX, moveY, moveX, posY)
+					return g.getValidMove(entity, moveX, posY, false)
+				default:
+					// try the new position
+					// TODO: need some way to try a potentially valid shorter move without checkAlternate while also avoiding infinite loop
+					return g.getValidMove(entity, newX, newY, false)
+				}
+			} else {
+				// looks like it cannot move
+				return &geom.Vector2{X: posX, Y: posY}
 			}
 		} else {
 			// looks like it cannot move
@@ -690,7 +713,7 @@ func (g *Game) fireTestProjectile() {
 
 	// fire test projectile spawning near but in front of current player position and angle
 	projectileSpawnDistance := 0.4
-	projectileCollisionRadius := 16.0 / 256.0
+	projectileCollisionRadius := 24.0 / 256.0
 	projectileSpawn := geom.LineFromAngle(g.player.Pos.X, g.player.Pos.Y, g.player.Angle, projectileSpawnDistance)
 	projectile := model.NewAnimatedProjectile(
 		projectileSpawn.X2, projectileSpawn.Y2, 0.5, 4, g.tex.Textures[17], 48, 1, 256, projectileCollisionRadius,
@@ -700,12 +723,7 @@ func (g *Game) fireTestProjectile() {
 	projectile.Angle = g.player.Angle
 	projectile.Velocity = 0.1
 
-	// TODO: make projectile disappear after it hits something
-
-	g.appendSprite(projectile.Sprite)
-
-	// TODO: refactor the need for this extra update needed when the sprite list expands
-	g.updateSpriteLevels()
+	g.addProjectile(projectile)
 }
 
 // Update camera to match player position and orientation
@@ -725,11 +743,32 @@ func (g *Game) updatePlayerCamera(forceUpdate bool) {
 	g.camera.SetPlane(g.camera.GetVecForFov(playerDir))
 }
 
+func (g *Game) updateProjectiles() {
+	// Testing animated projectile movement
+	for p := range g.projectiles {
+		if p.Velocity != 0 {
+			vLine := geom.LineFromAngle(p.Pos.X, p.Pos.Y, p.Angle, p.Velocity)
+
+			xCheck := vLine.X2
+			yCheck := vLine.Y2
+
+			newPos := g.getValidMove(p.Entity, xCheck, yCheck, false)
+			if !newPos.NearlyEquals(p.Pos, 0.00001) {
+				p.Pos = newPos
+			} else {
+				// for testing purposes, projectiles instantly get deleted when collision occurs
+				g.deleteProjectile(p)
+
+				// TODO: make a sprite/wall getting hit by projectile cause some visual effect
+			}
+		}
+		p.Update()
+	}
+}
+
 func (g *Game) updateSprites() {
 	// Testing animated sprite movement
-	sprites := g.getSprites()
-
-	for _, s := range sprites {
+	for s := range g.sprites {
 		if s.Velocity != 0 {
 			vLine := geom.LineFromAngle(s.Pos.X, s.Pos.Y, s.Angle, s.Velocity)
 
@@ -774,9 +813,9 @@ func (g *Game) createLevels(numLevels int) ([]*raycaster.Level, *raycaster.HorLe
 
 func (g *Game) createSpriteLevels() []*raycaster.Level {
 	// create empty "level" for all sprites to render using similar slice methods as walls
-	numSprites := g.getNumSprites()
+	numSprites, numProjectiles := len(g.sprites), len(g.projectiles)
 
-	spriteArr := make([]*raycaster.Level, numSprites)
+	spriteArr := make([]*raycaster.Level, numSprites+numProjectiles)
 
 	return spriteArr
 }
@@ -784,8 +823,8 @@ func (g *Game) createSpriteLevels() []*raycaster.Level {
 func (g *Game) updateSpriteLevels() {
 	// update empty "level" for all sprites used by camera
 	// TODO: this should be refactored so to be not necessary
-	numSprites := g.getNumSprites()
+	numSprites, numProjectiles := len(g.sprites), len(g.projectiles)
 
-	g.spriteLvls = make([]*raycaster.Level, numSprites)
+	g.spriteLvls = make([]*raycaster.Level, numSprites+numProjectiles)
 	g.camera.UpdateSpriteLevels(g.spriteLvls)
 }
