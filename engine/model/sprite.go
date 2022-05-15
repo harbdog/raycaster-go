@@ -2,6 +2,7 @@ package model
 
 import (
 	"image"
+	"image/color"
 	_ "image/png"
 
 	"raycaster-go/engine/geom"
@@ -19,13 +20,14 @@ type Sprite struct {
 	textures       []*ebiten.Image
 }
 
-func NewSprite(x, y float64, img *ebiten.Image, uSize int, collisionRadius float64) *Sprite {
+func NewSprite(x, y float64, img *ebiten.Image, mapColor color.RGBA, uSize int, collisionRadius float64) *Sprite {
 	s := &Sprite{
 		Entity: &Entity{
 			Pos:             &geom.Vector2{X: x, Y: y},
 			Angle:           0,
 			Velocity:        0,
 			CollisionRadius: collisionRadius,
+			MapColor:        mapColor,
 		},
 	}
 	s.Scale = 1.0
@@ -50,8 +52,8 @@ func NewSprite(x, y float64, img *ebiten.Image, uSize int, collisionRadius float
 }
 
 func NewAnimatedSprite(
-	x, y, scale float64, animationRate int, img *ebiten.Image, columns, rows int,
-	uSize int, collisionRadius float64,
+	x, y, scale float64, animationRate int, img *ebiten.Image, mapColor color.RGBA,
+	columns, rows int, uSize int, collisionRadius float64,
 ) *Sprite {
 	s := &Sprite{
 		Entity: &Entity{
@@ -59,6 +61,7 @@ func NewAnimatedSprite(
 			Angle:           0,
 			Velocity:        0,
 			CollisionRadius: collisionRadius,
+			MapColor:        mapColor,
 		},
 	}
 	s.Scale = scale
