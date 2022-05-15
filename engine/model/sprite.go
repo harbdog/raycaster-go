@@ -16,6 +16,7 @@ type Sprite struct {
 	Scale          float64
 	AnimationRate  int
 	animCounter    int
+	loopCounter    int
 	texNum, lenTex int
 	textures       []*ebiten.Image
 }
@@ -67,6 +68,7 @@ func NewAnimatedSprite(
 	s.Scale = scale
 	s.AnimationRate = animationRate
 	s.animCounter = 0
+	s.loopCounter = 0
 
 	s.texNum = 0
 	s.lenTex = columns * rows
@@ -113,15 +115,19 @@ func NewAnimatedSprite(
 				cellTarget = translateImg
 			}
 
-			s.textures[c+r*c] = cellTarget
+			s.textures[c+r*columns] = cellTarget
 		}
 	}
 
 	return s
 }
 
-func (s *Sprite) SetAnimationFrame(animationFrame int) {
-	s.animCounter = animationFrame
+func (s *Sprite) SetAnimationFrame(texNum int) {
+	s.texNum = texNum
+}
+
+func (s *Sprite) GetLoopCounter() int {
+	return s.loopCounter
 }
 
 func (s *Sprite) Update() {
@@ -134,6 +140,7 @@ func (s *Sprite) Update() {
 		s.texNum += 1
 		if s.texNum >= s.lenTex {
 			s.texNum = 0
+			s.loopCounter++
 		}
 	} else {
 		s.animCounter++

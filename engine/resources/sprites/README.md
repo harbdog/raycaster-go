@@ -11,3 +11,12 @@
 
 * `charged_bolt_sheet.png`: Hansjörg Malthaner - http://opengameart.org/users/varkalandar
   * https://opengameart.org/content/animated-charged-bolt
+
+* `blue_explosion_sheet.png`: "Skorpio"
+  * https://opengameart.org/content/sci-fi-effects
+
+  * Created from `explosion4` with imagemagick:
+
+    ```bash
+    montage -background transparent k2_0001.png k2_0002.png k2_0003.png k2_0004.png k2_0005.png k2_0006.png k2_0007.png k2_0008.png k2_0009.png k2_0010.png k2_0011.png k2_0012.png k2_0013.png k2_0014.png k2_0015.png blue_explosion_sheet.png
+    ```

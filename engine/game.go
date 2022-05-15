@@ -66,6 +66,7 @@ type Game struct {
 
 	sprites     map[*model.Sprite]struct{}
 	projectiles map[*model.Projectile]struct{}
+	effects     map[*model.Effect]struct{}
 
 	preloadedSprites map[string]model.Sprite
 
@@ -112,7 +113,7 @@ func NewGame() *Game {
 	// TODO: make crosshairs its own class since it doesn't behave like other sprites
 	g.crosshairScale = 2.0
 	g.crosshairs = model.NewAnimatedSprite(1, 1, 1.0, 0, g.tex.Textures[16], color.RGBA{}, 8, 8, 64, 0)
-	g.crosshairs.SetAnimationFrame(57)
+	g.crosshairs.SetAnimationFrame(56)
 
 	// init the sprites
 	g.loadSprites()
@@ -158,6 +159,7 @@ func (g *Game) loadContent() {
 	g.tex.Textures[15] = getSpriteFromFile("sorcerer_sheet.png")
 	g.tex.Textures[16] = getSpriteFromFile("crosshairs_sheet.png")
 	g.tex.Textures[17] = getSpriteFromFile("charged_bolt_sheet.png")
+	g.tex.Textures[18] = getSpriteFromFile("blue_explosion_sheet.png")
 
 	// just setting the grass texture apart from the rest since it gets special handling
 	g.floorLvl.TexRGBA = make([]*image.RGBA, 1)
@@ -205,6 +207,7 @@ func getSpriteFromFile(sFile string) *ebiten.Image {
 
 func (g *Game) loadSprites() {
 	g.projectiles = make(map[*model.Projectile]struct{}, 1024)
+	g.effects = make(map[*model.Effect]struct{}, 1024)
 	g.sprites = make(map[*model.Sprite]struct{}, 128)
 	g.preloadedSprites = make(map[string]model.Sprite, 16)
 
@@ -217,10 +220,15 @@ func (g *Game) loadSprites() {
 
 	// preload projectile sprite
 	projectileCollisionRadius := 20.0 / 256.0
-	g.preloadedSprites["charged_bolt"] = *model.NewAnimatedSprite(
-		0, 0, 0.5, 4, g.tex.Textures[17], blueish,
+	g.preloadedSprites["charged_bolt"] = *model.NewAnimatedProjectile(
+		0, 0, 0.5, 2, g.tex.Textures[17], blueish,
 		48, 1, 256, projectileCollisionRadius,
-	)
+	).Sprite
+
+	// preload explosion sprite
+	g.preloadedSprites["blue_explosion"] = *model.NewAnimatedEffect(
+		0, 0, 1.0, 3, g.tex.Textures[18], 5, 3, 256, 0,
+	).Sprite
 
 	// // sorcerer
 	sorcCollisionRadius := 32.0 / 256.0
@@ -229,6 +237,8 @@ func (g *Game) loadSprites() {
 	sorc.Angle = geom.Radians(180)
 	sorc.Velocity = 0.02
 	g.addSprite(sorc)
+
+	// TODO: speed up init by preloading tree Sprites and copying
 
 	// // line of trees for testing in front of initial view
 	// Setting CollisionRadius=0 to disable collision against small trees
@@ -298,7 +308,6 @@ func (g *Game) deleteSprite(sprite *model.Sprite) {
 }
 
 func (g *Game) addProjectile(projectile *model.Projectile) {
-	// TODO: improve performance hit of adding a lot of new projectiles in small amount of time (map growth)
 	g.projectiles[projectile] = struct{}{}
 
 	// TODO: refactor the need for this extra update needed when the projectile list expands
@@ -307,6 +316,20 @@ func (g *Game) addProjectile(projectile *model.Projectile) {
 
 func (g *Game) deleteProjectile(projectile *model.Projectile) {
 	delete(g.projectiles, projectile)
+
+	// TODO: refactor the need for this extra update needed when the projectile list contracts
+	g.updateSpriteLevels()
+}
+
+func (g *Game) addEffect(effect *model.Effect) {
+	g.effects[effect] = struct{}{}
+
+	// TODO: refactor the need for this extra update needed when the projectile list expands
+	g.updateSpriteLevels()
+}
+
+func (g *Game) deleteEffect(effect *model.Effect) {
+	delete(g.effects, effect)
 
 	// TODO: refactor the need for this extra update needed when the projectile list contracts
 	g.updateSpriteLevels()
@@ -335,8 +358,8 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 // Draw is called every frame (typically 1/60[s] for 60Hz display).
 func (g *Game) Draw(screen *ebiten.Image) {
 	// Put projectiles together with sprites for raycasting both as sprites
-	numSprites, numProjectiles := len(g.sprites), len(g.projectiles)
-	raycastSprites := make([]*model.Sprite, numSprites+numProjectiles)
+	numSprites, numProjectiles, numEffects := len(g.sprites), len(g.projectiles), len(g.effects)
+	raycastSprites := make([]*model.Sprite, numSprites+numProjectiles+numEffects)
 	index := 0
 	for sprite := range g.sprites {
 		raycastSprites[index] = sprite
@@ -344,6 +367,10 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	}
 	for projectile := range g.projectiles {
 		raycastSprites[index] = projectile.Sprite
+		index += 1
+	}
+	for effect := range g.effects {
+		raycastSprites[index] = effect.Sprite
 		index += 1
 	}
 
@@ -780,12 +807,29 @@ func (g *Game) updateProjectiles() {
 				// for testing purposes, projectiles instantly get deleted when collision occurs
 				g.deleteProjectile(p)
 
-				// TODO: make a sprite/wall getting hit by projectile cause some visual effect
+				// make a sprite/wall getting hit by projectile cause some visual effect
+				spriteTemplate := g.preloadedSprites["blue_explosion"]
+				effectSprite := &model.Sprite{}
+				copier.Copy(effectSprite, spriteTemplate)
+
+				effect := &model.Effect{Sprite: effectSprite}
+				effect.Pos = &geom.Vector2{X: newPos.X, Y: newPos.Y}
+				effect.LoopCount = 1
+
+				g.addEffect(effect)
 			} else {
 				p.Pos = newPos
 			}
 		}
 		p.Update()
+	}
+
+	// Testing animated effects (explosions)
+	for e := range g.effects {
+		e.Update()
+		if e.GetLoopCounter() >= e.LoopCount {
+			g.deleteEffect(e)
+		}
 	}
 }
 
@@ -835,9 +879,9 @@ func (g *Game) createLevels(numLevels int) ([]*raycaster.Level, *raycaster.HorLe
 
 func (g *Game) createSpriteLevels() []*raycaster.Level {
 	// create empty "level" for all sprites to render using similar slice methods as walls
-	numSprites, numProjectiles := len(g.sprites), len(g.projectiles)
+	numSprites := len(g.sprites)
 
-	spriteArr := make([]*raycaster.Level, numSprites+numProjectiles)
+	spriteArr := make([]*raycaster.Level, numSprites)
 
 	return spriteArr
 }
@@ -845,8 +889,8 @@ func (g *Game) createSpriteLevels() []*raycaster.Level {
 func (g *Game) updateSpriteLevels() {
 	// update empty "level" for all sprites used by camera
 	// TODO: this should be refactored so to be not necessary
-	numSprites, numProjectiles := len(g.sprites), len(g.projectiles)
+	numSprites, numProjectiles, numEffects := len(g.sprites), len(g.projectiles), len(g.effects)
 
-	g.spriteLvls = make([]*raycaster.Level, numSprites+numProjectiles)
+	g.spriteLvls = make([]*raycaster.Level, numSprites+numProjectiles+numEffects)
 	g.camera.UpdateSpriteLevels(g.spriteLvls)
 }
