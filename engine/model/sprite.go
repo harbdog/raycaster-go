@@ -52,6 +52,73 @@ func NewSprite(x, y float64, img *ebiten.Image, mapColor color.RGBA, uSize int, 
 	return s
 }
 
+func NewSpriteFromSheet(
+	x, y, scale float64, img *ebiten.Image, mapColor color.RGBA,
+	columns, rows, spriteIndex int, uSize int, collisionRadius float64,
+) *Sprite {
+	s := &Sprite{
+		Entity: &Entity{
+			Pos:             &geom.Vector2{X: x, Y: y},
+			Angle:           0,
+			Velocity:        0,
+			CollisionRadius: collisionRadius,
+			MapColor:        mapColor,
+		},
+	}
+	s.Scale = scale
+
+	s.texNum = spriteIndex
+	s.lenTex = columns * rows
+	s.textures = make([]*ebiten.Image, s.lenTex)
+
+	w, h := img.Size()
+
+	// scale image if indicated
+	if scale != 1.0 {
+		w = int(float64(w) * scale)
+		h = int(float64(h) * scale)
+
+		op := &ebiten.DrawImageOptions{}
+		op.GeoM.Scale(scale, scale)
+
+		scaleImg := ebiten.NewImage(w, h)
+		scaleImg.DrawImage(img, op)
+		img = scaleImg
+	}
+
+	// crop sheet by given number of columns and rows into a single dimension array
+	s.W = w / columns
+	s.H = h / rows
+
+	op := &ebiten.DrawImageOptions{}
+
+	for r := 0; r < rows; r++ {
+		y := r * s.H
+		for c := 0; c < columns; c++ {
+			x := c * s.W
+			cellRect := image.Rect(x, y, x+s.W-1, y+s.H-1)
+			cellImg := img.SubImage(cellRect).(*ebiten.Image)
+
+			cellTarget := ebiten.NewImage(s.W, s.H)
+			cellTarget.DrawImage(cellImg, op)
+
+			if w != uSize || h != uSize {
+				// translate image to center/bottom if not same size as 1u cell (texSize)
+				op := &ebiten.DrawImageOptions{}
+				op.GeoM.Translate(float64(uSize/2-s.W/2), float64(uSize-s.H))
+
+				translateImg := ebiten.NewImage(uSize, uSize)
+				translateImg.DrawImage(cellTarget, op)
+				cellTarget = translateImg
+			}
+
+			s.textures[c+r*columns] = cellTarget
+		}
+	}
+
+	return s
+}
+
 func NewAnimatedSprite(
 	x, y, scale float64, animationRate int, img *ebiten.Image, mapColor color.RGBA,
 	columns, rows int, uSize int, collisionRadius float64,

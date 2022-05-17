@@ -112,8 +112,7 @@ func NewGame() *Game {
 
 	// TODO: make crosshairs its own class since it doesn't behave like other sprites
 	g.crosshairScale = 2.0
-	g.crosshairs = model.NewAnimatedSprite(1, 1, 1.0, 0, g.tex.Textures[16], color.RGBA{}, 8, 8, 64, 0)
-	g.crosshairs.SetAnimationFrame(56)
+	g.crosshairs = model.NewSpriteFromSheet(1, 1, 1.0, g.tex.Textures[16], color.RGBA{}, 8, 8, 56, 64, 0)
 
 	// init the sprites
 	g.loadSprites()
@@ -570,7 +569,7 @@ func (g *Game) handleInput() {
 func (g *Game) Move(mSpeed float64) {
 	moveLine := geom.LineFromAngle(g.player.Pos.X, g.player.Pos.Y, g.player.Angle, mSpeed)
 
-	newPos, _ := g.getValidMove(g.player.Entity, moveLine.X2, moveLine.Y2, true)
+	newPos, _, _ := g.getValidMove(g.player.Entity, moveLine.X2, moveLine.Y2, true)
 	if !newPos.Equals(g.player.Pos) {
 		g.player.Pos = newPos
 		g.player.Moved = true
@@ -585,7 +584,7 @@ func (g *Game) Strafe(sSpeed float64) {
 	}
 	strafeLine := geom.LineFromAngle(g.player.Pos.X, g.player.Pos.Y, g.player.Angle-strafeAngle, math.Abs(sSpeed))
 
-	newPos, _ := g.getValidMove(g.player.Entity, strafeLine.X2, strafeLine.Y2, true)
+	newPos, _, _ := g.getValidMove(g.player.Entity, strafeLine.X2, strafeLine.Y2, true)
 	if !newPos.Equals(g.player.Pos) {
 		g.player.Pos = newPos
 		g.player.Moved = true
@@ -606,13 +605,14 @@ func (g *Game) Rotate(rSpeed float64) {
 	g.player.Moved = true
 }
 
-// checks for valid move from current position, returns valid (x, y) position and whether a collision was encountered
-func (g *Game) getValidMove(entity *model.Entity, moveX, moveY float64, checkAlternate bool) (*geom.Vector2, bool) {
+// checks for valid move from current position, returns valid (x, y) position, whether a collision
+// was encountered, and a list of entity collisions that may have been encountered
+func (g *Game) getValidMove(entity *model.Entity, moveX, moveY float64, checkAlternate bool) (*geom.Vector2, bool, []*model.Entity) {
 	newX, newY := moveX, moveY
 
 	posX, posY := entity.Pos.X, entity.Pos.Y
 	if posX == newX && posY == moveY {
-		return &geom.Vector2{X: posX, Y: posY}, false
+		return &geom.Vector2{X: posX, Y: posY}, false, []*model.Entity{}
 	}
 
 	ix := int(newX)
@@ -641,6 +641,7 @@ func (g *Game) getValidMove(entity *model.Entity, moveX, moveY float64, checkAlt
 	entityCircle := geom.Circle{X: newX, Y: newY, Radius: entity.CollisionRadius}
 
 	intersectPoints := []geom.Vector2{}
+	collisionEntities := []*model.Entity{}
 
 	// check wall collisions
 	for _, borderLine := range g.collisionMap {
@@ -664,6 +665,7 @@ func (g *Game) getValidMove(entity *model.Entity, moveX, moveY float64, checkAlt
 			// create line using collision radius to determine center point for intersection
 			collisionLine := geom.LineFromAngle(posX, posY, angle, collisionRadius)
 			intersectPoints = append(intersectPoints, geom.Vector2{X: collisionLine.X2, Y: collisionLine.Y2})
+			collisionEntities = append(collisionEntities, g.player.Entity)
 		}
 	}
 
@@ -686,6 +688,7 @@ func (g *Game) getValidMove(entity *model.Entity, moveX, moveY float64, checkAlt
 			// create line using collision radius to determine center point for intersection
 			collisionLine := geom.LineFromAngle(posX, posY, angle, collisionRadius)
 			intersectPoints = append(intersectPoints, geom.Vector2{X: collisionLine.X2, Y: collisionLine.Y2})
+			collisionEntities = append(collisionEntities, sprite.Entity)
 		}
 	}
 
@@ -736,11 +739,11 @@ func (g *Game) getValidMove(entity *model.Entity, moveX, moveY float64, checkAlt
 				}
 			} else {
 				// looks like it cannot move
-				return &geom.Vector2{X: posX, Y: posY}, isCollision
+				return &geom.Vector2{X: posX, Y: posY}, isCollision, collisionEntities
 			}
 		} else {
 			// looks like it cannot move
-			return &geom.Vector2{X: posX, Y: posY}, isCollision
+			return &geom.Vector2{X: posX, Y: posY}, isCollision, collisionEntities
 		}
 	}
 
@@ -751,7 +754,7 @@ func (g *Game) getValidMove(entity *model.Entity, moveX, moveY float64, checkAlt
 		isCollision = true
 	}
 
-	return &geom.Vector2{X: posX, Y: posY}, isCollision
+	return &geom.Vector2{X: posX, Y: posY}, isCollision, collisionEntities
 }
 
 func (g *Game) fireTestProjectile() {
@@ -813,18 +816,26 @@ func (g *Game) updateProjectiles() {
 			xCheck := vLine.X2
 			yCheck := vLine.Y2
 
-			newPos, isCollision := g.getValidMove(p.Entity, xCheck, yCheck, false)
+			newPos, isCollision, collisions := g.getValidMove(p.Entity, xCheck, yCheck, false)
 			if isCollision {
 				// for testing purposes, projectiles instantly get deleted when collision occurs
 				g.deleteProjectile(p)
 
+				// make a sprite/wall getting hit by projectile cause some visual effect
 				if p.ImpactEffect.Sprite != nil {
-					// make a sprite/wall getting hit by projectile cause some visual effect
 					effect := &model.Effect{}
 					copier.Copy(effect, p.ImpactEffect)
 					effect.Pos = &geom.Vector2{X: newPos.X, Y: newPos.Y}
 
 					g.addEffect(effect)
+				}
+
+				for _, entity := range collisions {
+					if entity == g.player.Entity {
+						println("ouch!")
+					} else {
+						// TODO: show crosshair hit effect
+					}
 				}
 			} else {
 				p.Pos = newPos
@@ -851,7 +862,7 @@ func (g *Game) updateSprites() {
 			xCheck := vLine.X2
 			yCheck := vLine.Y2
 
-			newPos, isCollision := g.getValidMove(s.Entity, xCheck, yCheck, false)
+			newPos, isCollision, _ := g.getValidMove(s.Entity, xCheck, yCheck, false)
 			if isCollision {
 				// for testing purposes, letting the sample sprite ping pong off walls in somewhat random direction
 				s.Angle = randFloat(-180, 180)
