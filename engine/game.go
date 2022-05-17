@@ -109,8 +109,8 @@ func NewGame() *Game {
 	// load content once when first run
 	g.loadContent()
 
-	// TODO: make crosshairs its own class since it doesn't behave like other sprites
-	g.crosshairs = model.NewCrosshairs(1, 1, 2.0, g.tex.Textures[16], 8, 8, 56, 57, 64)
+	// make crosshairs its own class since it doesn't behave like other sprites
+	g.crosshairs = model.NewCrosshairs(1, 1, 2.0, g.tex.Textures[16], 8, 8, 55, 57, 64)
 
 	// init the sprites
 	g.loadSprites()
@@ -401,6 +401,11 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			float64(g.height)/2-float64(g.crosshairs.H)*crosshairScale/2,
 		)
 		screen.DrawImage(g.crosshairs.GetTexture(), op)
+
+		if g.crosshairs.IsHitIndicatorActive() {
+			screen.DrawImage(g.crosshairs.HitIndicator.GetTexture(), op)
+			g.crosshairs.Update()
+		}
 	}
 }
 
@@ -822,6 +827,7 @@ func (g *Game) updateProjectiles() {
 
 				// make a sprite/wall getting hit by projectile cause some visual effect
 				if p.ImpactEffect.Sprite != nil {
+					// TODO: give impact effect optional ability to have some velocity based on the projectile movement upon impact if it didn't hit a wall
 					effect := &model.Effect{}
 					copier.Copy(effect, p.ImpactEffect)
 					effect.Pos = &geom.Vector2{X: newPos.X, Y: newPos.Y}
@@ -833,7 +839,8 @@ func (g *Game) updateProjectiles() {
 					if entity == g.player.Entity {
 						println("ouch!")
 					} else {
-						// TODO: show crosshair hit effect
+						// show crosshair hit effect
+						g.crosshairs.ActivateHitIndicator(30)
 					}
 				}
 			} else {
