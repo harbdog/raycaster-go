@@ -747,6 +747,8 @@ func (g *Game) getValidMove(entity *model.Entity, moveX, moveY float64, checkAlt
 	if g.worldMap[ix][iy] <= 0 {
 		posX = newX
 		posY = newY
+	} else {
+		isCollision = true
 	}
 
 	return &geom.Vector2{X: posX, Y: posY}, isCollision
@@ -761,12 +763,21 @@ func (g *Game) fireTestProjectile() {
 
 	// fire test projectile spawning near but in front of current player position and angle
 	spriteTemplate := g.preloadedSprites["charged_bolt"]
+	effectTemplate := g.preloadedSprites["blue_explosion"]
 	projectileSprite := &model.Sprite{}
+	effectSprite := &model.Sprite{}
 	copier.Copy(projectileSprite, spriteTemplate)
+	copier.Copy(effectSprite, effectTemplate)
 
 	projectileSpawnDistance := 0.4
 	projectileSpawn := geom.LineFromAngle(g.player.Pos.X, g.player.Pos.Y, g.player.Angle, projectileSpawnDistance)
-	projectile := &model.Projectile{Sprite: projectileSprite}
+	projectile := &model.Projectile{
+		Sprite: projectileSprite,
+		ImpactEffect: model.Effect{
+			Sprite:    effectSprite,
+			LoopCount: 1,
+		},
+	}
 	projectile.Pos = &geom.Vector2{X: projectileSpawn.X2, Y: projectileSpawn.Y2}
 
 	// velocity based on distance per tick (1/60sec)
@@ -807,16 +818,14 @@ func (g *Game) updateProjectiles() {
 				// for testing purposes, projectiles instantly get deleted when collision occurs
 				g.deleteProjectile(p)
 
-				// make a sprite/wall getting hit by projectile cause some visual effect
-				spriteTemplate := g.preloadedSprites["blue_explosion"]
-				effectSprite := &model.Sprite{}
-				copier.Copy(effectSprite, spriteTemplate)
+				if p.ImpactEffect.Sprite != nil {
+					// make a sprite/wall getting hit by projectile cause some visual effect
+					effect := &model.Effect{}
+					copier.Copy(effect, p.ImpactEffect)
+					effect.Pos = &geom.Vector2{X: newPos.X, Y: newPos.Y}
 
-				effect := &model.Effect{Sprite: effectSprite}
-				effect.Pos = &geom.Vector2{X: newPos.X, Y: newPos.Y}
-				effect.LoopCount = 1
-
-				g.addEffect(effect)
+					g.addEffect(effect)
+				}
 			} else {
 				p.Pos = newPos
 			}
