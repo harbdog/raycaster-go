@@ -54,8 +54,7 @@ type Game struct {
 	mouseMode      raycaster.MouseMode
 	mouseX, mouseY int
 
-	crosshairs     *model.Sprite
-	crosshairScale float64
+	crosshairs *model.Crosshairs
 
 	//--array of levels, levels refer to "floors" of the world--//
 	mapObj       *model.Map
@@ -111,8 +110,7 @@ func NewGame() *Game {
 	g.loadContent()
 
 	// TODO: make crosshairs its own class since it doesn't behave like other sprites
-	g.crosshairScale = 2.0
-	g.crosshairs = model.NewSpriteFromSheet(1, 1, 1.0, g.tex.Textures[16], color.RGBA{}, 8, 8, 56, 64, 0)
+	g.crosshairs = model.NewCrosshairs(1, 1, 2.0, g.tex.Textures[16], 8, 8, 56, 57, 64)
 
 	// init the sprites
 	g.loadSprites()
@@ -396,10 +394,11 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		op := &ebiten.DrawImageOptions{}
 		op.Filter = ebiten.FilterNearest
 
-		op.GeoM.Scale(g.crosshairScale, g.crosshairScale)
+		crosshairScale := g.crosshairs.Scale
+		op.GeoM.Scale(crosshairScale, crosshairScale)
 		op.GeoM.Translate(
-			float64(g.width)/2-float64(g.crosshairs.W)*g.crosshairScale/2,
-			float64(g.height)/2-float64(g.crosshairs.H)*g.crosshairScale/2,
+			float64(g.width)/2-float64(g.crosshairs.W)*crosshairScale/2,
+			float64(g.height)/2-float64(g.crosshairs.H)*crosshairScale/2,
 		)
 		screen.DrawImage(g.crosshairs.GetTexture(), op)
 	}
