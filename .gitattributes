@@ -1,0 +1,9 @@
+.gitattributes text eol=lf
+.gitignore text eol=lf
+*.go text eol=lf
+*.md text eol=lf
+*.yaml text eol=lf
+
+*.gif binary
+*.jpg binary
+*.png binary
