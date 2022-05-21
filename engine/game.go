@@ -766,6 +766,9 @@ func (g *Game) fireTestProjectile() {
 		return
 	}
 
+	// TODO: use player's posZ to adjust projectile shoot height
+	// TODO: convert player pitch to angle and then allow projectile to move at up/down angles
+
 	g.player.WeaponCooldown = 0.1
 
 	// fire test projectile spawning near but in front of current player position and angle
