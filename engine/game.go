@@ -224,73 +224,78 @@ func (g *Game) loadSprites() {
 
 	// preload explosion sprite
 	g.preloadedSprites["blue_explosion"] = *model.NewAnimatedEffect(
-		0, 0, 1.0, 3, g.tex.Textures[18], 5, 3, 256, 0,
+		0, 0, 0.75, 3, g.tex.Textures[18], 5, 3, 256, 0,
 	).Sprite
 
-	// // sorcerer
-	sorcCollisionRadius := 32.0 / 256.0
-	sorc := model.NewAnimatedSprite(20, 11.5, 1.4, 5, g.tex.Textures[15], yellow, 10, 1, 256, sorcCollisionRadius) // FIXME: 256 should come from g.texSize
+	// sorcerer
+	sorcScale := 1.4
+	sorcCollisionRadius := sorcScale * 24.0 / 256.0
+	sorc := model.NewAnimatedSprite(20, 11.5, sorcScale, 5, g.tex.Textures[15], yellow, 10, 1, 256, sorcCollisionRadius) // FIXME: 256 should come from g.texSize
 	// give sprite a sample velocity for movement
 	sorc.Angle = geom.Radians(180)
 	sorc.Velocity = 0.02
 	g.addSprite(sorc)
 
+	// testing sprite scaling
+	testScale := 0.5
+	g.addSprite(model.NewSprite(10.5, 2.5, testScale, g.tex.Textures[9], green, 256, 0))
+
 	// TODO: speed up init by preloading tree Sprites and copying
 
 	// // line of trees for testing in front of initial view
 	// Setting CollisionRadius=0 to disable collision against small trees
-	g.addSprite(model.NewSprite(19.5, 11.5, g.tex.Textures[10], brown, 256, 0))
-	g.addSprite(model.NewSprite(17.5, 11.5, g.tex.Textures[14], orange, 256, 0))
-	g.addSprite(model.NewSprite(15.5, 11.5, g.tex.Textures[9], green, 256, 0))
+	g.addSprite(model.NewSprite(19.5, 11.5, 1.0, g.tex.Textures[10], brown, 256, 0))
+	g.addSprite(model.NewSprite(17.5, 11.5, 1.0, g.tex.Textures[14], orange, 256, 0))
+	g.addSprite(model.NewSprite(15.5, 11.5, 1.0, g.tex.Textures[9], green, 256, 0))
 	// // // render a forest!
-	g.addSprite(model.NewSprite(11.5, 1.5, g.tex.Textures[9], green, 256, 0))
-	g.addSprite(model.NewSprite(12.5, 1.5, g.tex.Textures[9], green, 256, 0))
-	g.addSprite(model.NewSprite(132.5, 1.5, g.tex.Textures[9], green, 256, 0))
-	g.addSprite(model.NewSprite(11.5, 2, g.tex.Textures[9], green, 256, 0))
-	g.addSprite(model.NewSprite(12.5, 2, g.tex.Textures[9], green, 256, 0))
-	g.addSprite(model.NewSprite(13.5, 2, g.tex.Textures[9], green, 256, 0))
-	g.addSprite(model.NewSprite(11.5, 2.5, g.tex.Textures[9], green, 256, 0))
-	g.addSprite(model.NewSprite(12.25, 2.5, g.tex.Textures[9], green, 256, 0))
-	g.addSprite(model.NewSprite(13.5, 2.25, g.tex.Textures[9], green, 256, 0))
-	g.addSprite(model.NewSprite(11.5, 3, g.tex.Textures[9], green, 256, 0))
-	g.addSprite(model.NewSprite(12.5, 3, g.tex.Textures[9], green, 256, 0))
-	g.addSprite(model.NewSprite(13.25, 3, g.tex.Textures[9], green, 256, 0))
-	g.addSprite(model.NewSprite(10.5, 3.5, g.tex.Textures[9], green, 256, 0))
-	g.addSprite(model.NewSprite(11.5, 3.25, g.tex.Textures[9], green, 256, 0))
-	g.addSprite(model.NewSprite(12.5, 3.5, g.tex.Textures[9], green, 256, 0))
-	g.addSprite(model.NewSprite(13.25, 3.5, g.tex.Textures[14], orange, 256, 0))
-	g.addSprite(model.NewSprite(10.5, 4, g.tex.Textures[9], green, 256, 0))
-	g.addSprite(model.NewSprite(11.5, 4, g.tex.Textures[9], green, 256, 0))
-	g.addSprite(model.NewSprite(12.5, 4, g.tex.Textures[9], green, 256, 0))
-	g.addSprite(model.NewSprite(13.5, 4, g.tex.Textures[14], orange, 256, 0))
-	g.addSprite(model.NewSprite(10.5, 4.5, g.tex.Textures[9], green, 256, 0))
-	g.addSprite(model.NewSprite(11.25, 4.5, g.tex.Textures[9], green, 256, 0))
-	g.addSprite(model.NewSprite(12.5, 4.5, g.tex.Textures[14], orange, 256, 0))
-	g.addSprite(model.NewSprite(13.5, 4.5, g.tex.Textures[10], brown, 256, 0))
-	g.addSprite(model.NewSprite(14.5, 4.25, g.tex.Textures[14], orange, 256, 0))
-	g.addSprite(model.NewSprite(10.5, 5, g.tex.Textures[9], green, 256, 0))
-	g.addSprite(model.NewSprite(11.5, 5, g.tex.Textures[9], green, 256, 0))
-	g.addSprite(model.NewSprite(12.5, 5, g.tex.Textures[14], orange, 256, 0))
-	g.addSprite(model.NewSprite(13.25, 5, g.tex.Textures[10], brown, 256, 0))
-	g.addSprite(model.NewSprite(14.5, 5, g.tex.Textures[14], orange, 256, 0))
-	g.addSprite(model.NewSprite(11.5, 5.5, g.tex.Textures[14], orange, 256, 0))
-	g.addSprite(model.NewSprite(12.5, 5.25, g.tex.Textures[10], brown, 256, 0))
-	g.addSprite(model.NewSprite(13.5, 5.25, g.tex.Textures[10], brown, 256, 0))
-	g.addSprite(model.NewSprite(14.5, 5.5, g.tex.Textures[10], brown, 256, 0))
-	g.addSprite(model.NewSprite(15.5, 5.5, g.tex.Textures[14], orange, 256, 0))
-	g.addSprite(model.NewSprite(11.5, 6, g.tex.Textures[14], orange, 256, 0))
-	g.addSprite(model.NewSprite(12.5, 6, g.tex.Textures[10], brown, 256, 0))
-	g.addSprite(model.NewSprite(13.25, 6, g.tex.Textures[10], brown, 256, 0))
-	g.addSprite(model.NewSprite(14.25, 6, g.tex.Textures[10], brown, 256, 0))
-	g.addSprite(model.NewSprite(15.5, 6, g.tex.Textures[14], orange, 256, 0))
-	g.addSprite(model.NewSprite(12.5, 6.5, g.tex.Textures[14], orange, 256, 0))
-	g.addSprite(model.NewSprite(13.5, 6.25, g.tex.Textures[10], brown, 256, 0))
-	g.addSprite(model.NewSprite(14.5, 6.5, g.tex.Textures[14], orange, 256, 0))
-	g.addSprite(model.NewSprite(12.5, 7, g.tex.Textures[14], orange, 256, 0))
-	g.addSprite(model.NewSprite(13.5, 7, g.tex.Textures[10], brown, 256, 0))
-	g.addSprite(model.NewSprite(14.5, 7, g.tex.Textures[14], orange, 256, 0))
-	g.addSprite(model.NewSprite(13.5, 7.5, g.tex.Textures[14], orange, 256, 0))
-	g.addSprite(model.NewSprite(13.5, 8, g.tex.Textures[14], orange, 256, 0))
+	g.addSprite(model.NewSprite(11.5, 1.5, 1.0, g.tex.Textures[9], green, 256, 0))
+	g.addSprite(model.NewSprite(12.5, 1.5, 1.0, g.tex.Textures[9], green, 256, 0))
+	g.addSprite(model.NewSprite(132.5, 1.5, 1.0, g.tex.Textures[9], green, 256, 0))
+	g.addSprite(model.NewSprite(11.5, 2, 1.0, g.tex.Textures[9], green, 256, 0))
+	g.addSprite(model.NewSprite(12.5, 2, 1.0, g.tex.Textures[9], green, 256, 0))
+	g.addSprite(model.NewSprite(13.5, 2, 1.0, g.tex.Textures[9], green, 256, 0))
+	g.addSprite(model.NewSprite(11.5, 2.5, 1.0, g.tex.Textures[9], green, 256, 0))
+	g.addSprite(model.NewSprite(12.25, 2.5, 1.0, g.tex.Textures[9], green, 256, 0))
+	g.addSprite(model.NewSprite(13.5, 2.25, 1.0, g.tex.Textures[9], green, 256, 0))
+	g.addSprite(model.NewSprite(11.5, 3, 1.0, g.tex.Textures[9], green, 256, 0))
+	g.addSprite(model.NewSprite(12.5, 3, 1.0, g.tex.Textures[9], green, 256, 0))
+	g.addSprite(model.NewSprite(13.25, 3, 1.0, g.tex.Textures[9], green, 256, 0))
+	g.addSprite(model.NewSprite(10.5, 3.5, 1.0, g.tex.Textures[9], green, 256, 0))
+	g.addSprite(model.NewSprite(11.5, 3.25, 1.0, g.tex.Textures[9], green, 256, 0))
+	g.addSprite(model.NewSprite(12.5, 3.5, 1.0, g.tex.Textures[9], green, 256, 0))
+	g.addSprite(model.NewSprite(13.25, 3.5, 1.0, g.tex.Textures[14], orange, 256, 0))
+	g.addSprite(model.NewSprite(10.5, 4, 1.0, g.tex.Textures[9], green, 256, 0))
+	g.addSprite(model.NewSprite(11.5, 4, 1.0, g.tex.Textures[9], green, 256, 0))
+	g.addSprite(model.NewSprite(12.5, 4, 1.0, g.tex.Textures[9], green, 256, 0))
+	g.addSprite(model.NewSprite(13.5, 4, 1.0, g.tex.Textures[14], orange, 256, 0))
+	g.addSprite(model.NewSprite(10.5, 4.5, 1.0, g.tex.Textures[9], green, 256, 0))
+	g.addSprite(model.NewSprite(11.25, 4.5, 1.0, g.tex.Textures[9], green, 256, 0))
+	g.addSprite(model.NewSprite(12.5, 4.5, 1.0, g.tex.Textures[14], orange, 256, 0))
+	g.addSprite(model.NewSprite(13.5, 4.5, 1.0, g.tex.Textures[10], brown, 256, 0))
+	g.addSprite(model.NewSprite(14.5, 4.25, 1.0, g.tex.Textures[14], orange, 256, 0))
+	g.addSprite(model.NewSprite(10.5, 5, 1.0, g.tex.Textures[9], green, 256, 0))
+	g.addSprite(model.NewSprite(11.5, 5, 1.0, g.tex.Textures[9], green, 256, 0))
+	g.addSprite(model.NewSprite(12.5, 5, 1.0, g.tex.Textures[14], orange, 256, 0))
+	g.addSprite(model.NewSprite(13.25, 5, 1.0, g.tex.Textures[10], brown, 256, 0))
+	g.addSprite(model.NewSprite(14.5, 5, 1.0, g.tex.Textures[14], orange, 256, 0))
+	g.addSprite(model.NewSprite(11.5, 5.5, 1.0, g.tex.Textures[14], orange, 256, 0))
+	g.addSprite(model.NewSprite(12.5, 5.25, 1.0, g.tex.Textures[10], brown, 256, 0))
+	g.addSprite(model.NewSprite(13.5, 5.25, 1.0, g.tex.Textures[10], brown, 256, 0))
+	g.addSprite(model.NewSprite(14.5, 5.5, 1.0, g.tex.Textures[10], brown, 256, 0))
+	g.addSprite(model.NewSprite(15.5, 5.5, 1.0, g.tex.Textures[14], orange, 256, 0))
+	g.addSprite(model.NewSprite(11.5, 6, 1.0, g.tex.Textures[14], orange, 256, 0))
+	g.addSprite(model.NewSprite(12.5, 6, 1.0, g.tex.Textures[10], brown, 256, 0))
+	g.addSprite(model.NewSprite(13.25, 6, 1.0, g.tex.Textures[10], brown, 256, 0))
+	g.addSprite(model.NewSprite(14.25, 6, 1.0, g.tex.Textures[10], brown, 256, 0))
+	g.addSprite(model.NewSprite(15.5, 6, 1.0, g.tex.Textures[14], orange, 256, 0))
+	g.addSprite(model.NewSprite(12.5, 6.5, 1.0, g.tex.Textures[14], orange, 256, 0))
+	g.addSprite(model.NewSprite(13.5, 6.25, 1.0, g.tex.Textures[10], brown, 256, 0))
+	g.addSprite(model.NewSprite(14.5, 6.5, 1.0, g.tex.Textures[14], orange, 256, 0))
+	g.addSprite(model.NewSprite(12.5, 7, 1.0, g.tex.Textures[14], orange, 256, 0))
+	g.addSprite(model.NewSprite(13.5, 7, 1.0, g.tex.Textures[10], brown, 256, 0))
+	g.addSprite(model.NewSprite(14.5, 7, 1.0, g.tex.Textures[14], orange, 256, 0))
+	g.addSprite(model.NewSprite(13.5, 7.5, 1.0, g.tex.Textures[14], orange, 256, 0))
+	g.addSprite(model.NewSprite(13.5, 8, 1.0, g.tex.Textures[14], orange, 256, 0))
 }
 
 func (g *Game) addSprite(sprite *model.Sprite) {
@@ -541,6 +546,8 @@ func (g *Game) handleInput() {
 
 	if ebiten.IsKeyPressed(ebiten.KeyC) {
 		g.camera.Crouch()
+	} else if ebiten.IsKeyPressed(ebiten.KeyZ) {
+		g.camera.Prone()
 	} else if ebiten.IsKeyPressed(ebiten.KeySpace) {
 		g.camera.Jump()
 	} else {
@@ -792,7 +799,7 @@ func (g *Game) fireTestProjectile() {
 
 	// velocity based on distance per tick (1/60sec)
 	projectile.Angle = g.player.Angle
-	projectile.Velocity = 0.1
+	projectile.Velocity = 0.01
 
 	g.addProjectile(projectile)
 }

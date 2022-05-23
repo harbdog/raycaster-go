@@ -496,18 +496,18 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *Level, levelNum int, wg *sy
 }
 
 func (c *Camera) castSprite(spriteOrdIndex int) {
+	// the sprite
+	sprite := c.sprites[c.spriteOrder[spriteOrdIndex]]
+
 	// track whether the sprite actually needs to draw
 	renderSprite := false
 
-	rayPosX := c.pos.X
-	rayPosY := c.pos.Y
-
 	//translate sprite position to relative to camera
-	spriteX := c.sprites[c.spriteOrder[spriteOrdIndex]].Pos.X - rayPosX
-	spriteY := c.sprites[c.spriteOrder[spriteOrdIndex]].Pos.Y - rayPosY
+	spriteX := sprite.Pos.X - c.pos.X
+	spriteY := sprite.Pos.Y - c.pos.Y
 
-	spriteTex := c.sprites[c.spriteOrder[spriteOrdIndex]].GetTexture()
-	spriteW, spriteH := spriteTex.Size()
+	spriteTex := sprite.GetTexture()
+	spriteTexWidth, spriteTexHeight := spriteTex.Size()
 
 	//transform sprite with the inverse camera matrix
 	// [ planeX   dirX ] -1                                       [ dirY      -dirX ]
@@ -522,13 +522,13 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 	spriteScreenX := int(float64(c.w) / 2 * (1 + transformX/transformY))
 
 	//parameters for scaling and moving the sprites
-	var uDiv = 1
-	var vDiv = 1
+	var uDiv = 1.0
+	var vDiv = 1.0
 	var vMove = 0.0
 	vMoveScreen := int(vMove/transformY) + c.pitch + int(c.posZ/transformY)
 
 	//calculate height of the sprite on screen
-	spriteHeight := int(math.Abs(float64(c.h)/transformY) / float64(vDiv)) //using "transformY" instead of the real distance prevents fisheye
+	spriteHeight := int(math.Abs(float64(c.h)/transformY) / vDiv) //using "transformY" instead of the real distance prevents fisheye
 	//calculate lowest and highest pixel to fill in current stripe
 	drawStartY := -spriteHeight/2 + c.h/2 + vMoveScreen
 	if drawStartY < 0 {
@@ -540,7 +540,7 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 	}
 
 	//calculate width of the sprite
-	spriteWidth := int(math.Abs(float64(c.h)/transformY) / float64(uDiv))
+	spriteWidth := int(math.Abs(float64(c.h)/transformY) / uDiv)
 	drawStartX := -spriteWidth/2 + spriteScreenX
 	drawEndX := spriteWidth/2 + spriteScreenX
 
@@ -572,12 +572,12 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 			if !renderSprite {
 				renderSprite = true
 				spriteLvl = c.makeSpriteLevel(spriteOrdIndex)
-				spriteSlices = MakeSlices(spriteW, spriteH)
+				spriteSlices = MakeSlices(spriteTexWidth, spriteTexHeight)
 			} else {
 				spriteLvl = c.spriteLvls[spriteOrdIndex]
 			}
 
-			texX := int(256*(stripe-(-spriteWidth/2+spriteScreenX))*c.texWidth/spriteWidth) / 256
+			texX := int(256*(stripe-(-spriteWidth/2+spriteScreenX))*spriteTexWidth/spriteWidth) / 256
 
 			if texX < 0 || texX >= cap(spriteSlices) {
 				continue
@@ -585,12 +585,12 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 
 			// modify tex startY and endY based on distance
 			d := (drawStartY-vMoveScreen)*256 - c.h*128 + spriteHeight*128 //256 and 128 factors to avoid floats
-			texStartY := ((d * c.texWidth) / spriteHeight) / 256
+			texStartY := ((d * spriteTexWidth) / spriteHeight) / 256
 
 			d = (drawEndY-1-vMoveScreen)*256 - c.h*128 + spriteHeight*128
-			texEndY := ((d * c.texWidth) / spriteHeight) / 256
+			texEndY := ((d * spriteTexWidth) / spriteHeight) / 256
 
-			if texStartY < 0 || texStartY >= texEndY || texEndY >= c.texWidth {
+			if texStartY < 0 || texStartY >= texEndY || texEndY >= spriteTexWidth {
 				continue
 			}
 
@@ -826,7 +826,12 @@ func (c *Camera) Stand() {
 
 // Crouch camera position
 func (c *Camera) Crouch() {
-	c.posZ = -200.0
+	c.posZ = -150.0
+}
+
+// Prone camera position
+func (c *Camera) Prone() {
+	c.posZ = -280.0
 }
 
 // Jump camera position
