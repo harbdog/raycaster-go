@@ -21,7 +21,7 @@ type Sprite struct {
 	textures       []*ebiten.Image
 }
 
-func NewSprite(x, y float64, img *ebiten.Image, mapColor color.RGBA, uSize int, collisionRadius float64) *Sprite {
+func NewSprite(x, y, scale float64, img *ebiten.Image, mapColor color.RGBA, uSize int, collisionRadius float64) *Sprite {
 	s := &Sprite{
 		Entity: &Entity{
 			Pos:             &geom.Vector2{X: x, Y: y},
@@ -31,14 +31,28 @@ func NewSprite(x, y float64, img *ebiten.Image, mapColor color.RGBA, uSize int, 
 			MapColor:        mapColor,
 		},
 	}
-	s.Scale = 1.0
+	s.Scale = scale
 	s.texNum = 0
 	s.lenTex = 1
 	s.textures = make([]*ebiten.Image, s.lenTex)
 
+	// scale image if indicated
+	if scale != 1.0 {
+		w, h := img.Size()
+		w = int(float64(w) * scale)
+		h = int(float64(h) * scale)
+
+		op := &ebiten.DrawImageOptions{}
+		op.GeoM.Scale(scale, scale)
+
+		scaleImg := ebiten.NewImage(w, h)
+		scaleImg.DrawImage(img, op)
+		img = scaleImg
+	}
+
 	s.W, s.H = img.Size()
 	if s.W != uSize || s.H != uSize {
-		// translate image to center/bottom if not same size as 1u cell (texSize)
+		//translate image to center/bottom if not same size as 1u cell (texSize)
 		op := &ebiten.DrawImageOptions{}
 		op.GeoM.Translate(float64(uSize/2-s.W/2), float64(uSize-s.H))
 
@@ -104,11 +118,11 @@ func NewSpriteFromSheet(
 
 			if w != uSize || h != uSize {
 				// translate image to center/bottom if not same size as 1u cell (texSize)
-				op := &ebiten.DrawImageOptions{}
-				op.GeoM.Translate(float64(uSize/2-s.W/2), float64(uSize-s.H))
+				op2 := &ebiten.DrawImageOptions{}
+				op2.GeoM.Translate(float64(uSize/2-s.W/2), float64(uSize-s.H))
 
 				translateImg := ebiten.NewImage(uSize, uSize)
-				translateImg.DrawImage(cellTarget, op)
+				translateImg.DrawImage(cellTarget, op2)
 				cellTarget = translateImg
 			}
 
@@ -174,11 +188,11 @@ func NewAnimatedSprite(
 
 			if w != uSize || h != uSize {
 				// translate image to center/bottom if not same size as 1u cell (texSize)
-				op := &ebiten.DrawImageOptions{}
-				op.GeoM.Translate(float64(uSize/2-s.W/2), float64(uSize-s.H))
+				op2 := &ebiten.DrawImageOptions{}
+				op2.GeoM.Translate(float64(uSize/2-s.W/2), float64(uSize-s.H))
 
 				translateImg := ebiten.NewImage(uSize, uSize)
-				translateImg.DrawImage(cellTarget, op)
+				translateImg.DrawImage(cellTarget, op2)
 				cellTarget = translateImg
 			}
 

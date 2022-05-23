@@ -14,6 +14,13 @@ func Radians(degrees float64) float64 {
 	return degrees * math.Pi / 180
 }
 
+func MaxInt(x, y int) int {
+	if x < y {
+		return y
+	}
+	return x
+}
+
 // Vector2 converted struct from C#
 type Vector2 struct {
 	X, Y float64
