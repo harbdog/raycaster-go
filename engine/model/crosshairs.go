@@ -19,7 +19,7 @@ func NewCrosshairs(
 ) *Crosshairs {
 	mapColor := color.RGBA{0, 0, 0, 0}
 	c := &Crosshairs{
-		Sprite: NewSpriteFromSheet(x, y, 1.0, img, mapColor, columns, rows, crosshairIndex, uSize, 0),
+		Sprite: NewSpriteFromSheet(x, y, 1.0, img, mapColor, columns, rows, crosshairIndex, uSize, Center, 0),
 		Scale:  scale,
 	}
 
