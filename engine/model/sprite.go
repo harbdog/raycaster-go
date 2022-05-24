@@ -14,6 +14,7 @@ type Sprite struct {
 	*Entity
 	W, H           int
 	Scale          float64
+	Anchor         SpriteAnchor
 	AnimationRate  int
 	animCounter    int
 	loopCounter    int
@@ -21,7 +22,18 @@ type Sprite struct {
 	textures       []*ebiten.Image
 }
 
-func NewSprite(x, y, scale float64, img *ebiten.Image, mapColor color.RGBA, uSize int, collisionRadius float64) *Sprite {
+type SpriteAnchor int
+
+const (
+	BottomCenter SpriteAnchor = iota
+	Center
+	TopCenter
+)
+
+func NewSprite(
+	x, y, scale float64, img *ebiten.Image, mapColor color.RGBA,
+	uSize int, anchor SpriteAnchor, collisionRadius float64,
+) *Sprite {
 	s := &Sprite{
 		Entity: &Entity{
 			Pos:             &geom.Vector2{X: x, Y: y},
@@ -32,6 +44,8 @@ func NewSprite(x, y, scale float64, img *ebiten.Image, mapColor color.RGBA, uSiz
 		},
 	}
 	s.Scale = scale
+	s.Anchor = anchor
+
 	s.texNum = 0
 	s.lenTex = 1
 	s.textures = make([]*ebiten.Image, s.lenTex)
@@ -52,9 +66,10 @@ func NewSprite(x, y, scale float64, img *ebiten.Image, mapColor color.RGBA, uSiz
 
 	s.W, s.H = img.Size()
 	if s.W != uSize || s.H != uSize {
-		//translate image to center/bottom if not same size as 1u cell (texSize)
+		//translate image using anchor if not same size as 1u cell (texSize)
 		op := &ebiten.DrawImageOptions{}
-		op.GeoM.Translate(float64(uSize/2-s.W/2), float64(uSize-s.H))
+		translateX, translateY := getAnchorTranslate(anchor, s.W, s.H, uSize)
+		op.GeoM.Translate(translateX, translateY)
 
 		translateImg := ebiten.NewImage(uSize, uSize)
 		translateImg.DrawImage(img, op)
@@ -68,7 +83,7 @@ func NewSprite(x, y, scale float64, img *ebiten.Image, mapColor color.RGBA, uSiz
 
 func NewSpriteFromSheet(
 	x, y, scale float64, img *ebiten.Image, mapColor color.RGBA,
-	columns, rows, spriteIndex int, uSize int, collisionRadius float64,
+	columns, rows, spriteIndex int, uSize int, anchor SpriteAnchor, collisionRadius float64,
 ) *Sprite {
 	s := &Sprite{
 		Entity: &Entity{
@@ -80,6 +95,7 @@ func NewSpriteFromSheet(
 		},
 	}
 	s.Scale = scale
+	s.Anchor = anchor
 
 	s.texNum = spriteIndex
 	s.lenTex = columns * rows
@@ -117,9 +133,10 @@ func NewSpriteFromSheet(
 			cellTarget.DrawImage(cellImg, op)
 
 			if w != uSize || h != uSize {
-				// translate image to center/bottom if not same size as 1u cell (texSize)
+				// translate image using anchor if not same size as 1u cell (texSize)
 				op2 := &ebiten.DrawImageOptions{}
-				op2.GeoM.Translate(float64(uSize/2-s.W/2), float64(uSize-s.H))
+				translateX, translateY := getAnchorTranslate(anchor, s.W, s.H, uSize)
+				op2.GeoM.Translate(translateX, translateY)
 
 				translateImg := ebiten.NewImage(uSize, uSize)
 				translateImg.DrawImage(cellTarget, op2)
@@ -135,7 +152,7 @@ func NewSpriteFromSheet(
 
 func NewAnimatedSprite(
 	x, y, scale float64, animationRate int, img *ebiten.Image, mapColor color.RGBA,
-	columns, rows int, uSize int, collisionRadius float64,
+	columns, rows int, uSize int, anchor SpriteAnchor, collisionRadius float64,
 ) *Sprite {
 	s := &Sprite{
 		Entity: &Entity{
@@ -147,6 +164,8 @@ func NewAnimatedSprite(
 		},
 	}
 	s.Scale = scale
+	s.Anchor = anchor
+
 	s.AnimationRate = animationRate
 	s.animCounter = 0
 	s.loopCounter = 0
@@ -187,9 +206,10 @@ func NewAnimatedSprite(
 			cellTarget.DrawImage(cellImg, op)
 
 			if w != uSize || h != uSize {
-				// translate image to center/bottom if not same size as 1u cell (texSize)
+				// translate image using anchor if not same size as 1u cell (texSize)
 				op2 := &ebiten.DrawImageOptions{}
-				op2.GeoM.Translate(float64(uSize/2-s.W/2), float64(uSize-s.H))
+				translateX, translateY := getAnchorTranslate(anchor, s.W, s.H, uSize)
+				op2.GeoM.Translate(translateX, translateY)
 
 				translateImg := ebiten.NewImage(uSize, uSize)
 				translateImg.DrawImage(cellTarget, op2)
@@ -230,4 +250,18 @@ func (s *Sprite) Update() {
 
 func (s *Sprite) GetTexture() *ebiten.Image {
 	return s.textures[s.texNum]
+}
+
+func getAnchorTranslate(anchor SpriteAnchor, spriteWidth, spriteHeight, unitSize int) (float64, float64) {
+
+	switch anchor {
+	case BottomCenter:
+		return float64(unitSize/2 - spriteWidth/2), float64(unitSize - spriteHeight)
+	case Center:
+		return float64(unitSize/2 - spriteWidth/2), float64(unitSize-spriteHeight) / 2
+	case TopCenter:
+		return float64(unitSize/2 - spriteWidth/2), 0
+	}
+
+	return 0, 0
 }
