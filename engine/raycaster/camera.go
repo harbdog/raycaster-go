@@ -406,9 +406,9 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *Level, levelNum int, wg *sy
 	//--distance based dimming of light--//
 	var shadowDepth float64
 	shadowDepth = math.Sqrt(perpWallDist) * lightFalloff
-	_st[x].R = byte(Clamp(int(float64(_st[x].R)+shadowDepth+sunLight), 0, 255))
-	_st[x].G = byte(Clamp(int(float64(_st[x].G)+shadowDepth+sunLight), 0, 255))
-	_st[x].B = byte(Clamp(int(float64(_st[x].B)+shadowDepth+sunLight), 0, 255))
+	_st[x].R = byte(geom.ClampInt(int(float64(_st[x].R)+shadowDepth+sunLight), 0, 255))
+	_st[x].G = byte(geom.ClampInt(int(float64(_st[x].G)+shadowDepth+sunLight), 0, 255))
+	_st[x].B = byte(geom.ClampInt(int(float64(_st[x].B)+shadowDepth+sunLight), 0, 255))
 
 	//SET THE ZBUFFER FOR THE SPRITE CASTING
 	if levelNum == 0 {
@@ -477,9 +477,9 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *Level, levelNum int, wg *sy
 				// lighting
 				shadowDepth = math.Sqrt(currentDist) * lightFalloff
 				pixelSt := &color.RGBA{255, 255, 255, 255}
-				pixelSt.R = byte(Clamp(int(float64(pixelSt.R)+shadowDepth+sunLight), 0, 255))
-				pixelSt.G = byte(Clamp(int(float64(pixelSt.G)+shadowDepth+sunLight), 0, 255))
-				pixelSt.B = byte(Clamp(int(float64(pixelSt.B)+shadowDepth+sunLight), 0, 255))
+				pixelSt.R = byte(geom.ClampInt(int(float64(pixelSt.R)+shadowDepth+sunLight), 0, 255))
+				pixelSt.G = byte(geom.ClampInt(int(float64(pixelSt.G)+shadowDepth+sunLight), 0, 255))
+				pixelSt.B = byte(geom.ClampInt(int(float64(pixelSt.B)+shadowDepth+sunLight), 0, 255))
 				pixel.R = uint8(float64(pixel.R) * float64(pixelSt.R) / 256)
 				pixel.G = uint8(float64(pixel.G) * float64(pixelSt.G) / 256)
 				pixel.B = uint8(float64(pixel.B) * float64(pixelSt.B) / 256)
@@ -612,9 +612,9 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 
 			//--distance based dimming of light--//
 			shadowDepth := math.Sqrt(transformY) * lightFalloff
-			spriteLvl.St[stripe].R = byte(Clamp(int(float64(spriteLvl.St[stripe].R)+shadowDepth+sunLight), 0, 255))
-			spriteLvl.St[stripe].G = byte(Clamp(int(float64(spriteLvl.St[stripe].G)+shadowDepth+sunLight), 0, 255))
-			spriteLvl.St[stripe].B = byte(Clamp(int(float64(spriteLvl.St[stripe].B)+shadowDepth+sunLight), 0, 255))
+			spriteLvl.St[stripe].R = byte(geom.ClampInt(int(float64(spriteLvl.St[stripe].R)+shadowDepth+sunLight), 0, 255))
+			spriteLvl.St[stripe].G = byte(geom.ClampInt(int(float64(spriteLvl.St[stripe].G)+shadowDepth+sunLight), 0, 255))
+			spriteLvl.St[stripe].B = byte(geom.ClampInt(int(float64(spriteLvl.St[stripe].B)+shadowDepth+sunLight), 0, 255))
 		}
 	}
 
@@ -750,6 +750,16 @@ func (c *Camera) GetPlane() *geom.Vector2 {
 	return c.plane
 }
 
+// Set camera plane vector
+func (c *Camera) SetPitch(pitch int) {
+	c.pitch = pitch
+}
+
+// Get current pitch value
+func (c *Camera) GetPitch() int {
+	return c.pitch
+}
+
 // Move camera by move speed (does not alter player model position)
 func (c *Camera) MoveCamera(mSpeed float64) {
 	mx := c.pos.X + (c.dir.X * mSpeed)
@@ -777,7 +787,7 @@ func (c *Camera) RotateCamera(rSpeed float64) {
 
 // Pitch camera by pitch delta (does not alter player model orientation)
 func (c *Camera) PitchCamera(pDelta int) {
-	newPitch := Clamp(c.pitch+pDelta, -c.h/2, c.h/2)
+	newPitch := geom.ClampInt(c.pitch+pDelta, -c.h/2, c.h/2)
 	c.pitch = newPitch
 }
 
@@ -814,11 +824,6 @@ func (c *Camera) GetVecForFov(dir *geom.Vector2) *geom.Vector2 {
 	return dir.Copy().Sub(c.GetVecForAngleLength(angle+c.fovAngle/2, hypotenuse))
 }
 
-// Get current pitch value
-func (c *Camera) GetPitch() int {
-	return c.pitch
-}
-
 // Stand camera position
 func (c *Camera) Stand() {
 	c.posZ = 0.0
@@ -837,16 +842,4 @@ func (c *Camera) Prone() {
 // Jump camera position
 func (c *Camera) Jump() {
 	c.posZ = 200.0
-}
-
-// Clamp - converted C# method MathHelper.Clamp
-// Restricts a value to be within a specified range.
-func Clamp(value int, min int, max int) int {
-	if value < min {
-		return min
-	} else if value > max {
-		return max
-	}
-
-	return value
 }
