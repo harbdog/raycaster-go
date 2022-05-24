@@ -525,7 +525,7 @@ func (g *Game) handleInput() {
 			}
 
 			if dy != 0 {
-				g.Pitch(0.25 * float64(dy))
+				g.Pitch(0.005 * float64(dy))
 			}
 		}
 	}
@@ -618,7 +618,7 @@ func (g *Game) Rotate(rSpeed float64) {
 
 // Update player pitch angle by pitch speed
 func (g *Game) Pitch(pSpeed float64) {
-	g.player.Pitch += geom.Radians(pSpeed)
+	g.player.Pitch += pSpeed
 
 	// current raycasting method can only allow up to 45 degree pitch in either direction
 	g.player.Pitch = geom.Clamp(g.player.Pitch, -math.Pi/4, math.Pi/4)
