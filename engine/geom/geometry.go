@@ -21,6 +21,28 @@ func MaxInt(x, y int) int {
 	return x
 }
 
+// Clamp - converted C# method MathHelper.ClampInt
+// Restricts a value to be within a specified range.
+func Clamp(value float64, min float64, max float64) float64 {
+	if value < min {
+		return min
+	} else if value > max {
+		return max
+	}
+
+	return value
+}
+
+func ClampInt(value int, min int, max int) int {
+	if value < min {
+		return min
+	} else if value > max {
+		return max
+	}
+
+	return value
+}
+
 // Vector2 converted struct from C#
 type Vector2 struct {
 	X, Y float64
@@ -229,4 +251,11 @@ func (c *Circle) CircleCollision(c2 *Circle) (float64, bool) {
 		collision = true
 	}
 	return distance, collision
+}
+
+// GetOppositeTriangleLeg gets the leg length opposite another non-hypotenuse leg in a right triangle
+func GetOppositeTriangleLeg(angle, dist float64) float64 {
+	length := dist
+	opposite := length * math.Tan(angle)
+	return opposite
 }

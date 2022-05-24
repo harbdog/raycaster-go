@@ -525,7 +525,7 @@ func (g *Game) handleInput() {
 			}
 
 			if dy != 0 {
-				g.camera.PitchCamera(dy)
+				g.Pitch(0.25 * float64(dy))
 			}
 		}
 	}
@@ -612,6 +612,16 @@ func (g *Game) Rotate(rSpeed float64) {
 	} else if g.player.Angle <= -pi2 {
 		g.player.Angle = g.player.Angle + pi2
 	}
+
+	g.player.Moved = true
+}
+
+// Update player pitch angle by pitch speed
+func (g *Game) Pitch(pSpeed float64) {
+	g.player.Pitch += geom.Radians(pSpeed)
+
+	// current raycasting method can only allow up to 45 degree pitch in either direction
+	g.player.Pitch = geom.Clamp(g.player.Pitch, -math.Pi/4, math.Pi/4)
 
 	g.player.Moved = true
 }
@@ -774,7 +784,7 @@ func (g *Game) fireTestProjectile() {
 	}
 
 	// TODO: use player's posZ to adjust projectile shoot height
-	// TODO: convert player pitch to angle and then allow projectile to move at up/down angles
+	// TODO: allow projectile to move at up/down angles based on player pitch angle
 
 	g.player.WeaponCooldown = 0.1
 
@@ -816,9 +826,11 @@ func (g *Game) updatePlayerCamera(forceUpdate bool) {
 
 	playerPos := g.player.Pos.Copy()
 	playerDir := g.camera.GetVecForAngle(g.player.Angle)
+	playerPitch := geom.GetOppositeTriangleLeg(g.player.Pitch, float64(g.height/2))
 	g.camera.SetPosition(playerPos)
 	g.camera.SetDirection(playerDir)
 	g.camera.SetPlane(g.camera.GetVecForFov(playerDir))
+	g.camera.SetPitch(int(playerPitch))
 }
 
 func (g *Game) updateProjectiles() {
