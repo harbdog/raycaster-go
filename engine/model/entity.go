@@ -8,6 +8,7 @@ import (
 
 type Entity struct {
 	Pos             *geom.Vector2
+	PosZ            float64
 	Angle           float64
 	Velocity        float64
 	CollisionRadius float64

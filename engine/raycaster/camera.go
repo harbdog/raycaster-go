@@ -750,14 +750,24 @@ func (c *Camera) GetPlane() *geom.Vector2 {
 	return c.plane
 }
 
-// Set camera plane vector
+// Set camera pitch height
 func (c *Camera) SetPitch(pitch int) {
 	c.pitch = pitch
 }
 
-// Get current pitch value
+// Get camera pitch height
 func (c *Camera) GetPitch() int {
 	return c.pitch
+}
+
+// Set camera Z-plane position
+func (c *Camera) SetPositionZ(posZ float64) {
+	c.posZ = posZ
+}
+
+// Get camera Z-plane position
+func (c *Camera) GetPositionZ() float64 {
+	return c.posZ
 }
 
 // Move camera by move speed (does not alter player model position)
@@ -765,30 +775,6 @@ func (c *Camera) MoveCamera(mSpeed float64) {
 	mx := c.pos.X + (c.dir.X * mSpeed)
 	my := c.pos.Y + (c.dir.Y * mSpeed)
 	c.pos.X, c.pos.Y = c.getValidCameraMove(mx, my, true)
-}
-
-// Strafe camera by strafe speed (does not alter player model position)
-func (c *Camera) StrafeCamera(sSpeed float64) {
-	sx := c.pos.X + (c.plane.X * sSpeed)
-	sy := c.pos.Y + (c.plane.Y * sSpeed)
-	c.pos.X, c.pos.Y = c.getValidCameraMove(sx, sy, true)
-}
-
-// Rotate camera by rotate speed (does not alter player model orientation)
-func (c *Camera) RotateCamera(rSpeed float64) {
-	//both camera direction and camera plane must be rotated
-	oldDirX := c.dir.X
-	c.dir.X = (c.dir.X*math.Cos(rSpeed) - c.dir.Y*math.Sin(rSpeed))
-	c.dir.Y = (oldDirX*math.Sin(rSpeed) + c.dir.Y*math.Cos(rSpeed))
-	oldPlaneX := c.plane.X
-	c.plane.X = (c.plane.X*math.Cos(rSpeed) - c.plane.Y*math.Sin(rSpeed))
-	c.plane.Y = (oldPlaneX*math.Sin(rSpeed) + c.plane.Y*math.Cos(rSpeed))
-}
-
-// Pitch camera by pitch delta (does not alter player model orientation)
-func (c *Camera) PitchCamera(pDelta int) {
-	newPitch := geom.ClampInt(c.pitch+pDelta, -c.h/2, c.h/2)
-	c.pitch = newPitch
 }
 
 // Get the angle from the dir vectors
@@ -824,22 +810,46 @@ func (c *Camera) GetVecForFov(dir *geom.Vector2) *geom.Vector2 {
 	return dir.Copy().Sub(c.GetVecForAngleLength(angle+c.fovAngle/2, hypotenuse))
 }
 
+// Strafe camera by strafe speed (does not alter player model position)
+func (c *Camera) StrafeCamera(sSpeed float64) {
+	sx := c.pos.X + (c.plane.X * sSpeed)
+	sy := c.pos.Y + (c.plane.Y * sSpeed)
+	c.pos.X, c.pos.Y = c.getValidCameraMove(sx, sy, true)
+}
+
+// Rotate camera by rotate speed (does not alter player model orientation)
+func (c *Camera) RotateCamera(rSpeed float64) {
+	//both camera direction and camera plane must be rotated
+	oldDirX := c.dir.X
+	c.dir.X = (c.dir.X*math.Cos(rSpeed) - c.dir.Y*math.Sin(rSpeed))
+	c.dir.Y = (oldDirX*math.Sin(rSpeed) + c.dir.Y*math.Cos(rSpeed))
+	oldPlaneX := c.plane.X
+	c.plane.X = (c.plane.X*math.Cos(rSpeed) - c.plane.Y*math.Sin(rSpeed))
+	c.plane.Y = (oldPlaneX*math.Sin(rSpeed) + c.plane.Y*math.Cos(rSpeed))
+}
+
+// Pitch camera by pitch delta (does not alter player model orientation)
+func (c *Camera) PitchCamera(pDelta int) {
+	newPitch := geom.ClampInt(c.pitch+pDelta, -c.h/2, c.h/2)
+	c.pitch = newPitch
+}
+
 // Stand camera position
-func (c *Camera) Stand() {
+func (c *Camera) StandCamera() {
 	c.posZ = 0.0
 }
 
 // Crouch camera position
-func (c *Camera) Crouch() {
+func (c *Camera) CrouchCamera() {
 	c.posZ = -150.0
 }
 
 // Prone camera position
-func (c *Camera) Prone() {
+func (c *Camera) ProneCamera() {
 	c.posZ = -280.0
 }
 
 // Jump camera position
-func (c *Camera) Jump() {
+func (c *Camera) JumpCamera() {
 	c.posZ = 200.0
 }
