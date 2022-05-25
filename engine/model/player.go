@@ -17,6 +17,7 @@ func NewPlayer(x, y, angle, pitch float64) *Player {
 	p := &Player{
 		Entity: &Entity{
 			Pos:      &geom.Vector2{X: x, Y: y},
+			PosZ:     0.5,
 			Angle:    angle,
 			Velocity: 0,
 			MapColor: color.RGBA{255, 0, 0, 255},

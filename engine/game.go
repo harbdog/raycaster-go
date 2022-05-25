@@ -545,13 +545,13 @@ func (g *Game) handleInput() {
 	}
 
 	if ebiten.IsKeyPressed(ebiten.KeyC) {
-		g.camera.Crouch()
+		g.Crouch()
 	} else if ebiten.IsKeyPressed(ebiten.KeyZ) {
-		g.camera.Prone()
+		g.Prone()
 	} else if ebiten.IsKeyPressed(ebiten.KeySpace) {
-		g.camera.Jump()
-	} else {
-		g.camera.Stand()
+		g.Jump()
+	} else if !g.IsStanding() {
+		g.Stand()
 	}
 
 	if forward {
@@ -623,6 +623,30 @@ func (g *Game) Pitch(pSpeed float64) {
 	// current raycasting method can only allow up to 45 degree pitch in either direction
 	g.player.Pitch = geom.Clamp(g.player.Pitch, -math.Pi/4, math.Pi/4)
 
+	g.player.Moved = true
+}
+
+func (g *Game) Stand() {
+	g.player.PosZ = 0.5
+	g.player.Moved = true
+}
+
+func (g *Game) IsStanding() bool {
+	return g.player.PosZ == 0.5
+}
+
+func (g *Game) Jump() {
+	g.player.PosZ = 0.9
+	g.player.Moved = true
+}
+
+func (g *Game) Crouch() {
+	g.player.PosZ = 0.3
+	g.player.Moved = true
+}
+
+func (g *Game) Prone() {
+	g.player.PosZ = 0.1
 	g.player.Moved = true
 }
 
@@ -825,9 +849,11 @@ func (g *Game) updatePlayerCamera(forceUpdate bool) {
 	g.player.Moved = false
 
 	playerPos := g.player.Pos.Copy()
+	playerPosZ := (g.player.PosZ - 0.5) * float64(g.height)
 	playerDir := g.camera.GetVecForAngle(g.player.Angle)
 	playerPitch := geom.GetOppositeTriangleLeg(g.player.Pitch, float64(g.height/2))
 	g.camera.SetPosition(playerPos)
+	g.camera.SetPositionZ(playerPosZ)
 	g.camera.SetDirection(playerDir)
 	g.camera.SetPlane(g.camera.GetVecForFov(playerDir))
 	g.camera.SetPitch(int(playerPitch))
