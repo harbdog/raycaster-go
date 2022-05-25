@@ -807,7 +807,6 @@ func (g *Game) fireTestProjectile() {
 		return
 	}
 
-	// TODO: use player's posZ to adjust projectile shoot height
 	// TODO: allow projectile to move at up/down angles based on player pitch angle
 
 	g.player.WeaponCooldown = 0.1
@@ -830,6 +829,7 @@ func (g *Game) fireTestProjectile() {
 		},
 	}
 	projectile.Pos = &geom.Vector2{X: projectileSpawn.X2, Y: projectileSpawn.Y2}
+	projectile.PosZ = geom.Clamp(g.player.PosZ-0.15, 0.05, g.player.PosZ+0.5) // spawning projectile just slightly below player's center point of view
 
 	// velocity based on distance per tick (1/60sec)
 	projectile.Angle = g.player.Angle
@@ -879,6 +879,7 @@ func (g *Game) updateProjectiles() {
 					effect := &model.Effect{}
 					copier.Copy(effect, p.ImpactEffect)
 					effect.Pos = &geom.Vector2{X: newPos.X, Y: newPos.Y}
+					effect.PosZ = p.PosZ
 
 					g.addEffect(effect)
 				}

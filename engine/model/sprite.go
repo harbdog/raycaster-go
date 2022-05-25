@@ -37,6 +37,7 @@ func NewSprite(
 	s := &Sprite{
 		Entity: &Entity{
 			Pos:             &geom.Vector2{X: x, Y: y},
+			PosZ:            0.5,
 			Angle:           0,
 			Velocity:        0,
 			CollisionRadius: collisionRadius,
@@ -88,6 +89,7 @@ func NewSpriteFromSheet(
 	s := &Sprite{
 		Entity: &Entity{
 			Pos:             &geom.Vector2{X: x, Y: y},
+			PosZ:            0.5,
 			Angle:           0,
 			Velocity:        0,
 			CollisionRadius: collisionRadius,
@@ -157,6 +159,7 @@ func NewAnimatedSprite(
 	s := &Sprite{
 		Entity: &Entity{
 			Pos:             &geom.Vector2{X: x, Y: y},
+			PosZ:            0.5,
 			Angle:           0,
 			Velocity:        0,
 			CollisionRadius: collisionRadius,
