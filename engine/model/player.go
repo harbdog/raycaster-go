@@ -8,7 +8,6 @@ import (
 
 type Player struct {
 	*Entity
-	Pitch          float64
 	Moved          bool
 	WeaponCooldown float64
 }
@@ -19,10 +18,10 @@ func NewPlayer(x, y, angle, pitch float64) *Player {
 			Pos:      &geom.Vector2{X: x, Y: y},
 			PosZ:     0.5,
 			Angle:    angle,
+			Pitch:    pitch,
 			Velocity: 0,
 			MapColor: color.RGBA{255, 0, 0, 255},
 		},
-		Pitch:          pitch,
 		Moved:          false,
 		WeaponCooldown: 0,
 	}
