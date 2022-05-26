@@ -828,8 +828,13 @@ func (g *Game) fireTestProjectile() {
 			LoopCount: 1,
 		},
 	}
+
+	// spawning projectile at player position just slightly below player's center point of view
 	projectile.Pos = &geom.Vector2{X: projectileSpawn.X2, Y: projectileSpawn.Y2}
-	projectile.PosZ = geom.Clamp(g.player.PosZ-0.15, 0.05, g.player.PosZ+0.5) // spawning projectile just slightly below player's center point of view
+	projectile.PosZ = geom.Clamp(g.player.PosZ-0.15, 0.05, g.player.PosZ+0.5)
+
+	// TODO: pitch angle should be based on raycasted angle toward crosshairs, for now just simplified as player pitch angle
+	projectile.Pitch = g.player.Pitch
 
 	// velocity based on distance per tick (1/60sec)
 	projectile.Angle = g.player.Angle
@@ -863,13 +868,25 @@ func (g *Game) updateProjectiles() {
 	// Testing animated projectile movement
 	for p := range g.projectiles {
 		if p.Velocity != 0 {
-			vLine := geom.LineFromAngle(p.Pos.X, p.Pos.Y, p.Angle, p.Velocity)
+
+			realVelocity := p.Velocity
+			zVelocity := 0.0
+			if p.Pitch != 0 {
+				// use pitch and velocity as length in z-plane to determine length remaining in xy-plane
+				// probably ideal to use proper 3D geometry math here, but trying to avoid matrix math library
+				// for this one simple use (but if becomes necessary: https://github.com/ungerik/go3d)
+				realVelocity = geom.GetAdjacentHypotenuseTriangleLeg(p.Pitch, p.Velocity)
+				zVelocity = geom.LineFromAngle(0, 0, p.Pitch, realVelocity).Y2
+			}
+
+			vLine := geom.LineFromAngle(p.Pos.X, p.Pos.Y, p.Angle, realVelocity)
 
 			xCheck := vLine.X2
 			yCheck := vLine.Y2
 
+			// TODO: getValidMove needs to be able to take PosZ into account for wall/sprite collisions
 			newPos, isCollision, collisions := g.getValidMove(p.Entity, xCheck, yCheck, false)
-			if isCollision {
+			if isCollision || p.PosZ <= 0 {
 				// for testing purposes, projectiles instantly get deleted when collision occurs
 				g.deleteProjectile(p)
 
@@ -879,7 +896,9 @@ func (g *Game) updateProjectiles() {
 					effect := &model.Effect{}
 					copier.Copy(effect, p.ImpactEffect)
 					effect.Pos = &geom.Vector2{X: newPos.X, Y: newPos.Y}
+					effect.Angle = p.Angle
 					effect.PosZ = p.PosZ
+					effect.Pitch = p.Pitch
 
 					g.addEffect(effect)
 				}
@@ -894,6 +913,10 @@ func (g *Game) updateProjectiles() {
 				}
 			} else {
 				p.Pos = newPos
+
+				if zVelocity != 0 {
+					p.PosZ += zVelocity
+				}
 			}
 		}
 		p.Update()

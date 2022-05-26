@@ -254,8 +254,13 @@ func (c *Circle) CircleCollision(c2 *Circle) (float64, bool) {
 }
 
 // GetOppositeTriangleLeg gets the leg length opposite another non-hypotenuse leg in a right triangle
-func GetOppositeTriangleLeg(angle, dist float64) float64 {
-	length := dist
-	opposite := length * math.Tan(angle)
+func GetOppositeTriangleLeg(angle, legLength float64) float64 {
+	opposite := legLength * math.Tan(angle)
 	return opposite
+}
+
+// GetAdjacentHypotenuseTriangleLeg gets the leg length adjacent the hypotenuse for angle in a right triangle
+func GetAdjacentHypotenuseTriangleLeg(angle, hypotenuseLength float64) float64 {
+	adjacent := hypotenuseLength * math.Cos(angle)
+	return adjacent
 }
