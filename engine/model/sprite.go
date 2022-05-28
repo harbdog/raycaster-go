@@ -12,13 +12,16 @@ import (
 
 type Sprite struct {
 	*Entity
+	Facing         float64
 	W, H           int
 	Scale          float64
 	Anchor         SpriteAnchor
 	AnimationRate  int
 	animCounter    int
 	loopCounter    int
+	columns, rows  int
 	texNum, lenTex int
+	texFacingMap   map[int]float64
 	textures       []*ebiten.Image
 }
 
@@ -100,6 +103,7 @@ func NewSpriteFromSheet(
 	s.Anchor = anchor
 
 	s.texNum = spriteIndex
+	s.columns, s.rows = columns, rows
 	s.lenTex = columns * rows
 	s.textures = make([]*ebiten.Image, s.lenTex)
 
@@ -174,6 +178,7 @@ func NewAnimatedSprite(
 	s.loopCounter = 0
 
 	s.texNum = 0
+	s.columns, s.rows = columns, rows
 	s.lenTex = columns * rows
 	s.textures = make([]*ebiten.Image, s.lenTex)
 
@@ -226,6 +231,10 @@ func NewAnimatedSprite(
 	return s
 }
 
+func (s *Sprite) SetTextureFacingMap(texFacingMap map[int]float64) {
+	s.texFacingMap = texFacingMap
+}
+
 func (s *Sprite) SetAnimationFrame(texNum int) {
 	s.texNum = texNum
 }
@@ -240,10 +249,20 @@ func (s *Sprite) Update() {
 	}
 
 	if s.animCounter >= s.AnimationRate {
+		minTexNum := 0
+		maxTexNum := s.lenTex
+
+		if len(s.texFacingMap) > 0 {
+			// TODO: use texFacingMap with Facing to determine min/max texNum, and update Facing of sprite relative to camera and sprite angle
+			texRow := 1
+			minTexNum = texRow * s.columns
+			maxTexNum = texRow*s.columns + s.columns - 1
+		}
+
 		s.animCounter = 0
 		s.texNum += 1
-		if s.texNum >= s.lenTex {
-			s.texNum = 0
+		if s.texNum >= maxTexNum {
+			s.texNum = minTexNum
 			s.loopCounter++
 		}
 	} else {
