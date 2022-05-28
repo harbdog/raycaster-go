@@ -238,9 +238,21 @@ func (g *Game) loadSprites() {
 	g.addSprite(sorc)
 
 	// animated walking 8-directional leader
+	// [walkerTexFacingMap] row index: player facing angle
+	var walkerTexFacingMap = map[int]float64{
+		0: geom.Radians(315),
+		1: geom.Radians(0),
+		2: geom.Radians(45),
+		3: geom.Radians(90),
+		4: geom.Radians(135),
+		5: geom.Radians(180),
+		6: geom.Radians(225),
+		7: geom.Radians(270),
+	}
 	walkerScale := 2.0
 	walkerCollisionRadius := walkerScale * 30.0 / 256.0
-	walker := model.NewAnimatedSprite(11, 5, walkerScale, 5, g.tex.Textures[19], yellow, 4, 8, 256, model.BottomCenter, walkerCollisionRadius)
+	walker := model.NewAnimatedSprite(11, 5, walkerScale, 7, g.tex.Textures[19], yellow, 4, 8, 256, model.BottomCenter, walkerCollisionRadius)
+	walker.SetTextureFacingMap(walkerTexFacingMap)
 	// give sprite a sample velocity for movement
 	walker.Angle = geom.Radians(180)
 	walker.Velocity = 0.02
