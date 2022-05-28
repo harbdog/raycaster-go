@@ -157,6 +157,7 @@ func (g *Game) loadContent() {
 	g.tex.Textures[16] = getSpriteFromFile("crosshairs_sheet.png")
 	g.tex.Textures[17] = getSpriteFromFile("charged_bolt_sheet.png")
 	g.tex.Textures[18] = getSpriteFromFile("blue_explosion_sheet.png")
+	g.tex.Textures[19] = getSpriteFromFile("outleader_walking_sheet.png")
 
 	// just setting the grass texture apart from the rest since it gets special handling
 	g.floorLvl.TexRGBA = make([]*image.RGBA, 1)
@@ -227,14 +228,23 @@ func (g *Game) loadSprites() {
 		0, 0, 0.75, 3, g.tex.Textures[18], 5, 3, 256, model.Center, 0,
 	).Sprite
 
-	// sorcerer
+	// animated single facing sorcerer
 	sorcScale := 1.4
-	sorcCollisionRadius := sorcScale * 24.0 / 256.0
+	sorcCollisionRadius := sorcScale * 25.0 / 256.0
 	sorc := model.NewAnimatedSprite(20, 11.5, sorcScale, 5, g.tex.Textures[15], yellow, 10, 1, 256, model.BottomCenter, sorcCollisionRadius) // FIXME: 256 should come from g.texSize
 	// give sprite a sample velocity for movement
 	sorc.Angle = geom.Radians(180)
 	sorc.Velocity = 0.02
 	g.addSprite(sorc)
+
+	// animated walking 8-directional leader
+	walkerScale := 2.0
+	walkerCollisionRadius := walkerScale * 30.0 / 256.0
+	walker := model.NewAnimatedSprite(11, 5, walkerScale, 5, g.tex.Textures[19], yellow, 4, 8, 256, model.BottomCenter, walkerCollisionRadius)
+	// give sprite a sample velocity for movement
+	walker.Angle = geom.Radians(180)
+	walker.Velocity = 0.02
+	g.addSprite(walker)
 
 	// testing sprite scaling
 	testScale := 0.5
@@ -872,9 +882,8 @@ func (g *Game) updateProjectiles() {
 			realVelocity := p.Velocity
 			zVelocity := 0.0
 			if p.Pitch != 0 {
-				// use pitch and velocity as length in z-plane to determine length remaining in xy-plane
-				// probably ideal to use proper 3D geometry math here, but trying to avoid matrix math library
-				// for this one simple use (but if becomes necessary: https://github.com/ungerik/go3d)
+				// would be better to use proper 3D geometry math here, but trying to avoid matrix math library
+				// for this one simple use (but if becomes desired: https://github.com/ungerik/go3d)
 				realVelocity = geom.GetAdjacentHypotenuseTriangleLeg(p.Pitch, p.Velocity)
 				zVelocity = geom.LineFromAngle(0, 0, p.Pitch, realVelocity).Y2
 			}
