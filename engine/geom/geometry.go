@@ -2,7 +2,11 @@ package geom
 
 import "math"
 
-const eps = 1e-14
+const (
+	Pi2    = math.Pi * 2
+	HalfPi = math.Pi / 2
+	eps    = 1e-14
+)
 
 func sq(x float64) float64 { return x * x }
 

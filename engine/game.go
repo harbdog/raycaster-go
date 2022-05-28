@@ -238,20 +238,21 @@ func (g *Game) loadSprites() {
 	g.addSprite(sorc)
 
 	// animated walking 8-directional leader
-	// [walkerTexFacingMap] row index: player facing angle
-	var walkerTexFacingMap = map[int]float64{
-		0: geom.Radians(315),
-		1: geom.Radians(0),
-		2: geom.Radians(45),
-		3: geom.Radians(90),
-		4: geom.Radians(135),
-		5: geom.Radians(180),
-		6: geom.Radians(225),
-		7: geom.Radians(270),
+	// [walkerTexFacingMap] player facing angle : texture row index
+	var walkerTexFacingMap = map[float64]int{
+		geom.Radians(315): 0,
+		geom.Radians(270): 1,
+		geom.Radians(225): 2,
+		geom.Radians(180): 3,
+		geom.Radians(135): 4,
+		geom.Radians(90):  5,
+		geom.Radians(45):  6,
+		geom.Radians(0):   7,
 	}
 	walkerScale := 2.0
 	walkerCollisionRadius := walkerScale * 30.0 / 256.0
-	walker := model.NewAnimatedSprite(11, 5, walkerScale, 7, g.tex.Textures[19], yellow, 4, 8, 256, model.BottomCenter, walkerCollisionRadius)
+	walker := model.NewAnimatedSprite(10, 5, walkerScale, 10, g.tex.Textures[19], yellow, 4, 8, 256, model.BottomCenter, walkerCollisionRadius)
+	walker.SetAnimationReversed(true) // this sprite sheet has reversed animation frame order
 	walker.SetTextureFacingMap(walkerTexFacingMap)
 	// give sprite a sample velocity for movement
 	walker.Angle = geom.Radians(180)
@@ -611,7 +612,7 @@ func (g *Game) Move(mSpeed float64) {
 
 // Move player by strafe speed in the left/right direction
 func (g *Game) Strafe(sSpeed float64) {
-	strafeAngle := math.Pi / 2
+	strafeAngle := geom.HalfPi
 	if sSpeed < 0 {
 		strafeAngle = -strafeAngle
 	}
@@ -628,7 +629,7 @@ func (g *Game) Strafe(sSpeed float64) {
 func (g *Game) Rotate(rSpeed float64) {
 	g.player.Angle += rSpeed
 
-	pi2 := 2 * math.Pi
+	pi2 := geom.Pi2
 	if g.player.Angle >= pi2 {
 		g.player.Angle = pi2 - g.player.Angle
 	} else if g.player.Angle <= -pi2 {
@@ -877,13 +878,11 @@ func (g *Game) updatePlayerCamera(forceUpdate bool) {
 
 	playerPos := g.player.Pos.Copy()
 	playerPosZ := (g.player.PosZ - 0.5) * float64(g.height)
-	playerDir := g.camera.GetVecForAngle(g.player.Angle)
-	playerPitch := geom.GetOppositeTriangleLeg(g.player.Pitch, float64(g.height/2))
+
 	g.camera.SetPosition(playerPos)
 	g.camera.SetPositionZ(playerPosZ)
-	g.camera.SetDirection(playerDir)
-	g.camera.SetPlane(g.camera.GetVecForFov(playerDir))
-	g.camera.SetPitch(int(playerPitch))
+	g.camera.SetHeadingAngle(g.player.Angle)
+	g.camera.SetPitchAngle(g.player.Pitch)
 }
 
 func (g *Game) updateProjectiles() {
@@ -940,12 +939,12 @@ func (g *Game) updateProjectiles() {
 				}
 			}
 		}
-		p.Update()
+		p.Update(g.player.Pos)
 	}
 
 	// Testing animated effects (explosions)
 	for e := range g.effects {
-		e.Update()
+		e.Update(g.player.Pos)
 		if e.GetLoopCounter() >= e.LoopCount {
 			g.deleteEffect(e)
 		}
@@ -964,13 +963,13 @@ func (g *Game) updateSprites() {
 			newPos, isCollision, _ := g.getValidMove(s.Entity, xCheck, yCheck, false)
 			if isCollision {
 				// for testing purposes, letting the sample sprite ping pong off walls in somewhat random direction
-				s.Angle = randFloat(-180, 180)
+				s.Angle = randFloat(-math.Pi, math.Pi)
 				s.Velocity = randFloat(0.01, 0.03)
 			} else {
 				s.Pos = newPos
 			}
 		}
-		s.Update()
+		s.Update(g.player.Pos)
 	}
 }
 
