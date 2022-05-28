@@ -18,11 +18,11 @@ func (c *Camera) Draw(screen *ebiten.Image) {
 	texRect := image.Rect(0, 0, c.texWidth, c.texWidth)
 	whiteRGBA := &color.RGBA{255, 255, 255, 255}
 
-	floorRect := image.Rect(0, int(float64(c.h)*0.5)+c.GetPitch(),
-		c.w, 2*int(float64(c.h)*0.5)-c.GetPitch())
+	floorRect := image.Rect(0, int(float64(c.h)*0.5)+c.pitch,
+		c.w, 2*int(float64(c.h)*0.5)-c.pitch)
 	drawTexture(screen, c.floor, &floorRect, &texRect, whiteRGBA)
 
-	skyRect := image.Rect(0, 0, c.w, int(float64(c.h)*0.5)+c.GetPitch())
+	skyRect := image.Rect(0, 0, c.w, int(float64(c.h)*0.5)+c.pitch)
 	drawTexture(screen, c.sky, &skyRect, &texRect, whiteRGBA)
 
 	//--draw walls--//

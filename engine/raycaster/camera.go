@@ -731,36 +731,6 @@ func (c *Camera) GetPosition() *geom.Vector2 {
 	return c.pos
 }
 
-// Set camera direction vector
-func (c *Camera) SetDirection(dir *geom.Vector2) {
-	c.dir = dir
-}
-
-// Get camera direction vector
-func (c *Camera) GetDirection() *geom.Vector2 {
-	return c.dir
-}
-
-// Set camera plane vector
-func (c *Camera) SetPlane(plane *geom.Vector2) {
-	c.plane = plane
-}
-
-// Get camera plane vector
-func (c *Camera) GetPlane() *geom.Vector2 {
-	return c.plane
-}
-
-// Set camera pitch height
-func (c *Camera) SetPitch(pitch int) {
-	c.pitch = pitch
-}
-
-// Get camera pitch height
-func (c *Camera) GetPitch() int {
-	return c.pitch
-}
-
 // Set camera Z-plane position
 func (c *Camera) SetPositionZ(posZ float64) {
 	c.posZ = posZ
@@ -769,6 +739,19 @@ func (c *Camera) SetPositionZ(posZ float64) {
 // Get camera Z-plane position
 func (c *Camera) GetPositionZ() float64 {
 	return c.posZ
+}
+
+// Set camera direction and plane vectors from given heading angle
+func (c *Camera) SetHeadingAngle(heading float64) {
+	cameraDir := c.GetVecForAngle(heading)
+	c.dir = cameraDir
+	c.plane = c.GetVecForFov(cameraDir)
+}
+
+// Set camera pitch view from given pitch angle
+func (c *Camera) SetPitchAngle(pitch float64) {
+	cameraPitch := geom.GetOppositeTriangleLeg(pitch, float64(c.h/2))
+	c.pitch = int(cameraPitch)
 }
 
 // Move camera by move speed (does not alter player model position)

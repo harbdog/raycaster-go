@@ -4,6 +4,8 @@ import (
 	"image"
 	"image/color"
 	_ "image/png"
+	"math"
+	"sort"
 
 	"raycaster-go/engine/geom"
 
@@ -12,16 +14,17 @@ import (
 
 type Sprite struct {
 	*Entity
-	Facing         float64
 	W, H           int
 	Scale          float64
 	Anchor         SpriteAnchor
 	AnimationRate  int
+	animReversed   bool
 	animCounter    int
 	loopCounter    int
 	columns, rows  int
 	texNum, lenTex int
-	texFacingMap   map[int]float64
+	texFacingMap   map[float64]int
+	texFacingKeys  []float64
 	textures       []*ebiten.Image
 }
 
@@ -231,8 +234,42 @@ func NewAnimatedSprite(
 	return s
 }
 
-func (s *Sprite) SetTextureFacingMap(texFacingMap map[int]float64) {
+func (s *Sprite) SetTextureFacingMap(texFacingMap map[float64]int) {
 	s.texFacingMap = texFacingMap
+
+	// create pre-sorted list of keys used during facing determination
+	s.texFacingKeys = make([]float64, len(texFacingMap))
+	for k := range texFacingMap {
+		s.texFacingKeys = append(s.texFacingKeys, k)
+		if k == 0 {
+			// duplicate entry at 0 to 2*Pi to match on higher angles
+			texFacingMap[geom.Pi2] = texFacingMap[k]
+			s.texFacingKeys = append(s.texFacingKeys, geom.Pi2)
+		}
+	}
+	sort.Float64s(s.texFacingKeys)
+}
+
+func (s *Sprite) getTextureFacingKeyForAngle(facingAngle float64) float64 {
+	var closestKeyAngle float64 = -1
+	if s.texFacingMap == nil || len(s.texFacingMap) == 0 || s.texFacingKeys == nil || len(s.texFacingKeys) == 0 {
+		return closestKeyAngle
+	}
+
+	closestKeyDiff := math.MaxFloat64
+	for _, keyAngle := range s.texFacingKeys {
+		keyDiff := math.Abs(float64(keyAngle) - facingAngle)
+		if keyDiff < closestKeyDiff {
+			closestKeyDiff = keyDiff
+			closestKeyAngle = keyAngle
+		}
+	}
+
+	return closestKeyAngle
+}
+
+func (s *Sprite) SetAnimationReversed(isReverse bool) {
+	s.animReversed = isReverse
 }
 
 func (s *Sprite) SetAnimationFrame(texNum int) {
@@ -243,27 +280,52 @@ func (s *Sprite) GetLoopCounter() int {
 	return s.loopCounter
 }
 
-func (s *Sprite) Update() {
+func (s *Sprite) Update(camPos *geom.Vector2) {
 	if s.AnimationRate <= 0 {
 		return
 	}
 
 	if s.animCounter >= s.AnimationRate {
 		minTexNum := 0
-		maxTexNum := s.lenTex
+		maxTexNum := s.lenTex - 1
 
-		if len(s.texFacingMap) > 0 {
-			// TODO: use texFacingMap with Facing to determine min/max texNum, and update Facing of sprite relative to camera and sprite angle
-			texRow := 1
+		if len(s.texFacingMap) > 1 && camPos != nil {
+			// TODO: may want to be able to change facing even between animation frame changes
+
+			// use facing from camera position to determine min/max texNum in texFacingMap
+			// to update facing of sprite relative to camera and sprite angle
+			texRow := 0
+
+			// calculate angle from sprite relative to camera position by getting angle of line between them
+			lineToCam := geom.Line{X1: s.Pos.X, Y1: s.Pos.Y, X2: camPos.X, Y2: camPos.Y}
+			facingAngle := lineToCam.Angle() - s.Angle
+			if facingAngle < 0 {
+				// convert to positive angle needed to determine facing index to use
+				facingAngle += geom.Pi2
+			}
+			facingKeyAngle := s.getTextureFacingKeyForAngle(facingAngle)
+			if texFacingValue, ok := s.texFacingMap[facingKeyAngle]; ok {
+				texRow = texFacingValue
+			}
+
 			minTexNum = texRow * s.columns
 			maxTexNum = texRow*s.columns + s.columns - 1
 		}
 
 		s.animCounter = 0
-		s.texNum += 1
-		if s.texNum >= maxTexNum {
-			s.texNum = minTexNum
-			s.loopCounter++
+
+		if s.animReversed {
+			s.texNum -= 1
+			if s.texNum > maxTexNum || s.texNum < minTexNum {
+				s.texNum = maxTexNum
+				s.loopCounter++
+			}
+		} else {
+			s.texNum += 1
+			if s.texNum > maxTexNum || s.texNum < minTexNum {
+				s.texNum = minTexNum
+				s.loopCounter++
+			}
 		}
 	} else {
 		s.animCounter++
