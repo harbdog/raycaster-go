@@ -25,6 +25,7 @@ type Sprite struct {
 	texNum, lenTex int
 	texFacingMap   map[float64]int
 	texFacingKeys  []float64
+	texRects       []image.Rectangle
 	textures       []*ebiten.Image
 }
 
@@ -57,31 +58,8 @@ func NewSprite(
 	s.lenTex = 1
 	s.textures = make([]*ebiten.Image, s.lenTex)
 
-	// scale image if indicated
-	if scale != 1.0 {
-		w, h := img.Size()
-		w = int(float64(w) * scale)
-		h = int(float64(h) * scale)
-
-		op := &ebiten.DrawImageOptions{}
-		op.GeoM.Scale(scale, scale)
-
-		scaleImg := ebiten.NewImage(w, h)
-		scaleImg.DrawImage(img, op)
-		img = scaleImg
-	}
-
 	s.W, s.H = img.Size()
-	if s.W != uSize || s.H != uSize {
-		//translate image using anchor if not same size as 1u cell (texSize)
-		op := &ebiten.DrawImageOptions{}
-		translateX, translateY := getAnchorTranslate(anchor, s.W, s.H, uSize)
-		op.GeoM.Translate(translateX, translateY)
-
-		translateImg := ebiten.NewImage(uSize, uSize)
-		translateImg.DrawImage(img, op)
-		img = translateImg
-	}
+	s.texRects = []image.Rectangle{image.Rect(0, 0, s.W, s.H)}
 
 	s.textures[0] = img
 
@@ -109,27 +87,13 @@ func NewSpriteFromSheet(
 	s.columns, s.rows = columns, rows
 	s.lenTex = columns * rows
 	s.textures = make([]*ebiten.Image, s.lenTex)
+	s.texRects = make([]image.Rectangle, s.lenTex)
 
 	w, h := img.Size()
-
-	// scale image if indicated
-	if scale != 1.0 {
-		w = int(float64(w) * scale)
-		h = int(float64(h) * scale)
-
-		op := &ebiten.DrawImageOptions{}
-		op.GeoM.Scale(scale, scale)
-
-		scaleImg := ebiten.NewImage(w, h)
-		scaleImg.DrawImage(img, op)
-		img = scaleImg
-	}
 
 	// crop sheet by given number of columns and rows into a single dimension array
 	s.W = w / columns
 	s.H = h / rows
-
-	op := &ebiten.DrawImageOptions{}
 
 	for r := 0; r < rows; r++ {
 		y := r * s.H
@@ -138,21 +102,9 @@ func NewSpriteFromSheet(
 			cellRect := image.Rect(x, y, x+s.W-1, y+s.H-1)
 			cellImg := img.SubImage(cellRect).(*ebiten.Image)
 
-			cellTarget := ebiten.NewImage(s.W, s.H)
-			cellTarget.DrawImage(cellImg, op)
-
-			if w != uSize || h != uSize {
-				// translate image using anchor if not same size as 1u cell (texSize)
-				op2 := &ebiten.DrawImageOptions{}
-				translateX, translateY := getAnchorTranslate(anchor, s.W, s.H, uSize)
-				op2.GeoM.Translate(translateX, translateY)
-
-				translateImg := ebiten.NewImage(uSize, uSize)
-				translateImg.DrawImage(cellTarget, op2)
-				cellTarget = translateImg
-			}
-
-			s.textures[c+r*columns] = cellTarget
+			index := c + r*columns
+			s.textures[index] = cellImg
+			s.texRects[index] = cellRect
 		}
 	}
 
@@ -184,27 +136,13 @@ func NewAnimatedSprite(
 	s.columns, s.rows = columns, rows
 	s.lenTex = columns * rows
 	s.textures = make([]*ebiten.Image, s.lenTex)
+	s.texRects = make([]image.Rectangle, s.lenTex)
 
 	w, h := img.Size()
-
-	// scale image if indicated
-	if scale != 1.0 {
-		w = int(float64(w) * scale)
-		h = int(float64(h) * scale)
-
-		op := &ebiten.DrawImageOptions{}
-		op.GeoM.Scale(scale, scale)
-
-		scaleImg := ebiten.NewImage(w, h)
-		scaleImg.DrawImage(img, op)
-		img = scaleImg
-	}
 
 	// crop sheet by given number of columns and rows into a single dimension array
 	s.W = w / columns
 	s.H = h / rows
-
-	op := &ebiten.DrawImageOptions{}
 
 	for r := 0; r < rows; r++ {
 		y := r * s.H
@@ -213,21 +151,9 @@ func NewAnimatedSprite(
 			cellRect := image.Rect(x, y, x+s.W-1, y+s.H-1)
 			cellImg := img.SubImage(cellRect).(*ebiten.Image)
 
-			cellTarget := ebiten.NewImage(s.W, s.H)
-			cellTarget.DrawImage(cellImg, op)
-
-			if w != uSize || h != uSize {
-				// translate image using anchor if not same size as 1u cell (texSize)
-				op2 := &ebiten.DrawImageOptions{}
-				translateX, translateY := getAnchorTranslate(anchor, s.W, s.H, uSize)
-				op2.GeoM.Translate(translateX, translateY)
-
-				translateImg := ebiten.NewImage(uSize, uSize)
-				translateImg.DrawImage(cellTarget, op2)
-				cellTarget = translateImg
-			}
-
-			s.textures[c+r*columns] = cellTarget
+			index := c + r*columns
+			s.textures[index] = cellImg
+			s.texRects[index] = cellRect
 		}
 	}
 
@@ -334,6 +260,10 @@ func (s *Sprite) Update(camPos *geom.Vector2) {
 
 func (s *Sprite) GetTexture() *ebiten.Image {
 	return s.textures[s.texNum]
+}
+
+func (s *Sprite) GetTextureRect() image.Rectangle {
+	return s.texRects[s.texNum]
 }
 
 func getAnchorTranslate(anchor SpriteAnchor, spriteWidth, spriteHeight, unitSize int) (float64, float64) {
