@@ -17,9 +17,12 @@ To install and run from source the following are required:
     * `[path/to/raycaster-go]$ go run raycast.go`
 
 ## Controls
-* Use the mouse to rotate and pitch view
-* Move and strafe using WASD or Arrow Keys
+* Press `Escape` key to toggle mouse cursor capture (or hold `CTRL`)
+* Move the mouse to rotate and pitch view
+* Move and strafe using `WASD` or `Arrow Keys`
+* Hold `Shift` key to move faster
+* Hold `ALT` key to enter mouse move mode (vertical mouse moves position instead of pitch)
+* Click left mouse button to spawn projectile
 * Hold `C` key for crouch position
-* Hold Spacebar for jump position
-* Hold `CTRL` key to release mouse cursor capture
-* While mouse cursor released, left/right mouse click currently used for visual/console debugging
+* Hold `Z` key for prone position
+* Hold `Spacebar` for jump position

@@ -51,8 +51,12 @@ type Game struct {
 	//--define camera and renderer--//
 	camera *raycaster.Camera
 
-	mouseMode      raycaster.MouseMode
-	mouseX, mouseY int
+	mouseMode       raycaster.MouseMode
+	mouseModeToggle bool
+	mouseX, mouseY  int
+
+	// keep track of certain key presses for debounce protection
+	debouncedKeys map[ebiten.Key]int
 
 	crosshairs *model.Crosshairs
 
@@ -120,6 +124,8 @@ func NewGame() *Game {
 	ebiten.SetCursorMode(ebiten.CursorModeCaptured)
 	g.mouseMode = raycaster.MouseModeMove
 	g.mouseX, g.mouseY = math.MinInt32, math.MinInt32
+
+	g.debouncedKeys = make(map[ebiten.Key]int, 8)
 
 	//--init camera and renderer--//
 	g.camera = raycaster.NewCamera(g.width, g.height, texWidth, g.mapObj, g.slices, g.levels, g.floorLvl, g.spriteLvls, g.tex)
@@ -453,6 +459,30 @@ func (g *Game) Update() error {
 	return nil
 }
 
+func (g *Game) debounceInput(key ebiten.Key, duration int) {
+	g.debouncedKeys[key] = duration
+}
+
+func (g *Game) updatedDebounces() {
+	for key, duration := range g.debouncedKeys {
+		duration--
+		g.debouncedKeys[key] = duration
+
+		if duration <= 0 {
+			delete(g.debouncedKeys, key)
+		}
+	}
+}
+
+func (g *Game) isDebouncedInput(key ebiten.Key) bool {
+	if value, ok := g.debouncedKeys[key]; ok {
+		if value > 0 {
+			return true
+		}
+	}
+	return false
+}
+
 func (g *Game) handleInput() {
 	forward := false
 	backward := false
@@ -468,7 +498,20 @@ func (g *Game) handleInput() {
 		g.player.WeaponCooldown -= 1 / float64(ebiten.MaxTPS())
 	}
 
+	// update any currently debounced inputs
+	g.updatedDebounces()
+
 	switch {
+	case ebiten.IsKeyPressed(ebiten.KeyEscape):
+		if g.mouseMode != raycaster.MouseModeCursor {
+			ebiten.SetCursorMode(ebiten.CursorModeVisible)
+			g.mouseMode = raycaster.MouseModeCursor
+			g.mouseModeToggle = true
+			g.debounceInput(ebiten.KeyEscape, 30)
+		} else if !g.isDebouncedInput(ebiten.KeyEscape) {
+			g.mouseModeToggle = false
+		}
+
 	case ebiten.IsKeyPressed(ebiten.KeyControl):
 		if g.mouseMode != raycaster.MouseModeCursor {
 			ebiten.SetCursorMode(ebiten.CursorModeVisible)
@@ -482,7 +525,7 @@ func (g *Game) handleInput() {
 			g.mouseX, g.mouseY = math.MinInt32, math.MinInt32
 		}
 
-	case g.mouseMode != raycaster.MouseModeLook:
+	case g.mouseMode != raycaster.MouseModeLook && !g.mouseModeToggle:
 		ebiten.SetCursorMode(ebiten.CursorModeCaptured)
 		g.mouseMode = raycaster.MouseModeLook
 		g.mouseX, g.mouseY = math.MinInt32, math.MinInt32
