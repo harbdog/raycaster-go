@@ -220,7 +220,7 @@ func (g *Game) loadSprites() {
 	projectileCollisionRadius := 20.0 / 256.0
 	g.preloadedSprites["charged_bolt"] = *model.NewAnimatedProjectile(
 		0, 0, 0.5, 2, g.tex.Textures[17], blueish,
-		48, 1, 256, model.Center, projectileCollisionRadius,
+		12, 1, 256, model.Center, projectileCollisionRadius,
 	).Sprite
 
 	// preload explosion sprite
