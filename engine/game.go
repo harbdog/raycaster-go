@@ -507,8 +507,12 @@ func (g *Game) handleInput() {
 			ebiten.SetCursorMode(ebiten.CursorModeVisible)
 			g.mouseMode = raycaster.MouseModeCursor
 			g.mouseModeToggle = true
-			g.debounceInput(ebiten.KeyEscape, 30)
-		} else if !g.isDebouncedInput(ebiten.KeyEscape) {
+			g.debounceInput(ebiten.KeyEscape, 5)
+		} else if g.isDebouncedInput(ebiten.KeyEscape) {
+			// continue to debounce key since it is still being held
+			g.debounceInput(ebiten.KeyEscape, 5)
+		} else {
+			// debounce period over, it has been pressed again after some pause
 			g.mouseModeToggle = false
 		}
 
