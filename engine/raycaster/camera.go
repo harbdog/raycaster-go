@@ -507,6 +507,7 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 	spriteY := sprite.Pos.Y - c.pos.Y
 
 	spriteTex := sprite.GetTexture()
+	spriteTexRect := sprite.GetTextureRect()
 	spriteTexWidth, spriteTexHeight := spriteTex.Size()
 
 	//transform sprite with the inverse camera matrix
@@ -573,7 +574,7 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 			if !renderSprite {
 				renderSprite = true
 				spriteLvl = c.makeSpriteLevel(spriteOrdIndex)
-				spriteSlices = MakeSlices(spriteTexWidth, spriteTexHeight)
+				spriteSlices = MakeSlices(spriteTexWidth, spriteTexHeight, spriteTexRect.Min.X, spriteTexRect.Min.Y)
 			} else {
 				spriteLvl = c.spriteLvls[spriteOrdIndex]
 			}
@@ -597,15 +598,13 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 
 			//--set current texture slice--//
 			spriteLvl.Cts[stripe] = spriteSlices[texX]
-			spriteLvl.Cts[stripe].Min.Y = texStartY + 1
-			spriteLvl.Cts[stripe].Max.Y = texEndY
+			spriteLvl.Cts[stripe].Min.Y = spriteTexRect.Min.Y + texStartY + 1
+			spriteLvl.Cts[stripe].Max.Y = spriteTexRect.Min.Y + texEndY
 
 			spriteLvl.CurrTex[stripe] = spriteTex
 
-			//--set height of slice--//
+			//--set draw start and height of slice--//
 			spriteLvl.Sv[stripe].Min.Y = drawStartY + 1
-
-			//--set draw start of slice--//
 			spriteLvl.Sv[stripe].Max.Y = drawEndY
 
 			// distance based lighting/shading
