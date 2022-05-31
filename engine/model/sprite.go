@@ -15,8 +15,7 @@ import (
 type Sprite struct {
 	*Entity
 	W, H           int
-	Scale          float64
-	Anchor         SpriteAnchor
+	Scale, vOffset float64
 	AnimationRate  int
 	animReversed   bool
 	animCounter    int
@@ -39,7 +38,7 @@ const (
 
 func NewSprite(
 	x, y, scale float64, img *ebiten.Image, mapColor color.RGBA,
-	uSize int, anchor SpriteAnchor, collisionRadius float64,
+	uSize int, vOffset, collisionRadius float64,
 ) *Sprite {
 	s := &Sprite{
 		Entity: &Entity{
@@ -52,7 +51,7 @@ func NewSprite(
 		},
 	}
 	s.Scale = scale
-	s.Anchor = anchor
+	s.vOffset = vOffset
 
 	s.texNum = 0
 	s.lenTex = 1
@@ -68,7 +67,7 @@ func NewSprite(
 
 func NewSpriteFromSheet(
 	x, y, scale float64, img *ebiten.Image, mapColor color.RGBA,
-	columns, rows, spriteIndex int, uSize int, anchor SpriteAnchor, collisionRadius float64,
+	columns, rows, spriteIndex int, uSize int, vOffset, collisionRadius float64,
 ) *Sprite {
 	s := &Sprite{
 		Entity: &Entity{
@@ -81,7 +80,7 @@ func NewSpriteFromSheet(
 		},
 	}
 	s.Scale = scale
-	s.Anchor = anchor
+	s.vOffset = vOffset
 
 	s.texNum = spriteIndex
 	s.columns, s.rows = columns, rows
@@ -113,7 +112,7 @@ func NewSpriteFromSheet(
 
 func NewAnimatedSprite(
 	x, y, scale float64, animationRate int, img *ebiten.Image, mapColor color.RGBA,
-	columns, rows int, uSize int, anchor SpriteAnchor, collisionRadius float64,
+	columns, rows int, uSize int, vOffset, collisionRadius float64,
 ) *Sprite {
 	s := &Sprite{
 		Entity: &Entity{
@@ -126,7 +125,7 @@ func NewAnimatedSprite(
 		},
 	}
 	s.Scale = scale
-	s.Anchor = anchor
+	s.vOffset = vOffset
 
 	s.AnimationRate = animationRate
 	s.animCounter = 0
@@ -206,6 +205,10 @@ func (s *Sprite) GetLoopCounter() int {
 	return s.loopCounter
 }
 
+func (s *Sprite) GetVerticalOffset() float64 {
+	return s.vOffset
+}
+
 func (s *Sprite) Update(camPos *geom.Vector2) {
 	if s.AnimationRate <= 0 {
 		return
@@ -264,18 +267,4 @@ func (s *Sprite) GetTexture() *ebiten.Image {
 
 func (s *Sprite) GetTextureRect() image.Rectangle {
 	return s.texRects[s.texNum]
-}
-
-func getAnchorTranslate(anchor SpriteAnchor, spriteWidth, spriteHeight, unitSize int) (float64, float64) {
-
-	switch anchor {
-	case BottomCenter:
-		return float64(unitSize/2 - spriteWidth/2), float64(unitSize - spriteHeight)
-	case Center:
-		return float64(unitSize/2 - spriteWidth/2), float64(unitSize-spriteHeight) / 2
-	case TopCenter:
-		return float64(unitSize/2 - spriteWidth/2), 0
-	}
-
-	return 0, 0
 }

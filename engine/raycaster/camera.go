@@ -523,9 +523,10 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 	spriteScreenX := int(float64(c.w) / 2 * (1 + transformX/transformY))
 
 	//parameters for scaling and moving the sprites
-	const uDiv float64 = 1.0
-	const vDiv float64 = 1.0
-	var vMove float64 = -(sprite.PosZ - 0.5) * float64(c.texWidth) * 2
+	var uDiv float64 = 1 / sprite.Scale
+	var vDiv float64 = 1 / sprite.Scale
+
+	var vMove float64 = -(sprite.PosZ-0.5)*float64(c.texWidth)*2 + sprite.GetVerticalOffset()
 
 	vMoveScreen := int(vMove/transformY) + c.pitch + int(c.posZ/transformY)
 
