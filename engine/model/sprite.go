@@ -10,6 +10,7 @@ import (
 	"raycaster-go/engine/geom"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 )
 
 type Sprite struct {
@@ -267,4 +268,25 @@ func (s *Sprite) GetTexture() *ebiten.Image {
 
 func (s *Sprite) GetTextureRect() image.Rectangle {
 	return s.texRects[s.texNum]
+}
+
+func (s *Sprite) AddDebugLines(lineWidth int, clr color.Color) {
+	lW := float64(lineWidth)
+	sW := float64(s.W)
+	sH := float64(s.H)
+
+	for i, img := range s.textures {
+		imgRect := s.texRects[i]
+		x, y := float64(imgRect.Min.X), float64(imgRect.Min.Y)
+
+		// bounding box
+		ebitenutil.DrawRect(img, x, y, lW, sH, clr)
+		ebitenutil.DrawRect(img, x, y, sW, lW, clr)
+		ebitenutil.DrawRect(img, x+sW-lW-1, y+sH-lW-1, lW, -sH, clr)
+		ebitenutil.DrawRect(img, x+sW-lW-1, y+sH-lW-1, -sW, lW, clr)
+
+		// center lines
+		ebitenutil.DrawRect(img, x+sW/2-lW/2-1, y, lW, sH, clr)
+		ebitenutil.DrawRect(img, x, y+sH/2-lW/2-1, sW, lW, clr)
+	}
 }

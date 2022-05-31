@@ -133,7 +133,7 @@ func NewGame() *Game {
 	g.camera.SetSkyTexture(getTextureFromFile("sky.png"))
 
 	// init player model and initialize camera to their position
-	angleDegrees := 270.0
+	angleDegrees := 90.0
 	g.player = model.NewPlayer(10.5, 3.5, geom.Radians(angleDegrees), 0)
 	g.player.CollisionRadius = clipDistance
 	g.updatePlayerCamera(true)
@@ -167,7 +167,7 @@ func (g *Game) loadContent() {
 
 	// just setting the grass texture apart from the rest since it gets special handling
 	g.floorLvl.TexRGBA = make([]*image.RGBA, 1)
-	g.floorLvl.TexRGBA[0] = getRGBAFromFile("grass.png")
+	g.floorLvl.TexRGBA[0] = getRGBAFromFile("grass_debug.png")
 }
 
 func getRGBAFromFile(texFile string) *image.RGBA {
@@ -238,10 +238,10 @@ func (g *Game) loadSprites() {
 	sorcScale := 1.25
 	sorcVoffset := -76.0
 	sorcCollisionRadius := sorcScale * 25.0 / 256.0
-	sorc := model.NewAnimatedSprite(11, 1.5, sorcScale, 5, g.tex.Textures[15], yellow, 10, 1, 256, sorcVoffset, sorcCollisionRadius) // FIXME: 256 should come from g.texSize
+	sorc := model.NewAnimatedSprite(5.5, 8.5, sorcScale, 5, g.tex.Textures[15], yellow, 10, 1, 256, sorcVoffset, sorcCollisionRadius) // FIXME: 256 should come from g.texSize
 	// give sprite a sample velocity for movement
-	sorc.Angle = geom.Radians(90)
-	sorc.Velocity = 0.02
+	sorc.Angle = geom.Radians(270)
+	//sorc.Velocity = 0.02
 	g.addSprite(sorc)
 
 	// animated walking 8-directional leader
@@ -259,13 +259,17 @@ func (g *Game) loadSprites() {
 	walkerScale := 0.75
 	walkerVoffset := 76.0
 	walkerCollisionRadius := walkerScale * 30.0 / 256.0
-	walker := model.NewAnimatedSprite(10, 1.5, walkerScale, 10, g.tex.Textures[19], yellow, 4, 8, 256, walkerVoffset, walkerCollisionRadius)
+	walker := model.NewAnimatedSprite(9.5, 6.5, walkerScale, 10, g.tex.Textures[19], yellow, 4, 8, 256, walkerVoffset, walkerCollisionRadius)
 	walker.SetAnimationReversed(true) // this sprite sheet has reversed animation frame order
 	walker.SetTextureFacingMap(walkerTexFacingMap)
 	// give sprite a sample velocity for movement
-	walker.Angle = geom.Radians(90)
-	walker.Velocity = 0.02
+	walker.Angle = geom.Radians(270)
+	//walker.Velocity = 0.02
 	g.addSprite(walker)
+
+	// TODO: make clicking a sprite add these debug lines, or just ENV?
+	sorc.AddDebugLines(2, color.RGBA{0, 255, 0, 255})
+	walker.AddDebugLines(2, color.RGBA{0, 255, 0, 255})
 
 	// testing sprite scaling
 	testScale := 0.5
