@@ -134,7 +134,7 @@ func NewGame() *Game {
 
 	// init player model and initialize camera to their position
 	angleDegrees := 90.0
-	g.player = model.NewPlayer(10.5, 3.5, geom.Radians(angleDegrees), 0)
+	g.player = model.NewPlayer(9.5, 3.5, geom.Radians(angleDegrees), 0)
 	g.player.CollisionRadius = clipDistance
 	g.updatePlayerCamera(true)
 
@@ -223,11 +223,12 @@ func (g *Game) loadSprites() {
 	yellow := color.RGBA{255, 200, 0, 196}
 
 	// preload projectile sprite
-	projectileCollisionRadius := 20.0 / 256.0
-	g.preloadedSprites["charged_bolt"] = *model.NewAnimatedProjectile(
+	projectileCollisionRadius := 20.0 / 256
+	boltProjectile := model.NewAnimatedProjectile(
 		0, 0, 0.75, 1, g.tex.Textures[17], blueish,
 		12, 1, 256, 32, projectileCollisionRadius,
-	).Sprite
+	)
+	g.preloadedSprites["charged_bolt"] = *boltProjectile.Sprite
 
 	// preload explosion sprite
 	g.preloadedSprites["blue_explosion"] = *model.NewAnimatedEffect(
@@ -237,8 +238,8 @@ func (g *Game) loadSprites() {
 	// animated single facing sorcerer
 	sorcScale := 1.25
 	sorcVoffset := -76.0
-	sorcCollisionRadius := sorcScale * 25.0 / 256.0
-	sorc := model.NewAnimatedSprite(5.5, 8.5, sorcScale, 5, g.tex.Textures[15], yellow, 10, 1, 256, sorcVoffset, sorcCollisionRadius) // FIXME: 256 should come from g.texSize
+	sorcCollisionRadius := 25.0 / 256.0
+	sorc := model.NewAnimatedSprite(5.5, 8.0, sorcScale, 5, g.tex.Textures[15], yellow, 10, 1, 256, sorcVoffset, sorcCollisionRadius) // FIXME: 256 should come from g.texSize
 	// give sprite a sample velocity for movement
 	sorc.Angle = geom.Radians(270)
 	//sorc.Velocity = 0.02
@@ -258,8 +259,8 @@ func (g *Game) loadSprites() {
 	}
 	walkerScale := 0.75
 	walkerVoffset := 76.0
-	walkerCollisionRadius := walkerScale * 30.0 / 256.0
-	walker := model.NewAnimatedSprite(9.5, 6.5, walkerScale, 10, g.tex.Textures[19], yellow, 4, 8, 256, walkerVoffset, walkerCollisionRadius)
+	walkerCollisionRadius := 30.0 / 256.0
+	walker := model.NewAnimatedSprite(9.5, 6.0, walkerScale, 10, g.tex.Textures[19], yellow, 4, 8, 256, walkerVoffset, walkerCollisionRadius)
 	walker.SetAnimationReversed(true) // this sprite sheet has reversed animation frame order
 	walker.SetTextureFacingMap(walkerTexFacingMap)
 	// give sprite a sample velocity for movement
@@ -270,12 +271,11 @@ func (g *Game) loadSprites() {
 	// TODO: make clicking a sprite add these debug lines, or just ENV?
 	sorc.AddDebugLines(2, color.RGBA{0, 255, 0, 255})
 	walker.AddDebugLines(2, color.RGBA{0, 255, 0, 255})
+	boltProjectile.AddDebugLines(2, color.RGBA{0, 255, 0, 255})
 
 	// testing sprite scaling
 	testScale := 0.5
 	g.addSprite(model.NewSprite(10.5, 2.5, testScale, g.tex.Textures[9], green, 256, 128, 0))
-
-	// TODO: speed up init by preloading tree Sprites and copying
 
 	// // line of trees for testing in front of initial view
 	// Setting CollisionRadius=0 to disable collision against small trees

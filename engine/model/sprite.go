@@ -274,6 +274,7 @@ func (s *Sprite) AddDebugLines(lineWidth int, clr color.Color) {
 	lW := float64(lineWidth)
 	sW := float64(s.W)
 	sH := float64(s.H)
+	sCr := s.CollisionRadius * sW
 
 	for i, img := range s.textures {
 		imgRect := s.texRects[i]
@@ -288,5 +289,11 @@ func (s *Sprite) AddDebugLines(lineWidth int, clr color.Color) {
 		// center lines
 		ebitenutil.DrawRect(img, x+sW/2-lW/2-1, y, lW, sH, clr)
 		ebitenutil.DrawRect(img, x, y+sH/2-lW/2-1, sW, lW, clr)
+
+		// collision markers
+		if s.CollisionRadius > 0 {
+			ebitenutil.DrawRect(img, x+sW/2-sCr-lW/2-1, y, lW, sH, color.White)
+			ebitenutil.DrawRect(img, x+sW/2+sCr-lW/2-1, y, lW, sH, color.White)
+		}
 	}
 }
