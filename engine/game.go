@@ -775,8 +775,7 @@ func (g *Game) getValidMove(entity *model.Entity, moveX, moveY float64, checkAlt
 	// check sprite against player collision
 	if entity != g.player.Entity && entity.CollisionRadius > 0 {
 		// TODO: only check for collision if player is somewhat nearby
-		collisionRadius := g.player.CollisionRadius + entity.CollisionRadius
-		collisionCircle := geom.Circle{X: g.player.Pos.X, Y: g.player.Pos.Y, Radius: collisionRadius}
+		collisionCircle := geom.Circle{X: g.player.Pos.X, Y: g.player.Pos.Y, Radius: g.player.CollisionRadius}
 
 		_, isCollision := collisionCircle.CircleCollision(&entityCircle)
 		if isCollision {
@@ -784,6 +783,7 @@ func (g *Game) getValidMove(entity *model.Entity, moveX, moveY float64, checkAlt
 			angle := moveLine.Angle()
 
 			// create line using collision radius to determine center point for intersection
+			collisionRadius := g.player.CollisionRadius + entity.CollisionRadius
 			collisionLine := geom.LineFromAngle(posX, posY, angle, collisionRadius)
 			intersectPoints = append(intersectPoints, geom.Vector2{X: collisionLine.X2, Y: collisionLine.Y2})
 			collisionEntities = append(collisionEntities, g.player.Entity)
@@ -798,8 +798,7 @@ func (g *Game) getValidMove(entity *model.Entity, moveX, moveY float64, checkAlt
 		}
 
 		// FIXME: need some way to let a moving sprite out of the inside of a collision radius without letting it in
-		collisionRadius := sprite.CollisionRadius + entity.CollisionRadius
-		collisionCircle := geom.Circle{X: sprite.Pos.X, Y: sprite.Pos.Y, Radius: collisionRadius}
+		collisionCircle := geom.Circle{X: sprite.Pos.X, Y: sprite.Pos.Y, Radius: sprite.CollisionRadius}
 
 		_, isCollision := collisionCircle.CircleCollision(&entityCircle)
 		if isCollision {
@@ -807,6 +806,7 @@ func (g *Game) getValidMove(entity *model.Entity, moveX, moveY float64, checkAlt
 			angle := moveLine.Angle()
 
 			// create line using collision radius to determine center point for intersection
+			collisionRadius := sprite.CollisionRadius + entity.CollisionRadius
 			collisionLine := geom.LineFromAngle(posX, posY, angle, collisionRadius)
 			intersectPoints = append(intersectPoints, geom.Vector2{X: collisionLine.X2, Y: collisionLine.Y2})
 			collisionEntities = append(collisionEntities, sprite.Entity)
