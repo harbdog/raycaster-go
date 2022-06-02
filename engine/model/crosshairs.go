@@ -9,18 +9,16 @@ import (
 
 type Crosshairs struct {
 	*Sprite
-	Scale        float64
 	hitTimer     int
 	HitIndicator *Crosshairs
 }
 
 func NewCrosshairs(
-	x, y, scale float64, img *ebiten.Image, columns, rows, crosshairIndex, hitIndex int, uSize int,
+	x, y, scale float64, img *ebiten.Image, columns, rows, crosshairIndex, hitIndex int,
 ) *Crosshairs {
 	mapColor := color.RGBA{0, 0, 0, 0}
 	c := &Crosshairs{
-		Sprite: NewSpriteFromSheet(x, y, 1.0, img, mapColor, columns, rows, crosshairIndex, uSize, 0, 0),
-		Scale:  scale,
+		Sprite: NewSpriteFromSheet(x, y, scale, img, mapColor, columns, rows, crosshairIndex, 0, 0, 0),
 	}
 
 	hitIndicator := &Crosshairs{}

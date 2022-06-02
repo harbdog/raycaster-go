@@ -61,6 +61,7 @@ type Game struct {
 	debouncedKeys map[ebiten.Key]int
 
 	crosshairs *model.Crosshairs
+	weapon     *model.Weapon
 
 	//--array of levels, levels refer to "floors" of the world--//
 	mapObj       *model.Map
@@ -119,8 +120,9 @@ func NewGame() *Game {
 	// load content once when first run
 	g.loadContent()
 
-	// make crosshairs its own class since it doesn't behave like other sprites
-	g.crosshairs = model.NewCrosshairs(1, 1, 2.0, g.tex.Textures[16], 8, 8, 55, 57, 64)
+	// create crosshairs and weapon
+	g.crosshairs = model.NewCrosshairs(1, 1, 2.0, g.tex.Textures[16], 8, 8, 55, 57)
+	g.weapon = model.NewAnimatedWeapon(1, 1, 1.0, 7, g.tex.Textures[20], 3, 1)
 
 	// init the sprites
 	g.loadSprites()
@@ -170,6 +172,7 @@ func (g *Game) loadContent() {
 	g.tex.Textures[17] = getSpriteFromFile("charged_bolt_sheet.png")
 	g.tex.Textures[18] = getSpriteFromFile("blue_explosion_sheet.png")
 	g.tex.Textures[19] = getSpriteFromFile("outleader_walking_sheet.png")
+	g.tex.Textures[20] = getSpriteFromFile("hand_spell.png")
 
 	// just setting the grass texture apart from the rest since it gets special handling
 	g.floorLvl.TexRGBA = make([]*image.RGBA, 1)
@@ -439,6 +442,22 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		op.GeoM.Scale(5.0, 5.0)
 		op.GeoM.Translate(0, 50)
 		screen.DrawImage(mmImg, op)
+	}
+
+	// draw equipped weapon
+	if g.weapon != nil {
+		op := &ebiten.DrawImageOptions{}
+		op.Filter = ebiten.FilterNearest
+
+		weaponScale := g.weapon.Scale
+		op.GeoM.Scale(weaponScale, weaponScale)
+		op.GeoM.Translate(
+			float64(g.width)/2-float64(g.weapon.W)*weaponScale/2,
+			float64(g.height)-float64(g.weapon.H)*weaponScale+1,
+		)
+		screen.DrawImage(g.weapon.GetTexture(), op)
+
+		g.weapon.Update()
 	}
 
 	// draw crosshairs
@@ -895,9 +914,10 @@ func (g *Game) fireTestProjectile() {
 		return
 	}
 
-	// TODO: allow projectile to move at up/down angles based on player pitch angle
+	g.player.WeaponCooldown = 0.5
 
-	g.player.WeaponCooldown = 0.1
+	// set weapon firing for animation to run
+	g.weapon.Fire()
 
 	// fire test projectile spawning near but in front of current player position and angle
 	spriteTemplate := g.preloadedSprites["charged_bolt"]

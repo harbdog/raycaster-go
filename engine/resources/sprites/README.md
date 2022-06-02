@@ -23,3 +23,6 @@
 
 * `outleader_walking_sheet.png`: Paul Zarczynski
   * https://opengameart.org/content/monster-mutant-leader-for-fps-game
+
+* `hand_spell.png`: "Ragnar Random"
+  * https://opengameart.org/content/fantasy-fps-hands

@@ -202,6 +202,12 @@ func (s *Sprite) SetAnimationFrame(texNum int) {
 	s.texNum = texNum
 }
 
+func (s *Sprite) ResetAnimation() {
+	s.animCounter = 0
+	s.loopCounter = 0
+	s.texNum = 0
+}
+
 func (s *Sprite) GetLoopCounter() int {
 	return s.loopCounter
 }
