@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strconv"
 
 	_ "image/png"
@@ -757,14 +758,19 @@ func (g *Game) Prone() {
 	g.player.Moved = true
 }
 
+type EntityCollision struct {
+	entity    *model.Entity
+	collision *geom.Vector2
+}
+
 // checks for valid move from current position, returns valid (x, y) position, whether a collision
 // was encountered, and a list of entity collisions that may have been encountered
-func (g *Game) getValidMove(entity *model.Entity, moveX, moveY float64, checkAlternate bool) (*geom.Vector2, bool, []*model.Entity) {
+func (g *Game) getValidMove(entity *model.Entity, moveX, moveY float64, checkAlternate bool) (*geom.Vector2, bool, []*EntityCollision) {
 	newX, newY := moveX, moveY
 
 	posX, posY := entity.Pos.X, entity.Pos.Y
 	if posX == newX && posY == moveY {
-		return &geom.Vector2{X: posX, Y: posY}, false, []*model.Entity{}
+		return &geom.Vector2{X: posX, Y: posY}, false, []*EntityCollision{}
 	}
 
 	ix := int(newX)
@@ -790,10 +796,9 @@ func (g *Game) getValidMove(entity *model.Entity, moveX, moveY float64, checkAlt
 	}
 
 	moveLine := geom.Line{X1: posX, Y1: posY, X2: newX, Y2: newY}
-	entityCircle := geom.Circle{X: newX, Y: newY, Radius: entity.CollisionRadius}
 
 	intersectPoints := []geom.Vector2{}
-	collisionEntities := []*model.Entity{}
+	collisionEntities := []*EntityCollision{}
 
 	// check wall collisions
 	for _, borderLine := range g.collisionMap {
@@ -806,18 +811,22 @@ func (g *Game) getValidMove(entity *model.Entity, moveX, moveY float64, checkAlt
 	// check sprite against player collision
 	if entity != g.player.Entity && entity.CollisionRadius > 0 {
 		// TODO: only check for collision if player is somewhat nearby
-		collisionCircle := geom.Circle{X: g.player.Pos.X, Y: g.player.Pos.Y, Radius: g.player.CollisionRadius}
 
-		_, isCollision := collisionCircle.CircleCollision(&entityCircle)
-		if isCollision {
-			// determine new position which would be the center point of the moment of collision
-			angle := moveLine.Angle()
+		// check if movement line intersects with combined collision radii
+		combinedCircle := geom.Circle{X: g.player.Pos.X, Y: g.player.Pos.Y, Radius: g.player.CollisionRadius + entity.CollisionRadius}
+		combinedIntersects := geom.LineCircleIntersection(moveLine, combinedCircle, true)
 
-			// create line using collision radius to determine center point for intersection
-			collisionRadius := g.player.CollisionRadius + entity.CollisionRadius
-			collisionLine := geom.LineFromAngle(posX, posY, angle, collisionRadius)
-			intersectPoints = append(intersectPoints, geom.Vector2{X: collisionLine.X2, Y: collisionLine.Y2})
-			collisionEntities = append(collisionEntities, g.player.Entity)
+		if len(combinedIntersects) > 0 {
+			playerCircle := geom.Circle{X: g.player.Pos.X, Y: g.player.Pos.Y, Radius: g.player.CollisionRadius}
+			for _, chkPoint := range combinedIntersects {
+				// intersections from combined circle radius indicate center point to check intersection toward sprite collision circle
+				chkLine := geom.Line{X1: chkPoint.X, Y1: chkPoint.Y, X2: g.player.Pos.X, Y2: g.player.Pos.Y}
+				intersectPoints = append(intersectPoints, geom.LineCircleIntersection(chkLine, playerCircle, true)...)
+
+				for _, intersect := range intersectPoints {
+					collisionEntities = append(collisionEntities, &EntityCollision{entity: g.player.Entity, collision: &intersect})
+				}
+			}
 		}
 	}
 
@@ -828,21 +837,30 @@ func (g *Game) getValidMove(entity *model.Entity, moveX, moveY float64, checkAlt
 			continue
 		}
 
-		// FIXME: need some way to let a moving sprite out of the inside of a collision radius without letting it in
-		collisionCircle := geom.Circle{X: sprite.Pos.X, Y: sprite.Pos.Y, Radius: sprite.CollisionRadius}
+		// check if movement line intersects with combined collision radii
+		combinedCircle := geom.Circle{X: sprite.Pos.X, Y: sprite.Pos.Y, Radius: sprite.CollisionRadius + entity.CollisionRadius}
+		combinedIntersects := geom.LineCircleIntersection(moveLine, combinedCircle, true)
 
-		_, isCollision := collisionCircle.CircleCollision(&entityCircle)
-		if isCollision {
-			// determine new position which would be the center point of the moment of collision
-			angle := moveLine.Angle()
+		if len(combinedIntersects) > 0 {
+			spriteCircle := geom.Circle{X: sprite.Pos.X, Y: sprite.Pos.Y, Radius: sprite.CollisionRadius}
+			for _, chkPoint := range combinedIntersects {
+				// intersections from combined circle radius indicate center point to check intersection toward sprite collision circle
+				chkLine := geom.Line{X1: chkPoint.X, Y1: chkPoint.Y, X2: sprite.Pos.X, Y2: sprite.Pos.Y}
+				intersectPoints = append(intersectPoints, geom.LineCircleIntersection(chkLine, spriteCircle, true)...)
 
-			// create line using collision radius to determine center point for intersection
-			collisionRadius := sprite.CollisionRadius + entity.CollisionRadius
-			collisionLine := geom.LineFromAngle(posX, posY, angle, collisionRadius)
-			intersectPoints = append(intersectPoints, geom.Vector2{X: collisionLine.X2, Y: collisionLine.Y2})
-			collisionEntities = append(collisionEntities, sprite.Entity)
+				for _, intersect := range intersectPoints {
+					collisionEntities = append(collisionEntities, &EntityCollision{entity: sprite.Entity, collision: &intersect})
+				}
+			}
 		}
 	}
+
+	// sort collisions by distance to current entity position
+	sort.Slice(collisionEntities, func(i, j int) bool {
+		distI := geom.Distance2(posX, posY, collisionEntities[i].collision.X, collisionEntities[i].collision.Y)
+		distJ := geom.Distance2(posX, posY, collisionEntities[j].collision.X, collisionEntities[j].collision.Y)
+		return distI < distJ
+	})
 
 	isCollision := len(intersectPoints) > 0
 
@@ -997,6 +1015,11 @@ func (g *Game) updateProjectiles() {
 
 				// make a sprite/wall getting hit by projectile cause some visual effect
 				if p.ImpactEffect.Sprite != nil {
+					if len(collisions) >= 1 {
+						// use the first collision point to place effect at
+						newPos = collisions[0].collision
+					}
+
 					// TODO: give impact effect optional ability to have some velocity based on the projectile movement upon impact if it didn't hit a wall
 					effect := &model.Effect{}
 					copier.Copy(effect, p.ImpactEffect)
@@ -1008,8 +1031,8 @@ func (g *Game) updateProjectiles() {
 					g.addEffect(effect)
 				}
 
-				for _, entity := range collisions {
-					if entity == g.player.Entity {
+				for _, collisionEntity := range collisions {
+					if collisionEntity.entity == g.player.Entity {
 						println("ouch!")
 					} else {
 						// show crosshair hit effect
