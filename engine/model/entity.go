@@ -14,4 +14,5 @@ type Entity struct {
 	Velocity        float64
 	CollisionRadius float64
 	MapColor        color.RGBA
+	Parent          *Entity
 }

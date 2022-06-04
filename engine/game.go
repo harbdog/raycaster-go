@@ -21,7 +21,6 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
-	"github.com/jinzhu/copier"
 )
 
 const (
@@ -75,8 +74,6 @@ type Game struct {
 	projectiles map[*model.Projectile]struct{}
 	effects     map[*model.Effect]struct{}
 
-	preloadedSprites map[string]model.Sprite
-
 	worldMap            [][]int
 	mapWidth, mapHeight int
 
@@ -123,7 +120,6 @@ func NewGame() *Game {
 
 	// create crosshairs and weapon
 	g.crosshairs = model.NewCrosshairs(1, 1, 2.0, g.tex.Textures[16], 8, 8, 55, 57)
-	g.weapon = model.NewAnimatedWeapon(1, 1, 1.0, 7, g.tex.Textures[20], 3, 1)
 
 	// init the sprites
 	g.loadSprites()
@@ -227,7 +223,6 @@ func (g *Game) loadSprites() {
 	g.projectiles = make(map[*model.Projectile]struct{}, 1024)
 	g.effects = make(map[*model.Effect]struct{}, 1024)
 	g.sprites = make(map[*model.Sprite]struct{}, 128)
-	g.preloadedSprites = make(map[string]model.Sprite, 16)
 
 	// colors for minimap representation
 	blueish := color.RGBA{62, 62, 100, 96}
@@ -238,16 +233,21 @@ func (g *Game) loadSprites() {
 
 	// preload projectile sprite
 	projectileCollisionRadius := 20.0 / texWidth
-	boltProjectile := model.NewAnimatedProjectile(
+	chargedBoltProjectile := model.NewAnimatedProjectile(
 		0, 0, 0.75, 1, g.tex.Textures[17], blueish,
 		12, 1, texWidth, 32, projectileCollisionRadius,
 	)
-	g.preloadedSprites["charged_bolt"] = *boltProjectile.Sprite
 
 	// preload explosion sprite
-	g.preloadedSprites["blue_explosion"] = *model.NewAnimatedEffect(
-		0, 0, 0.75, 3, g.tex.Textures[18], 5, 3, texWidth, 32, 0,
-	).Sprite
+	blueExplosionEffect := model.NewAnimatedEffect(
+		0, 0, 0.75, 3, g.tex.Textures[18], 5, 3, texWidth, 32, 1,
+	)
+	chargedBoltProjectile.ImpactEffect = *blueExplosionEffect
+
+	// create weapon
+	rateOfFire := 2.5         // RoF (as rate of fire/second)
+	projectileVelocity := 6.0 // Velocity (as distance travelled/second)
+	g.weapon = model.NewAnimatedWeapon(1, 1, 1.0, 7, g.tex.Textures[20], 3, 1, *chargedBoltProjectile, projectileVelocity, rateOfFire)
 
 	// animated single facing sorcerer
 	sorcScale := 1.25
@@ -286,7 +286,7 @@ func (g *Game) loadSprites() {
 		// just some debugging stuff
 		sorc.AddDebugLines(2, color.RGBA{0, 255, 0, 255})
 		walker.AddDebugLines(2, color.RGBA{0, 255, 0, 255})
-		boltProjectile.AddDebugLines(2, color.RGBA{0, 255, 0, 255})
+		chargedBoltProjectile.AddDebugLines(2, color.RGBA{0, 255, 0, 255})
 	}
 
 	// testing sprite scaling
@@ -532,10 +532,6 @@ func (g *Game) handleInput() {
 		moveModifier = 2.0
 	}
 
-	if g.player.WeaponCooldown > 0 {
-		g.player.WeaponCooldown -= 1 / float64(ebiten.MaxTPS())
-	}
-
 	// update any currently debounced inputs
 	g.updatedDebounces()
 
@@ -588,7 +584,7 @@ func (g *Game) handleInput() {
 		x, y := ebiten.CursorPosition()
 
 		if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
-			g.fireTestProjectile()
+			g.fireWeapon()
 		}
 
 		switch {
@@ -614,7 +610,7 @@ func (g *Game) handleInput() {
 		x, y := ebiten.CursorPosition()
 
 		if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
-			g.fireTestProjectile()
+			g.fireWeapon()
 		}
 
 		switch {
@@ -809,7 +805,7 @@ func (g *Game) getValidMove(entity *model.Entity, moveX, moveY float64, checkAlt
 	}
 
 	// check sprite against player collision
-	if entity != g.player.Entity && entity.CollisionRadius > 0 {
+	if entity != g.player.Entity && entity.Parent != g.player.Entity && entity.CollisionRadius > 0 {
 		// TODO: only check for collision if player is somewhat nearby
 
 		// check if movement line intersects with combined collision radii
@@ -833,7 +829,7 @@ func (g *Game) getValidMove(entity *model.Entity, moveX, moveY float64, checkAlt
 	// check sprite collisions
 	for sprite := range g.sprites {
 		// TODO: only check intersection of nearby sprites instead of all of them
-		if entity == sprite.Entity || entity.CollisionRadius <= 0 || sprite.CollisionRadius <= 0 {
+		if entity == sprite.Entity || entity.Parent == sprite.Entity || entity.CollisionRadius <= 0 || sprite.CollisionRadius <= 0 {
 			continue
 		}
 
@@ -927,46 +923,23 @@ func (g *Game) getValidMove(entity *model.Entity, moveX, moveY float64, checkAlt
 	return &geom.Vector2{X: posX, Y: posY}, isCollision, collisionEntities
 }
 
-func (g *Game) fireTestProjectile() {
-	if g.player.WeaponCooldown > 0 {
+func (g *Game) fireWeapon() {
+	if g.weapon.OnCooldown() {
 		return
 	}
-
-	g.player.WeaponCooldown = 0.5
 
 	// set weapon firing for animation to run
 	g.weapon.Fire()
 
-	// fire test projectile spawning near but in front of current player position and angle
-	spriteTemplate := g.preloadedSprites["charged_bolt"]
-	effectTemplate := g.preloadedSprites["blue_explosion"]
-	projectileSprite := &model.Sprite{}
-	effectSprite := &model.Sprite{}
-	copier.Copy(projectileSprite, spriteTemplate)
-	copier.Copy(effectSprite, effectTemplate)
-
-	projectileSpawnDistance := 0.4
-	projectileSpawn := geom.LineFromAngle(g.player.Pos.X, g.player.Pos.Y, g.player.Angle, projectileSpawnDistance)
-	projectile := &model.Projectile{
-		Sprite: projectileSprite,
-		ImpactEffect: model.Effect{
-			Sprite:    effectSprite,
-			LoopCount: 1,
-		},
-	}
-
 	// spawning projectile at player position just slightly below player's center point of view
-	projectile.Pos = &geom.Vector2{X: projectileSpawn.X2, Y: projectileSpawn.Y2}
-	projectile.PosZ = geom.Clamp(g.player.PosZ-0.15, 0.05, g.player.PosZ+0.5)
-
+	pX, pY, pZ := g.player.Pos.X, g.player.Pos.Y, geom.Clamp(g.player.PosZ-0.15, 0.05, g.player.PosZ+0.5)
 	// TODO: pitch angle should be based on raycasted angle toward crosshairs, for now just simplified as player pitch angle
-	projectile.Pitch = g.player.Pitch
+	pAngle, pPitch := g.player.Angle, g.player.Pitch
 
-	// velocity based on distance per tick (1/60sec)
-	projectile.Angle = g.player.Angle
-	projectile.Velocity = 0.1
-
-	g.addProjectile(projectile)
+	projectile := g.weapon.SpawnProjectile(pX, pY, pZ, pAngle, pPitch, g.player.Entity)
+	if projectile != nil {
+		g.addProjectile(projectile)
+	}
 }
 
 // Update camera to match player position and orientation
@@ -1021,12 +994,7 @@ func (g *Game) updateProjectiles() {
 					}
 
 					// TODO: give impact effect optional ability to have some velocity based on the projectile movement upon impact if it didn't hit a wall
-					effect := &model.Effect{}
-					copier.Copy(effect, p.ImpactEffect)
-					effect.Pos = &geom.Vector2{X: newPos.X, Y: newPos.Y}
-					effect.Angle = p.Angle
-					effect.PosZ = p.PosZ
-					effect.Pitch = p.Pitch
+					effect := p.SpawnEffect(newPos.X, newPos.Y, p.PosZ, p.Angle, p.Pitch)
 
 					g.addEffect(effect)
 				}

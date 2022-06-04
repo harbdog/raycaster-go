@@ -167,11 +167,6 @@ func (s *Sprite) SetTextureFacingMap(texFacingMap map[float64]int) {
 	s.texFacingKeys = make([]float64, len(texFacingMap))
 	for k := range texFacingMap {
 		s.texFacingKeys = append(s.texFacingKeys, k)
-		if k == 0 {
-			// duplicate entry at 0 to 2*Pi to match on higher angles
-			texFacingMap[geom.Pi2] = texFacingMap[k]
-			s.texFacingKeys = append(s.texFacingKeys, geom.Pi2)
-		}
 	}
 	sort.Float64s(s.texFacingKeys)
 }
@@ -184,7 +179,7 @@ func (s *Sprite) getTextureFacingKeyForAngle(facingAngle float64) float64 {
 
 	closestKeyDiff := math.MaxFloat64
 	for _, keyAngle := range s.texFacingKeys {
-		keyDiff := math.Abs(float64(keyAngle) - facingAngle)
+		keyDiff := math.Min(geom.Pi2-math.Abs(float64(keyAngle)-facingAngle), math.Abs(float64(keyAngle)-facingAngle))
 		if keyDiff < closestKeyDiff {
 			closestKeyDiff = keyDiff
 			closestKeyAngle = keyAngle

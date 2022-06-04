@@ -8,8 +8,7 @@ import (
 
 type Player struct {
 	*Entity
-	Moved          bool
-	WeaponCooldown float64
+	Moved bool
 }
 
 func NewPlayer(x, y, angle, pitch float64) *Player {
@@ -22,8 +21,7 @@ func NewPlayer(x, y, angle, pitch float64) *Player {
 			Velocity: 0,
 			MapColor: color.RGBA{255, 0, 0, 255},
 		},
-		Moved:          false,
-		WeaponCooldown: 0,
+		Moved: false,
 	}
 
 	return p

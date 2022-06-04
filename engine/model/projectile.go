@@ -3,8 +3,10 @@ package model
 import (
 	"image/color"
 	"math"
+	"raycaster-go/engine/geom"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/jinzhu/copier"
 )
 
 type Projectile struct {
@@ -26,4 +28,22 @@ func NewAnimatedProjectile(
 	}
 
 	return p
+}
+
+func (p *Projectile) SpawnEffect(x, y, z, angle, pitch float64) *Effect {
+	e := &Effect{}
+	s := &Sprite{}
+	copier.Copy(e, p.ImpactEffect)
+	copier.Copy(s, p.ImpactEffect.Sprite)
+
+	e.Sprite = s
+	e.Pos = &geom.Vector2{X: x, Y: y}
+	e.PosZ = z
+	e.Angle = angle
+	e.Pitch = pitch
+
+	// keep track of what spawned it
+	e.Parent = p.Parent
+
+	return e
 }
