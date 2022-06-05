@@ -61,7 +61,6 @@ type Game struct {
 	debouncedKeys map[ebiten.Key]int
 
 	crosshairs *model.Crosshairs
-	weapon     *model.Weapon
 
 	//--array of levels, levels refer to "floors" of the world--//
 	mapObj       *model.Map
@@ -121,6 +120,11 @@ func NewGame() *Game {
 	// create crosshairs and weapon
 	g.crosshairs = model.NewCrosshairs(1, 1, 2.0, g.tex.Textures[16], 8, 8, 55, 57)
 
+	// init player model
+	angleDegrees := 90.0
+	g.player = model.NewPlayer(9.5, 3.5, geom.Radians(angleDegrees), 0)
+	g.player.CollisionRadius = clipDistance
+
 	// init the sprites
 	g.loadSprites()
 	g.spriteLvls = g.createSpriteLevels()
@@ -137,10 +141,7 @@ func NewGame() *Game {
 	g.camera.SetFloorTexture(getTextureFromFile("floor.png"))
 	g.camera.SetSkyTexture(getTextureFromFile("sky.png"))
 
-	// init player model and initialize camera to their position
-	angleDegrees := 90.0
-	g.player = model.NewPlayer(9.5, 3.5, geom.Radians(angleDegrees), 0)
-	g.player.CollisionRadius = clipDistance
+	// initialize camera to player position
 	g.updatePlayerCamera(true)
 
 	return g
@@ -150,6 +151,8 @@ func NewGame() *Game {
 // all of your content.
 func (g *Game) loadContent() {
 	g.tex.Textures = make([]*ebiten.Image, 32)
+
+	// TODO: make resource management better
 
 	// load wall textures
 	g.tex.Textures[0] = getTextureFromFile("stone.png")
@@ -170,6 +173,9 @@ func (g *Game) loadContent() {
 	g.tex.Textures[18] = getSpriteFromFile("blue_explosion_sheet.png")
 	g.tex.Textures[19] = getSpriteFromFile("outleader_walking_sheet.png")
 	g.tex.Textures[20] = getSpriteFromFile("hand_spell.png")
+	g.tex.Textures[21] = getSpriteFromFile("hand_staff.png")
+	g.tex.Textures[22] = getSpriteFromFile("red_bolt.png")
+	g.tex.Textures[23] = getSpriteFromFile("red_explosion_sheet.png")
 
 	// just setting the grass texture apart from the rest since it gets special handling
 	g.floorLvl.TexRGBA = make([]*image.RGBA, 1)
@@ -226,28 +232,46 @@ func (g *Game) loadSprites() {
 
 	// colors for minimap representation
 	blueish := color.RGBA{62, 62, 100, 96}
+	reddish := color.RGBA{180, 62, 62, 96}
 	brown := color.RGBA{47, 40, 30, 196}
 	green := color.RGBA{27, 37, 7, 196}
 	orange := color.RGBA{69, 30, 5, 196}
 	yellow := color.RGBA{255, 200, 0, 196}
 
-	// preload projectile sprite
-	projectileCollisionRadius := 20.0 / texWidth
+	// preload projectile sprites
+	chargedBoltCollisionRadius := 20.0 / texWidth
 	chargedBoltProjectile := model.NewAnimatedProjectile(
 		0, 0, 0.75, 1, g.tex.Textures[17], blueish,
-		12, 1, texWidth, 32, projectileCollisionRadius,
+		12, 1, texWidth, 32, chargedBoltCollisionRadius,
 	)
 
-	// preload explosion sprite
+	redBoltCollisionRadius := 5.0 / texWidth
+	redBoltProjectile := model.NewProjectile(
+		0, 0, 0.25, g.tex.Textures[22], reddish,
+		texWidth, 32, redBoltCollisionRadius,
+	)
+
+	// preload effect sprites
 	blueExplosionEffect := model.NewAnimatedEffect(
 		0, 0, 0.75, 3, g.tex.Textures[18], 5, 3, texWidth, 32, 1,
 	)
 	chargedBoltProjectile.ImpactEffect = *blueExplosionEffect
 
-	// create weapon
-	rateOfFire := 2.5         // RoF (as rate of fire/second)
-	projectileVelocity := 6.0 // Velocity (as distance travelled/second)
-	g.weapon = model.NewAnimatedWeapon(1, 1, 1.0, 7, g.tex.Textures[20], 3, 1, *chargedBoltProjectile, projectileVelocity, rateOfFire)
+	redExplosionEffect := model.NewAnimatedEffect(
+		0, 0, 0.20, 1, g.tex.Textures[23], 8, 3, texWidth, -32, 1,
+	)
+	redBoltProjectile.ImpactEffect = *redExplosionEffect
+
+	// create weapons
+	chargedBoltRoF := 2.5      // Rate of Fire (as RoF/second)
+	chargedBoltVelocity := 6.0 // Velocity (as distance travelled/second)
+	chargedBoltWeapon := model.NewAnimatedWeapon(1, 1, 1.0, 7, g.tex.Textures[20], 3, 1, *chargedBoltProjectile, chargedBoltVelocity, chargedBoltRoF)
+	g.player.AddWeapon(chargedBoltWeapon)
+
+	staffBoltRoF := 6.0
+	staffBoltVelocity := 24.0
+	staffBoltWeapon := model.NewAnimatedWeapon(1, 1, 1.0, 7, g.tex.Textures[21], 3, 1, *redBoltProjectile, staffBoltVelocity, staffBoltRoF)
+	g.player.AddWeapon(staffBoltWeapon)
 
 	// animated single facing sorcerer
 	sorcScale := 1.25
@@ -446,19 +470,20 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	}
 
 	// draw equipped weapon
-	if g.weapon != nil {
+	if g.player.Weapon != nil {
+		w := g.player.Weapon
 		op := &ebiten.DrawImageOptions{}
 		op.Filter = ebiten.FilterNearest
 
-		weaponScale := g.weapon.Scale
+		weaponScale := w.Scale
 		op.GeoM.Scale(weaponScale, weaponScale)
 		op.GeoM.Translate(
-			float64(g.width)/2-float64(g.weapon.W)*weaponScale/2,
-			float64(g.height)-float64(g.weapon.H)*weaponScale+1,
+			float64(g.width)/2-float64(w.W)*weaponScale/2,
+			float64(g.height)-float64(w.H)*weaponScale+1,
 		)
-		screen.DrawImage(g.weapon.GetTexture(), op)
+		screen.DrawImage(w.GetTexture(), op)
 
-		g.weapon.Update()
+		w.Update()
 	}
 
 	// draw crosshairs
@@ -632,6 +657,21 @@ func (g *Game) handleInput() {
 				g.Pitch(0.005 * float64(dy))
 			}
 		}
+	}
+
+	_, wheelY := ebiten.Wheel()
+	if wheelY != 0 {
+		g.player.NextWeapon(wheelY > 0)
+	}
+	if ebiten.IsKeyPressed(ebiten.KeyDigit1) {
+		g.player.SelectWeapon(0)
+	}
+	if ebiten.IsKeyPressed(ebiten.KeyDigit2) {
+		g.player.SelectWeapon(1)
+	}
+	if ebiten.IsKeyPressed(ebiten.KeyH) {
+		// put away/holster weapon
+		g.player.SelectWeapon(-1)
 	}
 
 	if ebiten.IsKeyPressed(ebiten.KeyA) || ebiten.IsKeyPressed(ebiten.KeyLeft) {
@@ -924,19 +964,24 @@ func (g *Game) getValidMove(entity *model.Entity, moveX, moveY float64, checkAlt
 }
 
 func (g *Game) fireWeapon() {
-	if g.weapon.OnCooldown() {
+	w := g.player.Weapon
+	if w == nil {
+		g.player.NextWeapon(false)
+		return
+	}
+	if w.OnCooldown() {
 		return
 	}
 
 	// set weapon firing for animation to run
-	g.weapon.Fire()
+	w.Fire()
 
 	// spawning projectile at player position just slightly below player's center point of view
 	pX, pY, pZ := g.player.Pos.X, g.player.Pos.Y, geom.Clamp(g.player.PosZ-0.15, 0.05, g.player.PosZ+0.5)
 	// TODO: pitch angle should be based on raycasted angle toward crosshairs, for now just simplified as player pitch angle
 	pAngle, pPitch := g.player.Angle, g.player.Pitch
 
-	projectile := g.weapon.SpawnProjectile(pX, pY, pZ, pAngle, pPitch, g.player.Entity)
+	projectile := w.SpawnProjectile(pX, pY, pZ, pAngle, pPitch, g.player.Entity)
 	if projectile != nil {
 		g.addProjectile(projectile)
 	}

@@ -20,9 +20,11 @@ To install and run from source the following are required:
 * Press `Escape` key to toggle mouse cursor capture (or hold `CTRL`)
 * Move the mouse to rotate and pitch view
 * Move and strafe using `WASD` or `Arrow Keys`
+* Click left mouse button to fire current weapon
+* Use mouse wheel or press `1` or `2` to select a weapon
+* Press `H` to holster/put away current weapon
 * Hold `Shift` key to move faster
 * Hold `ALT` key to enter mouse move mode (vertical mouse moves position instead of pitch)
-* Click left mouse button to spawn projectile
 * Hold `C` key for crouch position
 * Hold `Z` key for prone position
 * Hold `Spacebar` for jump position

@@ -16,6 +16,20 @@ type Projectile struct {
 	ImpactEffect Effect
 }
 
+func NewProjectile(
+	x, y, scale float64, img *ebiten.Image, mapColor color.RGBA,
+	uSize int, vOffset, collisionRadius float64,
+) *Projectile {
+	p := &Projectile{
+		Sprite:       NewSprite(x, y, scale, img, mapColor, uSize, vOffset, collisionRadius),
+		Ricochets:    0,
+		Lifespan:     math.MaxFloat64,
+		ImpactEffect: Effect{},
+	}
+
+	return p
+}
+
 func NewAnimatedProjectile(
 	x, y, scale float64, animationRate int, img *ebiten.Image, mapColor color.RGBA, columns, rows int,
 	uSize int, vOffset, collisionRadius float64,
