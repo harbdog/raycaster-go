@@ -29,3 +29,6 @@
 
 * `red_bolt.png`: "Rawdanitsu"
   * https://opengameart.org/content/lasers-and-beams
+
+* `red_explosion_sheet.png`: Ville Seppanen
+  * https://opengameart.org/content/explosion-animated
