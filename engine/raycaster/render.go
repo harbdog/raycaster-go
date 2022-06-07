@@ -19,7 +19,7 @@ func (c *Camera) Draw(screen *ebiten.Image) {
 	whiteRGBA := &color.RGBA{255, 255, 255, 255}
 
 	floorRect := image.Rect(0, int(float64(c.h)*0.5)+c.pitch,
-		c.w, 2*int(float64(c.h)*0.5)-c.pitch)
+		c.w, c.h)
 	drawTexture(screen, c.floor, &floorRect, &texRect, whiteRGBA)
 
 	skyRect := image.Rect(0, 0, c.w, int(float64(c.h)*0.5)+c.pitch)
@@ -65,12 +65,6 @@ func (c *Camera) Draw(screen *ebiten.Image) {
 func drawTexture(screen *ebiten.Image, texture *ebiten.Image, destinationRectangle *image.Rectangle, sourceRectangle *image.Rectangle, color *color.RGBA) {
 	if texture == nil || destinationRectangle == nil || sourceRectangle == nil {
 		return
-	}
-
-	if sourceRectangle.Min.X == 0 {
-		// fixes subImage from clipping at edges of textures which can cause gaps
-		sourceRectangle.Min.X++
-		sourceRectangle.Max.X++
 	}
 
 	// if destinationRectangle is not the same size as sourceRectangle, scale to fit

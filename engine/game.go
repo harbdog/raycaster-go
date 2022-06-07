@@ -280,7 +280,7 @@ func (g *Game) loadSprites() {
 	sorc := model.NewAnimatedSprite(5.5, 8.0, sorcScale, 5, g.tex.Textures[15], yellow, 10, 1, texWidth, sorcVoffset, sorcCollisionRadius)
 	// give sprite a sample velocity for movement
 	sorc.Angle = geom.Radians(270)
-	//sorc.Velocity = 0.02
+	sorc.Velocity = 0.02
 	g.addSprite(sorc)
 
 	// animated walking 8-directional leader
@@ -302,8 +302,8 @@ func (g *Game) loadSprites() {
 	walker.SetAnimationReversed(true) // this sprite sheet has reversed animation frame order
 	walker.SetTextureFacingMap(walkerTexFacingMap)
 	// give sprite a sample velocity for movement
-	walker.Angle = geom.Radians(270)
-	//walker.Velocity = 0.02
+	walker.Angle = geom.Radians(180)
+	walker.Velocity = 0.02
 	g.addSprite(walker)
 
 	if g.debug {
