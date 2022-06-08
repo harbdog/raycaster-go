@@ -302,7 +302,7 @@ func (g *Game) loadSprites() {
 	walker.SetAnimationReversed(true) // this sprite sheet has reversed animation frame order
 	walker.SetTextureFacingMap(walkerTexFacingMap)
 	// give sprite a sample velocity for movement
-	walker.Angle = geom.Radians(180)
+	walker.Angle = geom.Radians(0)
 	walker.Velocity = 0.02
 	g.addSprite(walker)
 

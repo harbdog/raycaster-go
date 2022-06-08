@@ -295,26 +295,13 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *Level, levelNum int, wg *sy
 		}
 
 		//Check if ray has hit a wall
-		if mapX < c.mapWidth && mapY < c.mapHeight && mapX > 0 && mapY > 0 {
+		if mapX >= 0 && mapY >= 0 && mapX < c.mapWidth && mapY < c.mapHeight {
 			if grid[mapX][mapY] > 0 {
 				hit = 1
 			}
 		} else {
 			//hit grid boundary
 			hit = 2
-
-			//prevent out of range errors, needs to be improved
-			if mapX < 0 {
-				mapX = 0
-			} else if mapX > c.mapWidth-1 {
-				mapX = c.mapWidth - 1
-			}
-
-			if mapY < 0 {
-				mapY = 0
-			} else if mapY > c.mapHeight-1 {
-				mapY = c.mapHeight - 1
-			}
 		}
 	}
 
@@ -337,10 +324,11 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *Level, levelNum int, wg *sy
 	// if drawEnd >= c.h { drawEnd = c.h - 1 }
 
 	//texturing calculations
-	texNum := grid[mapX][mapY] - 1 //1 subtracted from it so that texture 0 can be used
-	if texNum < 0 {
-		texNum = 0 //why?
+	texNum := -1
+	if mapX >= 0 && mapY >= 0 && mapX < c.mapWidth && mapY < c.mapHeight {
+		texNum = grid[mapX][mapY] - 1 //1 subtracted from it so that texture 0 can be used
 	}
+
 	//--some supid hacks to make the houses render correctly--//
 	// this corrects textures on two sides of house since the textures are not symmetrical
 	if side == 0 {
@@ -357,7 +345,11 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *Level, levelNum int, wg *sy
 		}
 	}
 
-	c.levels[levelNum].CurrTex[x] = c.tex.Textures[texNum]
+	if texNum >= 0 {
+		c.levels[levelNum].CurrTex[x] = c.tex.Textures[texNum]
+	} else {
+		c.levels[levelNum].CurrTex[x] = nil
+	}
 
 	//calculate value of wallX
 	var wallX float64 //where exactly the wall was hit
