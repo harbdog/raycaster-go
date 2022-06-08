@@ -809,28 +809,6 @@ func (g *Game) getValidMove(entity *model.Entity, moveX, moveY float64, checkAlt
 		return &geom.Vector2{X: posX, Y: posY}, false, []*EntityCollision{}
 	}
 
-	ix := int(newX)
-	iy := int(newY)
-
-	// prevent index out of bounds errors
-	switch {
-	case ix < 0 || newX < 0:
-		newX = clipDistance
-		ix = 0
-	case ix >= g.mapWidth:
-		newX = float64(g.mapWidth) - clipDistance
-		ix = int(newX)
-	}
-
-	switch {
-	case iy < 0 || newY < 0:
-		newY = clipDistance
-		iy = 0
-	case iy >= g.mapHeight:
-		newY = float64(g.mapHeight) - clipDistance
-		iy = int(newY)
-	}
-
 	moveLine := geom.Line{X1: posX, Y1: posY, X2: newX, Y2: newY}
 
 	intersectPoints := []geom.Vector2{}
@@ -951,6 +929,28 @@ func (g *Game) getValidMove(entity *model.Entity, moveX, moveY float64, checkAlt
 			// looks like it cannot move
 			return &geom.Vector2{X: posX, Y: posY}, isCollision, collisionEntities
 		}
+	}
+
+	// prevent index out of bounds errors
+	ix := int(newX)
+	iy := int(newY)
+
+	switch {
+	case ix < 0 || newX < 0:
+		newX = clipDistance
+		ix = 0
+	case ix >= g.mapWidth:
+		newX = float64(g.mapWidth) - clipDistance
+		ix = int(newX)
+	}
+
+	switch {
+	case iy < 0 || newY < 0:
+		newY = clipDistance
+		iy = 0
+	case iy >= g.mapHeight:
+		newY = float64(g.mapHeight) - clipDistance
+		iy = int(newY)
 	}
 
 	if g.worldMap[ix][iy] <= 0 {
