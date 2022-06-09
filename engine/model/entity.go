@@ -3,7 +3,7 @@ package model
 import (
 	"image/color"
 
-	"raycaster-go/engine/geom"
+	"github.com/harbdog/raycaster-go/engine/geom"
 )
 
 type Entity struct {
