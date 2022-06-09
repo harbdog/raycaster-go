@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"runtime"
 
-	"raycaster-go/engine"
+	"github.com/harbdog/raycaster-go/engine"
 )
 
 func main() {

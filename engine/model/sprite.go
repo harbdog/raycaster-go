@@ -7,7 +7,7 @@ import (
 	"math"
 	"sort"
 
-	"raycaster-go/engine/geom"
+	"github.com/harbdog/raycaster-go/engine/geom"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"

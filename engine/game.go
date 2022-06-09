@@ -15,9 +15,9 @@ import (
 
 	_ "image/png"
 
-	"raycaster-go/engine/geom"
-	"raycaster-go/engine/model"
-	"raycaster-go/engine/raycaster"
+	"github.com/harbdog/raycaster-go/engine/geom"
+	"github.com/harbdog/raycaster-go/engine/model"
+	"github.com/harbdog/raycaster-go/engine/raycaster"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"

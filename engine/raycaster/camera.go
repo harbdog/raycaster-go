@@ -7,8 +7,8 @@ import (
 	"math"
 	"sync"
 
-	"raycaster-go/engine/geom"
-	"raycaster-go/engine/model"
+	"github.com/harbdog/raycaster-go/engine/geom"
+	"github.com/harbdog/raycaster-go/engine/model"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
