@@ -58,12 +58,9 @@ type Camera struct {
 	targetTPS int
 
 	//--world map--//
-	mapObj    *Map
+	mapObj    Map
 	mapWidth  int
 	mapHeight int
-	worldMap  [][]int
-	upMap     [][]int
-	midMap    [][]int
 
 	//--test texture--//
 	floor *ebiten.Image
@@ -96,7 +93,7 @@ type Camera struct {
 }
 
 // NewCamera initalizes a Camera object
-func NewCamera(width int, height int, texWid int, mapObj *Map, slices []*image.Rectangle,
+func NewCamera(width int, height int, texWid int, mapObj Map, slices []*image.Rectangle,
 	levels []*Level, horizontalLevel *HorLevel, spriteLvls []*Level, tex *TextureHandler) *Camera {
 
 	fmt.Printf("Initializing Camera\n")
@@ -135,12 +132,10 @@ func NewCamera(width int, height int, texWid int, mapObj *Map, slices []*image.R
 	c.zBuffer = make([]float64, width)
 
 	c.mapObj = mapObj
-	c.worldMap = c.mapObj.GetGrid()
-	c.upMap = c.mapObj.GetGridUp()
-	c.midMap = c.mapObj.GetGridMid()
+	firstLevel := mapObj.Level(0)
 
-	c.mapWidth = len(c.worldMap)
-	c.mapHeight = len(c.worldMap[0])
+	c.mapWidth = len(firstLevel)
+	c.mapHeight = len(firstLevel)
 
 	c.sprites = []Sprite{}
 	c.tex = tex
@@ -201,12 +196,12 @@ func (c *Camera) asyncCastLevel(levelNum int, wg *sync.WaitGroup) {
 	defer wg.Done()
 
 	var rMap [][]int
-	if levelNum == 0 {
-		rMap = c.worldMap
-	} else if levelNum == 1 {
-		rMap = c.midMap
+
+	numLevels := c.mapObj.NumLevels()
+	if levelNum < numLevels {
+		rMap = c.mapObj.Level(levelNum)
 	} else {
-		rMap = c.upMap //if above lvl2 just keep extending up
+		rMap = c.mapObj.Level(numLevels - 1) // if above highest level just keep extending last one up
 	}
 
 	for x := 0; x < c.w; x++ {
@@ -697,7 +692,8 @@ func (c *Camera) getValidCameraMove(moveX, moveY float64, checkAlternate bool) (
 		iy = int(newY)
 	}
 
-	if c.worldMap[ix][iy] <= 0 {
+	firstLevel := c.mapObj.Level(0)
+	if firstLevel[ix][iy] <= 0 {
 		posX = newX
 		posY = newY
 	}
