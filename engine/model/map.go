@@ -1,6 +1,6 @@
 package model
 
-import "github.com/harbdog/raycaster-go/engine/geom"
+import "github.com/harbdog/raycaster-go/geom"
 
 type Map struct {
 	worldMap [][]int
