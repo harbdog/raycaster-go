@@ -4,7 +4,7 @@ import (
 	"image/color"
 	"math"
 
-	"github.com/harbdog/raycaster-go/engine/geom"
+	"github.com/harbdog/raycaster-go/geom"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/jinzhu/copier"
