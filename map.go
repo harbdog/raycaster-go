@@ -1,4 +1,4 @@
-package model
+package raycaster
 
 import "github.com/harbdog/raycaster-go/geom"
 

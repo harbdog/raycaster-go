@@ -7,7 +7,6 @@ import (
 	"math"
 	"sync"
 
-	"github.com/harbdog/raycaster-go/engine/model"
 	"github.com/harbdog/raycaster-go/geom"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -59,7 +58,7 @@ type Camera struct {
 	targetTPS int
 
 	//--world map--//
-	mapObj    *model.Map
+	mapObj    *Map
 	mapWidth  int
 	mapHeight int
 	worldMap  [][]int
@@ -82,7 +81,7 @@ type Camera struct {
 	// zbuffer for sprite casting
 	zBuffer []float64
 	// sprites
-	sprites []*model.Sprite
+	sprites []Sprite
 	//arrays used to sort the sprites
 	spriteOrder    []int
 	spriteDistance []float64
@@ -97,7 +96,7 @@ type Camera struct {
 }
 
 // NewCamera initalizes a Camera object
-func NewCamera(width int, height int, texWid int, mapObj *model.Map, slices []*image.Rectangle,
+func NewCamera(width int, height int, texWid int, mapObj *Map, slices []*image.Rectangle,
 	levels []*Level, horizontalLevel *HorLevel, spriteLvls []*Level, tex *TextureHandler) *Camera {
 
 	fmt.Printf("Initializing Camera\n")
@@ -143,7 +142,7 @@ func NewCamera(width int, height int, texWid int, mapObj *model.Map, slices []*i
 	c.mapWidth = len(c.worldMap)
 	c.mapHeight = len(c.worldMap[0])
 
-	c.sprites = []*model.Sprite{}
+	c.sprites = []Sprite{}
 	c.tex = tex
 
 	// initialize a pool of channels to limit concurrent floor and sprite casting
@@ -157,7 +156,7 @@ func NewCamera(width int, height int, texWid int, mapObj *model.Map, slices []*i
 }
 
 // Update - updates the camera view
-func (c *Camera) Update(sprites []*model.Sprite) {
+func (c *Camera) Update(sprites []Sprite) {
 	// clear horizontal buffer by making a new one
 	c.floorLvl.Clear(c.w, c.h)
 
@@ -183,8 +182,9 @@ func (c *Camera) raycast() {
 	c.spriteDistance = make([]float64, numSprites)
 	//sort sprites from far to close
 	for i := 0; i < numSprites; i++ {
+		sprite := c.sprites[i]
 		c.spriteOrder[i] = i
-		c.spriteDistance[i] = (math.Pow(c.pos.X-c.sprites[i].Pos.X, 2) + math.Pow(c.pos.Y-c.sprites[i].Pos.Y, 2))
+		c.spriteDistance[i] = (math.Pow(c.pos.X-sprite.Pos().X, 2) + math.Pow(c.pos.Y-sprite.Pos().Y, 2))
 	}
 	combSort(c.spriteOrder, c.spriteDistance, numSprites)
 
@@ -495,11 +495,11 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 	renderSprite := false
 
 	//translate sprite position to relative to camera
-	spriteX := sprite.Pos.X - c.pos.X
-	spriteY := sprite.Pos.Y - c.pos.Y
+	spriteX := sprite.Pos().X - c.pos.X
+	spriteY := sprite.Pos().Y - c.pos.Y
 
-	spriteTex := sprite.GetTexture()
-	spriteTexRect := sprite.GetTextureRect()
+	spriteTex := sprite.Texture()
+	spriteTexRect := sprite.TextureRect()
 	spriteTexWidth, spriteTexHeight := spriteTex.Size()
 
 	//transform sprite with the inverse camera matrix
@@ -515,10 +515,10 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 	spriteScreenX := int(float64(c.w) / 2 * (1 + transformX/transformY))
 
 	//parameters for scaling and moving the sprites
-	var uDiv float64 = 1 / sprite.Scale
-	var vDiv float64 = 1 / sprite.Scale
+	var uDiv float64 = 1 / sprite.Scale()
+	var vDiv float64 = 1 / sprite.Scale()
 
-	var vMove float64 = -(sprite.PosZ-0.5)*float64(c.texWidth)*2 + sprite.GetVerticalOffset()
+	var vMove float64 = -(sprite.PosZ()-0.5)*float64(c.texWidth)*2 + sprite.VerticalOffset()
 
 	vMoveScreen := int(vMove/transformY) + c.pitch + int(c.posZ/transformY)
 
