@@ -20,14 +20,6 @@ const (
 	edgeDistance = 0.1
 )
 
-type MouseMode int
-
-const (
-	MouseModeLook MouseMode = iota
-	MouseModeMove
-	MouseModeCursor
-)
-
 // Camera Class that represents a camera in terms of raycasting.
 // Contains methods to move the camera, and handles projection to,
 // set the rectangle slice position and height,
