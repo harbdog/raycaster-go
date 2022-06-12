@@ -60,6 +60,7 @@ type Camera struct {
 
 	//--structs that contain rects and tints for each level render--//
 	levels []*level
+	slices []*image.Rectangle
 
 	// zbuffer for sprite casting
 	zBuffer []float64
@@ -105,6 +106,7 @@ func NewCamera(width int, height int, texSize int, mapObj Map, tex *TextureHandl
 	c.tex = tex
 
 	c.levels = c.createLevels(mapObj.NumLevels())
+	c.slices = makeSlices(texSize, texSize, 0, 0)
 	c.floorLvl = c.createFloorLevel()
 
 	// set zbuffer based on screen width
@@ -353,7 +355,7 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *level, levelNum int, wg *sy
 	}
 
 	//--set current texture slice to be slice x--//
-	_cts[x] = c.tex.slices[texX]
+	_cts[x] = c.slices[texX]
 
 	//--set height of slice--//
 	_sv[x].Min.Y = drawStart

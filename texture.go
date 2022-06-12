@@ -7,7 +7,6 @@ import (
 )
 
 type TextureHandler struct {
-	slices   []*image.Rectangle
 	Textures []*ebiten.Image
 
 	// TODO: an interface would better suit texture handling
@@ -16,9 +15,6 @@ type TextureHandler struct {
 
 func NewTextureHandler(texSize int) *TextureHandler {
 	t := &TextureHandler{}
-
-	//--init array--//
-	t.slices = makeSlices(texSize, texSize, 0, 0)
 
 	return t
 }
