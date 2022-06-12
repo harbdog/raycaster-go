@@ -9,21 +9,21 @@ import (
 type TextureHandler struct {
 	slices   []*image.Rectangle
 	Textures []*ebiten.Image
+
+	// TODO: an interface would better suit texture handling
+	FloorTex *image.RGBA
 }
 
-func NewTextureHandler(texWidth int) *TextureHandler {
+func NewTextureHandler(texSize int) *TextureHandler {
 	t := &TextureHandler{}
 
-	//--for clarity in slice loop--//
-	texHeight := texWidth
-
 	//--init array--//
-	t.slices = MakeSlices(texWidth, texHeight, 0, 0)
+	t.slices = makeSlices(texSize, texSize, 0, 0)
 
 	return t
 }
 
-func MakeSlices(width, height, xOffset, yOffset int) []*image.Rectangle {
+func makeSlices(width, height, xOffset, yOffset int) []*image.Rectangle {
 	newSlices := make([]*image.Rectangle, width)
 
 	//--loop through creating a "slice" for each texture x--//
@@ -34,8 +34,4 @@ func MakeSlices(width, height, xOffset, yOffset int) []*image.Rectangle {
 	}
 
 	return newSlices
-}
-
-func (t *TextureHandler) GetSlices() []*image.Rectangle {
-	return t.slices
 }

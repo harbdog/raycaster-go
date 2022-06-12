@@ -7,8 +7,8 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
-// Level --struct to represent rects and tints of vertical level slices --//
-type Level struct {
+// level --struct to represent rects and tints of vertical level slices --//
+type level struct {
 	// Sv --texture draw location
 	Sv []*image.Rectangle
 
@@ -22,8 +22,8 @@ type Level struct {
 	CurrTex []*ebiten.Image
 }
 
-// SliceView Creates rectangle slices for each x in width.
-func SliceView(width, height int) []*image.Rectangle {
+// sliceView Creates rectangle slices for each x in width.
+func sliceView(width, height int) []*image.Rectangle {
 	arr := make([]*image.Rectangle, width)
 
 	for x := 0; x < width; x++ {
@@ -34,19 +34,15 @@ func SliceView(width, height int) []*image.Rectangle {
 	return arr
 }
 
-// HorLevel is for handling horizontal renders that cannot use vertical slices (e.g. floor, ceiling)
-type HorLevel struct {
-	// HorBuffer is the image representing the pixels to render during the update
-	HorBuffer *image.RGBA
+// horLevel is for handling horizontal renders that cannot use vertical slices (e.g. floor, ceiling)
+type horLevel struct {
+	// horBuffer is the image representing the pixels to render during the update
+	horBuffer *image.RGBA
 
-	// TexRGBA contains image.RGBA textures used as sources for the HorBuffer
-	TexRGBA []*image.RGBA
+	// texRGBA contains image.RGBA textures used as sources for the HorBuffer
+	texRGBA []*image.RGBA
 }
 
-func (h *HorLevel) Clear(width, height int) {
-	h.HorBuffer = image.NewRGBA(image.Rect(0, 0, width, height))
-}
-
-func (h *HorLevel) Set(x, y int, c color.Color) {
-	h.HorBuffer.Set(x, y, c)
+func (h *horLevel) clear(width, height int) {
+	h.horBuffer = image.NewRGBA(image.Rect(0, 0, width, height))
 }
