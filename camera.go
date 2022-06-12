@@ -46,9 +46,6 @@ type Camera struct {
 	// camera fov angle and depth
 	fovAngle, fovDepth float64
 
-	// target framerate reference
-	targetTPS int
-
 	//--world map--//
 	mapObj    Map
 	mapWidth  int
@@ -87,11 +84,6 @@ func NewCamera(width int, height int, texSize int, mapObj Map, tex *TextureHandl
 	fmt.Printf("Initializing Camera\n")
 
 	c := &Camera{}
-
-	// set target TPS
-	// TODO: make target FPS customizable
-	c.targetTPS = 60
-	ebiten.SetMaxTPS(c.targetTPS)
 
 	//--camera position, init to some start position--//
 	fovDegrees := 70.0
