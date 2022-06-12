@@ -59,28 +59,27 @@ type Camera struct {
 	texSize int
 
 	//--structs that contain rects and tints for each level render--//
-	levels []*level
-	slices []*image.Rectangle
+	levels   []*level
+	floorLvl *horLevel
+	slices   []*image.Rectangle
 
 	// zbuffer for sprite casting
 	zBuffer []float64
 	// sprites
-	sprites []Sprite
+	sprites    []Sprite
+	spriteLvls []*level
 	//arrays used to sort the sprites
 	spriteOrder    []int
 	spriteDistance []float64
 
-	spriteLvls []*level
-	tex        *TextureHandler
-
-	floorLvl *horLevel
+	tex TextureHandler
 
 	// used for concurrency
 	semaphore chan struct{}
 }
 
 // NewCamera initalizes a Camera object
-func NewCamera(width int, height int, texSize int, mapObj Map, tex *TextureHandler) *Camera {
+func NewCamera(width int, height int, texSize int, mapObj Map, tex TextureHandler) *Camera {
 
 	fmt.Printf("Initializing Camera\n")
 
@@ -148,7 +147,7 @@ func (c *Camera) Update(sprites []Sprite) {
 		// sprite buffer may need to be increased in size
 		c.updateSpriteLevels(len(sprites))
 	} else {
-		c.clearAllSpriteLevel()
+		c.clearAllSpriteLevels()
 	}
 
 	//--do raycast--//
@@ -308,32 +307,12 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *level, levelNum int, wg *sy
 	// if drawEnd >= c.h { drawEnd = c.h - 1 }
 
 	//texturing calculations
-	texNum := -1
+	var texture *ebiten.Image
 	if mapX >= 0 && mapY >= 0 && mapX < c.mapWidth && mapY < c.mapHeight {
-		texNum = grid[mapX][mapY] - 1 //1 subtracted from it so that texture 0 can be used
+		texture = c.tex.TextureAt(mapX, mapY, levelNum, side)
 	}
 
-	//--some supid hacks to make the houses render correctly--//
-	// this corrects textures on two sides of house since the textures are not symmetrical
-	if side == 0 {
-		if texNum == 3 {
-			texNum = 4
-		} else if texNum == 4 {
-			texNum = 3
-		}
-
-		if texNum == 1 {
-			texNum = 4
-		} else if texNum == 2 {
-			texNum = 3
-		}
-	}
-
-	if texNum >= 0 {
-		c.levels[levelNum].CurrTex[x] = c.tex.Textures[texNum]
-	} else {
-		c.levels[levelNum].CurrTex[x] = nil
-	}
+	c.levels[levelNum].CurrTex[x] = texture
 
 	//calculate value of wallX
 	var wallX float64 //where exactly the wall was hit
@@ -600,6 +579,19 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 	}
 }
 
+func makeSlices(width, height, xOffset, yOffset int) []*image.Rectangle {
+	newSlices := make([]*image.Rectangle, width)
+
+	//--loop through creating a "slice" for each texture x--//
+	for x := 0; x < width; x++ {
+		// xOffset/yOffset represent sprite sheet source offsets for texture
+		thisRect := image.Rect(xOffset+x, yOffset, xOffset+x+1, yOffset+height)
+		newSlices[x] = &thisRect
+	}
+
+	return newSlices
+}
+
 // creates level slices for raycasting each level
 func (c *Camera) createLevels(numLevels int) []*level {
 	levelArr := make([]*level, numLevels)
@@ -619,7 +611,7 @@ func (c *Camera) createLevels(numLevels int) []*level {
 func (c *Camera) createFloorLevel() *horLevel {
 	horizontalLevel := new(horLevel)
 	horizontalLevel.clear(c.w, c.h)
-	horizontalLevel.texRGBA = []*image.RGBA{c.tex.FloorTex}
+	horizontalLevel.texRGBA = []*image.RGBA{c.tex.FloorTexture()}
 	return horizontalLevel
 }
 
@@ -629,7 +621,7 @@ func (c *Camera) updateSpriteLevels(spriteCapacity int) {
 		capacity := len(c.spriteLvls)
 		if spriteCapacity <= capacity {
 			// no need to grow, just need to clear it out
-			c.clearAllSpriteLevel()
+			c.clearAllSpriteLevels()
 			return
 		}
 
@@ -654,7 +646,7 @@ func (c *Camera) makeSpriteLevel(spriteOrdIndex int) *level {
 	return spriteLvl
 }
 
-func (c *Camera) clearAllSpriteLevel() {
+func (c *Camera) clearAllSpriteLevels() {
 	for i := 0; i < len(c.spriteLvls); i++ {
 		c.clearSpriteLevel(i)
 	}
