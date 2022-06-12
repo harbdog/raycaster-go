@@ -15,7 +15,7 @@ func (c *Camera) Draw(screen *ebiten.Image) {
 	screen.Clear()
 
 	//--draw basic sky and floor--//
-	texRect := image.Rect(0, 0, c.texWidth, c.texWidth)
+	texRect := image.Rect(0, 0, c.texSize, c.texSize)
 	whiteRGBA := &color.RGBA{255, 255, 255, 255}
 
 	floorRect := image.Rect(0, int(float64(c.h)*0.5)+c.pitch,
@@ -33,7 +33,7 @@ func (c *Camera) Draw(screen *ebiten.Image) {
 	}
 
 	// draw textured floor
-	floorImg := ebiten.NewImageFromImage(c.floorLvl.HorBuffer)
+	floorImg := ebiten.NewImageFromImage(c.floorLvl.horBuffer)
 	if floorImg == nil {
 		log.Fatal("floorImg is nil")
 	} else {
