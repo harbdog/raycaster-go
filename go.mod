@@ -2,10 +2,7 @@ module github.com/harbdog/raycaster-go
 
 go 1.17
 
-require (
-	github.com/hajimehoshi/ebiten/v2 v2.3.2
-	github.com/jinzhu/copier v0.3.5
-)
+require github.com/hajimehoshi/ebiten/v2 v2.3.2
 
 require (
 	github.com/go-gl/glfw/v3.3/glfw v0.0.0-20220320163800-277f93cfa958 // indirect
