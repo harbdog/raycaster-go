@@ -372,7 +372,8 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *level, levelNum int, wg *sy
 	}
 
 	//// FLOOR CASTING ////
-	if levelNum == 0 {
+	floorTex := c.floorLvl.texRGBA
+	if levelNum == 0 && floorTex != nil {
 		// for now only rendering floor on first level
 		if drawEnd < 0 {
 			drawEnd = c.h //becomes < 0 when the integer overflows
@@ -419,8 +420,8 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *level, levelNum int, wg *sy
 				//floor
 				// buffer[y][x] = (texture[3][texWidth * floorTexY + floorTexX] >> 1) & 8355711;
 				// the same vertical slice method cannot be used for floor rendering
-				floorTexNum := 0
-				floorTex := c.floorLvl.texRGBA[floorTexNum]
+				// floorTexNum := 0
+				// floorTex := c.floorLvl.texRGBA[floorTexNum]
 
 				//pixel := floorTex.RGBAAt(floorTexX, floorTexY)
 				pxOffset := floorTex.PixOffset(floorTexX, floorTexY)
@@ -611,7 +612,7 @@ func (c *Camera) createLevels(numLevels int) []*level {
 func (c *Camera) createFloorLevel() *horLevel {
 	horizontalLevel := new(horLevel)
 	horizontalLevel.clear(c.w, c.h)
-	horizontalLevel.texRGBA = []*image.RGBA{c.tex.FloorTexture()}
+	horizontalLevel.texRGBA = c.tex.FloorTexture()
 	return horizontalLevel
 }
 
