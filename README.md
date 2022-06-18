@@ -45,7 +45,7 @@ about the usage of these interface functions needed for basic game flow.
 
 ## Raycaster-go interfaces
 
-There are additional raycaster-go specific interfaces that will be required render the map levels,
+There are additional raycaster-go specific interfaces that will be required to render the map levels,
 wall textures, and sprites.
 
 ### [Map interfaces](map.go)
@@ -75,14 +75,16 @@ Interface functions required for rendering texture images for the walls and floo
 `TextureAt(x, y, levelNum, side int) *ebiten.Image`
 - Needs to return an [ebiten.Image](https://pkg.go.dev/github.com/hajimehoshi/ebiten/v2#Image) as
   the wall texture found at the indicated X/Y map coordinate and level number.
-- `side` is currently provided as either `0` or `1` indicating the texture viewed from the X or Y direction,
+- `side` is currently provided as either `1` or `0` indicating the texture viewed from the X or Y direction,
   respectively. This value can be used, if desired, to have a different texture image representing
   alternate sides of the wall.
 - The size of the texture image returned will need to match the texture size (`texSize`) provided
   to the `NewCamera` function. For example `texSize: 256` requires all wall textures to be `256x256` pixels in size.
 
 `FloorTexture() *image.RGBA`
-- Needs to return an [image.RGBA](https://pkg.go.dev/image#RGBA) to be used as the repeating floor texture.
+- Used to return an [image.RGBA](https://pkg.go.dev/image#RGBA) to be used as the repeating floor texture.
+- It can also return `nil` to only render the non-repeating floor texture provided to
+  the `camera.SetFloorTexture` function.
 
 ### [Sprite interfaces](sprite.go)
 
@@ -115,7 +117,8 @@ Interface functions required to determine sprite images and positions to render 
 `TextureRect() image.Rectangle`
 - Needs to return an [image.Rectangle](https://pkg.go.dev/image#Rectangle) representing the texture sheet position
   and area to render for the image currently returned by `Texture()`.
-- If the image source only contains a single image, just set to origin position with the width and height of the image:
+- If the image source only contains a single image, just set to origin position along with
+  the width and height of the image:
 
   ```golang
   return image.Rect(0, 0, imageWidth, imageHeight)
@@ -123,7 +126,7 @@ Interface functions required to determine sprite images and positions to render 
 
 ## Raycaster-go camera
 
-After implementing all required interface functions, the last step is to initialize a `raycaster.Camera` instance
+After implementing all required interface functions, the last step is to initialize an instance of `raycaster.Camera`
 and make the function calls needed to update and draw during your game loop.
 
 `func NewCamera(width int, height int, texSize int, mapObj Map, tex TextureHandler) *Camera`
@@ -146,7 +149,7 @@ and make the function calls needed to update and draw during your game loop.
 
 `camera.SetFloorTexture(floor *ebiten.Image)`
 - Sets the non-repeating simple floor texture.
-- Only shown when `TextureHandler.FloorTexture()` interface returns `nil`, and for out areas outside of map bounds.
+- Only shown when `TextureHandler.FloorTexture()` interface returns `nil`, and for areas outside of map bounds.
 
 `camera.SetSkyTexture(sky *ebiten.Image)`
 - Sets the non-repeating simple skybox texture.
@@ -167,7 +170,8 @@ and make the function calls needed to update and draw during your game loop.
 - The raycasting technique used in this project is more like early raycaster games such as Wolfenstein 3D,
   as opposed to later games such as Doom - it does not support stairs, sloped walls,
   or differing heights in elevation levels.
-- Multiple elevation levels can be rendered, however player and sprite movement needs to be limited to the ground level.
+- Multiple elevation levels can be rendered, however camera and sprite positions need to be limited
+  to the ground level (Z-position `> 0.0 && <= 1.0`).
 - Only a single repeating floor texture can currently be set for the entire map.
 - [Ceiling textures](https://lodev.org/cgtutor/raycasting2.html) are not yet implemented. Skybox texture
   is currently the only option, so going indoors from outdoors is not yet possible.
