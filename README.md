@@ -173,10 +173,11 @@ and make the function calls needed to update and draw during your game loop.
 - Multiple elevation levels can be rendered, however camera and sprite positions need to be limited
   to the ground level (Z-position `> 0.0 && <= 1.0`).
 - Only a single repeating floor texture can currently be set for the entire map.
-- [Ceiling textures](https://lodev.org/cgtutor/raycasting2.html) are not yet implemented. Skybox texture
-  is currently the only option, so going indoors from outdoors is not yet possible.
+- [Ceiling textures](https://lodev.org/cgtutor/raycasting2.html) are not currently implemented.
+  Skybox texture is currently the only option, so going indoors from outdoors in the same map is not currently possible.
+  Feel free to help figure it out and contribute as a Pull Request!
 - [Thin walls](https://lodev.org/cgtutor/raycasting4.html#Thin), [doors]((https://lodev.org/cgtutor/raycasting4.html#Doors)),
   and [secret push walls](https://lodev.org/cgtutor/raycasting4.html#Secrets) are not currently implemented,
-  feel free to figure them out and contribute as a Pull Request!
+  feel free to help figure them out and contribute as a Pull Request!
 - [Translucent sprites](https://lodev.org/cgtutor/raycasting3.html#Translucent) are not currently implemented,
   feel free to contribute as a Pull Request!
