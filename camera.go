@@ -93,13 +93,12 @@ func NewCamera(width int, height int, texSize int, mapObj Map, tex TextureHandle
 	c.posZ = 0.0
 
 	//--current facing direction, init to some start position--//
-	c.dir = c.GetVecForAngle(0)
+	c.dir = c.getVecForAngle(0)
 
 	//--the 2d raycaster version of camera plane (ratio between this and dir x resizes FOV)--//
-	c.plane = c.GetVecForFov(c.dir)
+	c.plane = c.getVecForFov(c.dir)
 
-	c.w = width
-	c.h = height
+	c.SetViewSize(width, height)
 	c.pitch = 0
 	c.texSize = texSize
 	c.tex = tex
@@ -128,6 +127,11 @@ func NewCamera(width int, height int, texSize int, mapObj Map, tex TextureHandle
 	c.raycast()
 
 	return c
+}
+
+func (c *Camera) SetViewSize(width, height int) {
+	c.w = width
+	c.h = height
 }
 
 func (c *Camera) SetFloorTexture(floor *ebiten.Image) {
@@ -748,9 +752,9 @@ func (c *Camera) GetPositionZ() float64 {
 
 // Set camera direction and plane vectors from given heading angle
 func (c *Camera) SetHeadingAngle(heading float64) {
-	cameraDir := c.GetVecForAngle(heading)
+	cameraDir := c.getVecForAngle(heading)
 	c.dir = cameraDir
-	c.plane = c.GetVecForFov(cameraDir)
+	c.plane = c.getVecForFov(cameraDir)
 }
 
 // Set camera pitch view from given pitch angle
@@ -767,21 +771,21 @@ func (c *Camera) MoveCamera(mSpeed float64) {
 }
 
 // Get the angle from the dir vectors
-func (c *Camera) GetAngleFromVec(dir *geom.Vector2) float64 {
+func (c *Camera) getAngleFromVec(dir *geom.Vector2) float64 {
 	return math.Atan2(dir.Y, dir.X)
 }
 
 // Get the dir vector from angle and fov length
-func (c *Camera) GetVecForAngleLength(angle, length float64) *geom.Vector2 {
+func (c *Camera) getVecForAngleLength(angle, length float64) *geom.Vector2 {
 	return &geom.Vector2{X: length * math.Cos(angle), Y: length * math.Sin(angle)}
 }
 
-func (c *Camera) GetVecForAngle(angle float64) *geom.Vector2 {
+func (c *Camera) getVecForAngle(angle float64) *geom.Vector2 {
 	return &geom.Vector2{X: c.fovDepth * math.Cos(angle), Y: c.fovDepth * math.Sin(angle)}
 }
 
 // Get the FOV from the dir+-plane vectors
-func (c *Camera) GetFovFromVec(dir, plane *geom.Vector2) float64 {
+func (c *Camera) getFovFromVec(dir, plane *geom.Vector2) float64 {
 	pov1 := dir.Copy().Add(plane)
 	pov2 := dir.Copy().Sub(plane)
 	fovAngle := math.Atan2(pov2.Y, pov2.X) - math.Atan2(pov1.Y, pov1.X)
@@ -789,14 +793,14 @@ func (c *Camera) GetFovFromVec(dir, plane *geom.Vector2) float64 {
 }
 
 // Get the plane vector from FOV based on dir vector
-func (c *Camera) GetVecForFov(dir *geom.Vector2) *geom.Vector2 {
+func (c *Camera) getVecForFov(dir *geom.Vector2) *geom.Vector2 {
 	// get the hypotenuse of half the FOV triangle to calculate the plane vec points
-	angle := c.GetAngleFromVec(dir)
+	angle := c.getAngleFromVec(dir)
 	length := math.Sqrt(math.Pow(dir.X, 2) + math.Pow(dir.Y, 2))
 	hypotenuse := length / math.Cos(c.fovAngle/2)
 
 	// subtract resulting vector from dir since plane vec is relative to it
-	return dir.Copy().Sub(c.GetVecForAngleLength(angle+c.fovAngle/2, hypotenuse))
+	return dir.Copy().Sub(c.getVecForAngleLength(angle+c.fovAngle/2, hypotenuse))
 }
 
 // Strafe camera by strafe speed (does not alter player model position)
