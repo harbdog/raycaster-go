@@ -131,9 +131,17 @@ func (c *Camera) SetViewSize(width, height int) {
 	c.zBuffer = make([]float64, width)
 }
 
+func (c *Camera) ViewSize() (int, int) {
+	return c.w, c.h
+}
+
 func (c *Camera) SetFovAngle(fovDegrees float64) {
 	c.fovAngle = geom.Radians(fovDegrees)
 	c.plane = c.getVecForFov(c.dir)
+}
+
+func (c *Camera) FovAngle() float64 {
+	return geom.Degrees(c.fovAngle)
 }
 
 func (c *Camera) SetFloorTexture(floor *ebiten.Image) {
