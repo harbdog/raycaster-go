@@ -85,12 +85,19 @@ func NewCamera(width int, height int, texSize int, mapObj Map, tex TextureHandle
 
 	c := &Camera{}
 
+	//--map setup
+	c.mapObj = mapObj
+	firstLevel := mapObj.Level(0)
+	c.mapWidth = len(firstLevel)
+	c.mapHeight = len(firstLevel)
+
 	//--camera position, init to some start position--//
 	fovDegrees := 70.0
 	c.fovAngle = geom.Radians(fovDegrees)
 	c.fovDepth = 1.0
 	c.pos = &geom.Vector2{X: 1.0, Y: 1.0}
 	c.posZ = 0.0
+	c.pitch = 0
 
 	//--current facing direction, init to some start position--//
 	c.dir = c.getVecForAngle(0)
@@ -98,23 +105,9 @@ func NewCamera(width int, height int, texSize int, mapObj Map, tex TextureHandle
 	//--the 2d raycaster version of camera plane (ratio between this and dir x resizes FOV)--//
 	c.plane = c.getVecForFov(c.dir)
 
-	c.SetViewSize(width, height)
-	c.pitch = 0
 	c.texSize = texSize
 	c.tex = tex
-
-	c.levels = c.createLevels(mapObj.NumLevels())
-	c.slices = makeSlices(texSize, texSize, 0, 0)
-	c.floorLvl = c.createFloorLevel()
-
-	// set zbuffer based on screen width
-	c.zBuffer = make([]float64, width)
-
-	c.mapObj = mapObj
-	firstLevel := mapObj.Level(0)
-
-	c.mapWidth = len(firstLevel)
-	c.mapHeight = len(firstLevel)
+	c.SetViewSize(width, height)
 
 	c.sprites = []Sprite{}
 	c.updateSpriteLevels(16)
@@ -132,6 +125,14 @@ func NewCamera(width int, height int, texSize int, mapObj Map, tex TextureHandle
 func (c *Camera) SetViewSize(width, height int) {
 	c.w = width
 	c.h = height
+
+	// creating level slices based on screen size
+	c.levels = c.createLevels(c.mapObj.NumLevels())
+	c.slices = makeSlices(c.texSize, c.texSize, 0, 0)
+	c.floorLvl = c.createFloorLevel()
+
+	// set zbuffer based on screen width
+	c.zBuffer = make([]float64, width)
 }
 
 func (c *Camera) SetFloorTexture(floor *ebiten.Image) {
