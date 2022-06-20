@@ -92,18 +92,14 @@ func NewCamera(width int, height int, texSize int, mapObj Map, tex TextureHandle
 	c.mapHeight = len(firstLevel)
 
 	//--camera position, init to some start position--//
-	fovDegrees := 70.0
-	c.fovAngle = geom.Radians(fovDegrees)
-	c.fovDepth = 1.0
 	c.pos = &geom.Vector2{X: 1.0, Y: 1.0}
 	c.posZ = 0.0
 	c.pitch = 0
 
-	//--current facing direction, init to some start position--//
+	fovDegrees := 70.0
+	c.fovDepth = 1.0
 	c.dir = c.getVecForAngle(0)
-
-	//--the 2d raycaster version of camera plane (ratio between this and dir x resizes FOV)--//
-	c.plane = c.getVecForFov(c.dir)
+	c.SetFovAngle(fovDegrees)
 
 	c.texSize = texSize
 	c.tex = tex
@@ -133,6 +129,11 @@ func (c *Camera) SetViewSize(width, height int) {
 
 	// set zbuffer based on screen width
 	c.zBuffer = make([]float64, width)
+}
+
+func (c *Camera) SetFovAngle(fovDegrees float64) {
+	c.fovAngle = geom.Radians(fovDegrees)
+	c.plane = c.getVecForFov(c.dir)
 }
 
 func (c *Camera) SetFloorTexture(floor *ebiten.Image) {
