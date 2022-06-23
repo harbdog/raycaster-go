@@ -97,9 +97,8 @@ func NewCamera(width int, height int, texSize int, mapObj Map, tex TextureHandle
 	c.pitch = 0
 
 	fovDegrees := 70.0
-	c.fovDepth = 1.0
-	c.dir = c.getVecForAngle(0)
-	c.SetFovAngle(fovDegrees)
+	fovDepth := 1.0
+	c.SetFovAngle(fovDegrees, fovDepth)
 
 	c.texSize = texSize
 	c.tex = tex
@@ -135,13 +134,24 @@ func (c *Camera) ViewSize() (int, int) {
 	return c.w, c.h
 }
 
-func (c *Camera) SetFovAngle(fovDegrees float64) {
+func (c *Camera) SetFovAngle(fovDegrees, fovDepth float64) {
 	c.fovAngle = geom.Radians(fovDegrees)
+	c.fovDepth = fovDepth
+
+	var headingAngle float64 = 0
+	if c.dir != nil {
+		headingAngle = c.getAngleFromVec(c.dir)
+	}
+	c.dir = c.getVecForAngle(headingAngle)
 	c.plane = c.getVecForFov(c.dir)
 }
 
 func (c *Camera) FovAngle() float64 {
 	return geom.Degrees(c.fovAngle)
+}
+
+func (c *Camera) FovDepth() float64 {
+	return c.fovDepth
 }
 
 func (c *Camera) SetFloorTexture(floor *ebiten.Image) {
