@@ -396,7 +396,7 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *level, levelNum int, wg *sy
 	}
 
 	//// FLOOR CASTING ////
-	floorTex := c.floorLvl.texRGBA
+	floorTex := c.tex.FloorTexture()
 	if levelNum == 0 && floorTex != nil {
 		// for now only rendering floor on first level
 		if drawEnd < 0 {
@@ -636,7 +636,6 @@ func (c *Camera) createLevels(numLevels int) []*level {
 func (c *Camera) createFloorLevel() *horLevel {
 	horizontalLevel := new(horLevel)
 	horizontalLevel.clear(c.w, c.h)
-	horizontalLevel.texRGBA = c.tex.FloorTexture()
 	return horizontalLevel
 }
 
