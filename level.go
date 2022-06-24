@@ -38,9 +38,6 @@ func sliceView(width, height int) []*image.Rectangle {
 type horLevel struct {
 	// horBuffer is the image representing the pixels to render during the update
 	horBuffer *image.RGBA
-
-	// texRGBA contains image.RGBA texture used as source for the HorBuffer
-	texRGBA *image.RGBA
 }
 
 func (h *horLevel) clear(width, height int) {
