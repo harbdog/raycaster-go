@@ -89,7 +89,7 @@ func NewCamera(width int, height int, texSize int, mapObj Map, tex TextureHandle
 	c.mapObj = mapObj
 	firstLevel := mapObj.Level(0)
 	c.mapWidth = len(firstLevel)
-	c.mapHeight = len(firstLevel)
+	c.mapHeight = len(firstLevel[0])
 
 	//--camera position, init to some start position--//
 	c.pos = &geom.Vector2{X: 1.0, Y: 1.0}
