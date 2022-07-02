@@ -38,7 +38,7 @@ func (c *Camera) Draw(screen *ebiten.Image) {
 		log.Fatal("floorImg is nil")
 	} else {
 		op := &ebiten.DrawImageOptions{}
-		op.Filter = ebiten.FilterLinear
+		op.Filter = ebiten.FilterNearest
 		screen.DrawImage(floorImg, op)
 	}
 
@@ -78,7 +78,7 @@ func drawTexture(screen *ebiten.Image, texture *ebiten.Image, destinationRectang
 	}
 
 	op := &ebiten.DrawImageOptions{}
-	op.Filter = ebiten.FilterLinear
+	op.Filter = ebiten.FilterNearest
 
 	op.GeoM.Scale(scaleX, scaleY)
 	op.GeoM.Translate(float64(destinationRectangle.Min.X), float64(destinationRectangle.Min.Y))
