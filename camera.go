@@ -314,9 +314,9 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *level, levelNum int, wg *sy
 
 	//Calculate distance of perpendicular ray (oblique distance will give fisheye effect!)
 	if side == 0 {
-		perpWallDist = (float64(mapX) - rayPosX + (1.0-float64(stepX))/2.0) / rayDirX
+		perpWallDist = sideDistX - deltaDistX
 	} else {
-		perpWallDist = (float64(mapY) - rayPosY + (1.0-float64(stepY))/2.0) / rayDirY
+		perpWallDist = sideDistY - deltaDistY
 	}
 
 	//Calculate height of line to draw on screen
@@ -429,7 +429,7 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *level, levelNum int, wg *sy
 			distPlayer = 0.0
 
 			//draw the floor from drawEnd to the bottom of the screen
-			for y := drawEnd + 1; y < c.h; y++ {
+			for y := drawEnd; y < c.h; y++ {
 				currentDist = (float64(c.h) + (2.0 * c.posZ)) / (2.0*float64(y-c.pitch) - float64(c.h))
 
 				weight := (currentDist - distPlayer) / (distWall - distPlayer)
@@ -449,6 +449,9 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *level, levelNum int, wg *sy
 
 				//pixel := floorTex.RGBAAt(floorTexX, floorTexY)
 				pxOffset := floorTex.PixOffset(floorTexX, floorTexY)
+				if pxOffset < 0 {
+					continue
+				}
 				pixel := color.RGBA{floorTex.Pix[pxOffset],
 					floorTex.Pix[pxOffset+1],
 					floorTex.Pix[pxOffset+2],
