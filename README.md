@@ -163,6 +163,20 @@ and make the function calls needed to update and draw during your game loop.
 - Called during your game's implementation of `Draw(screen *ebiten.Image)` to render the raycasted levels and sprites.
 - Must be called after `camera.Update`.
 
+### Optional camera functions
+
+`camera.SetLightFalloff(falloff float64)`
+- Sets value that simulates "torch" light, lower values make torch dimmer.
+- Default: `-100`
+
+`camera.SetGlobalIllumination(illumination float64)`
+- Sets illumination value for whole level ("sun" brightness).
+- Default: `300`
+
+`camera.SetLightRGB(min, max color.NRGBA)`
+- Sets the min/max color tinting of the textures when fully shadowed (min) or lighted (max).
+- Default: min=NRGBA{0, 0, 0}, max=NRGBA{255, 255, 255}
+
 ## Limitations
 
 - Raycasting is not raytracing.
