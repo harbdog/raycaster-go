@@ -74,6 +74,16 @@ type Camera struct {
 
 	tex TextureHandler
 
+	//--simulates torch light, as if player was carrying a radial light--//
+	lightFalloff float64
+
+	//--global illumination for whole level (sun brightness)--//
+	globalIllumination float64
+
+	// controls the min/max color tinting of the textures when fully shadowed (min) or lighted (max)
+	minLightRGB color.NRGBA
+	maxLightRGB color.NRGBA
+
 	// used for concurrency
 	semaphore chan struct{}
 }
@@ -100,6 +110,11 @@ func NewCamera(width int, height int, texSize int, mapObj Map, tex TextureHandle
 	fovDepth := 1.0
 	c.SetFovAngle(fovDegrees, fovDepth)
 
+	// defaults for lighting and distant shadow
+	c.SetLightFalloff(-100)
+	c.SetGlobalIllumination(300)
+	c.SetLightRGB(color.NRGBA{R: 0, G: 0, B: 0}, color.NRGBA{R: 255, G: 255, B: 255})
+
 	c.texSize = texSize
 	c.tex = tex
 	c.SetViewSize(width, height)
@@ -117,6 +132,7 @@ func NewCamera(width int, height int, texSize int, mapObj Map, tex TextureHandle
 	return c
 }
 
+// SetViewSize sets the camera resolution
 func (c *Camera) SetViewSize(width, height int) {
 	c.w = width
 	c.h = height
@@ -134,6 +150,7 @@ func (c *Camera) ViewSize() (int, int) {
 	return c.w, c.h
 }
 
+// SetFovAngle sets the FOV angle (degrees) and depth
 func (c *Camera) SetFovAngle(fovDegrees, fovDepth float64) {
 	c.fovAngle = geom.Radians(fovDegrees)
 	c.fovDepth = fovDepth
@@ -154,12 +171,31 @@ func (c *Camera) FovDepth() float64 {
 	return c.fovDepth
 }
 
+// SetFloorTexture sets the static floorbox texture
 func (c *Camera) SetFloorTexture(floor *ebiten.Image) {
 	c.floor = floor
 }
 
+// SetSkyTexture sets the static skybox texture
 func (c *Camera) SetSkyTexture(sky *ebiten.Image) {
 	c.sky = sky
+}
+
+// SetLightFalloff sets value that simulates torch light, as if player was carrying a radial light.
+// Lower values make torch dimmer.
+func (c *Camera) SetLightFalloff(falloff float64) {
+	c.lightFalloff = falloff
+}
+
+// SetGlobalIllumination sets illumination value for whole level (sun brightness)
+func (c *Camera) SetGlobalIllumination(illumination float64) {
+	c.globalIllumination = illumination
+}
+
+// SetLightRGB sets the min/max color tinting of the textures when fully shadowed (min) or lighted (max)
+func (c *Camera) SetLightRGB(min, max color.NRGBA) {
+	c.minLightRGB = min
+	c.maxLightRGB = max
 }
 
 // Update - updates the camera view
@@ -366,28 +402,22 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *level, levelNum int, wg *sy
 	//--set draw start of slice--//
 	_sv[x].Max.Y = drawEnd
 
-	//--add a bit of tint to differentiate between walls of a corner--//
-	_st[x] = &color.RGBA{255, 255, 255, 255}
-	if side == 1 {
-		wallDiff := 12
-		_st[x].R -= byte(wallDiff)
-		_st[x].G -= byte(wallDiff)
-		_st[x].B -= byte(wallDiff)
-	}
-
 	//// LIGHTING ////
-	//--simulates torch light, as if player was carrying a radial light--//
-	var lightFalloff float64 = -100 //decrease value to make torch dimmer
-
-	//--sun brightness, illuminates whole level--//
-	var sunLight float64 = 300 //global illumination
-
 	//--distance based dimming of light--//
 	var shadowDepth float64
-	shadowDepth = math.Sqrt(perpWallDist) * lightFalloff
-	_st[x].R = byte(geom.ClampInt(int(float64(_st[x].R)+shadowDepth+sunLight), 0, 255))
-	_st[x].G = byte(geom.ClampInt(int(float64(_st[x].G)+shadowDepth+sunLight), 0, 255))
-	_st[x].B = byte(geom.ClampInt(int(float64(_st[x].B)+shadowDepth+sunLight), 0, 255))
+	shadowDepth = math.Sqrt(perpWallDist) * c.lightFalloff
+	_st[x] = &color.RGBA{255, 255, 255, 255}
+	_st[x].R = byte(geom.ClampInt(int(float64(_st[x].R)+shadowDepth+c.globalIllumination), int(c.minLightRGB.R), int(c.maxLightRGB.R)))
+	_st[x].G = byte(geom.ClampInt(int(float64(_st[x].G)+shadowDepth+c.globalIllumination), int(c.minLightRGB.G), int(c.maxLightRGB.G)))
+	_st[x].B = byte(geom.ClampInt(int(float64(_st[x].B)+shadowDepth+c.globalIllumination), int(c.minLightRGB.B), int(c.maxLightRGB.B)))
+
+	//--add a bit of tint to differentiate between walls of a corner--//
+	if side == 0 {
+		wallDiff := 12
+		_st[x].R = byte(geom.ClampInt(int(_st[x].R)-wallDiff, 0, 255))
+		_st[x].G = byte(geom.ClampInt(int(_st[x].G)-wallDiff, 0, 255))
+		_st[x].B = byte(geom.ClampInt(int(_st[x].B)-wallDiff, 0, 255))
+	}
 
 	//SET THE ZBUFFER FOR THE SPRITE CASTING
 	if levelNum == 0 {
@@ -458,11 +488,11 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *level, levelNum int, wg *sy
 					floorTex.Pix[pxOffset+3]}
 
 				// lighting
-				shadowDepth = math.Sqrt(currentDist) * lightFalloff
 				pixelSt := &color.RGBA{255, 255, 255, 255}
-				pixelSt.R = byte(geom.ClampInt(int(float64(pixelSt.R)+shadowDepth+sunLight), 0, 255))
-				pixelSt.G = byte(geom.ClampInt(int(float64(pixelSt.G)+shadowDepth+sunLight), 0, 255))
-				pixelSt.B = byte(geom.ClampInt(int(float64(pixelSt.B)+shadowDepth+sunLight), 0, 255))
+				shadowDepth = math.Sqrt(currentDist) * c.lightFalloff
+				pixelSt.R = byte(geom.ClampInt(int(float64(pixelSt.R)+shadowDepth+c.globalIllumination), int(c.minLightRGB.R), int(c.maxLightRGB.R)))
+				pixelSt.G = byte(geom.ClampInt(int(float64(pixelSt.G)+shadowDepth+c.globalIllumination), int(c.minLightRGB.G), int(c.maxLightRGB.G)))
+				pixelSt.B = byte(geom.ClampInt(int(float64(pixelSt.B)+shadowDepth+c.globalIllumination), int(c.minLightRGB.B), int(c.maxLightRGB.B)))
 				pixel.R = uint8(float64(pixel.R) * float64(pixelSt.R) / 256)
 				pixel.G = uint8(float64(pixel.G) * float64(pixelSt.G) / 256)
 				pixel.B = uint8(float64(pixel.B) * float64(pixelSt.B) / 256)
@@ -539,13 +569,6 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 
 	var spriteSlices []*image.Rectangle
 
-	//// LIGHTING ////
-	//--simulates torch light, as if player was carrying a radial light--//
-	var lightFalloff float64 = -100 //decrease value to make torch dimmer
-
-	//--sun brightness, illuminates whole level--//
-	var sunLight float64 = 300 //global illumination
-
 	//loop through every vertical stripe of the sprite on screen
 	for stripe := drawStartX; stripe < drawEndX; stripe++ {
 		//the conditions in the if are:
@@ -591,14 +614,13 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 			spriteLvl.Sv[stripe].Min.Y = drawStartY + 1
 			spriteLvl.Sv[stripe].Max.Y = drawEndY
 
+			//// LIGHTING ////
 			// distance based lighting/shading
+			shadowDepth := math.Sqrt(transformY) * c.lightFalloff
 			spriteLvl.St[stripe] = &color.RGBA{255, 255, 255, 255}
-
-			//--distance based dimming of light--//
-			shadowDepth := math.Sqrt(transformY) * lightFalloff
-			spriteLvl.St[stripe].R = byte(geom.ClampInt(int(float64(spriteLvl.St[stripe].R)+shadowDepth+sunLight), 0, 255))
-			spriteLvl.St[stripe].G = byte(geom.ClampInt(int(float64(spriteLvl.St[stripe].G)+shadowDepth+sunLight), 0, 255))
-			spriteLvl.St[stripe].B = byte(geom.ClampInt(int(float64(spriteLvl.St[stripe].B)+shadowDepth+sunLight), 0, 255))
+			spriteLvl.St[stripe].R = byte(geom.ClampInt(int(float64(spriteLvl.St[stripe].R)+shadowDepth+c.globalIllumination), int(c.minLightRGB.R), int(c.maxLightRGB.R)))
+			spriteLvl.St[stripe].G = byte(geom.ClampInt(int(float64(spriteLvl.St[stripe].G)+shadowDepth+c.globalIllumination), int(c.minLightRGB.G), int(c.maxLightRGB.G)))
+			spriteLvl.St[stripe].B = byte(geom.ClampInt(int(float64(spriteLvl.St[stripe].B)+shadowDepth+c.globalIllumination), int(c.minLightRGB.B), int(c.maxLightRGB.B)))
 		}
 	}
 
