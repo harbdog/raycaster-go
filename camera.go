@@ -84,6 +84,9 @@ type Camera struct {
 	minLightRGB color.NRGBA
 	maxLightRGB color.NRGBA
 
+	// maximum distance to render raycasted objects
+	renderDistance float64
+
 	// used for concurrency
 	semaphore chan struct{}
 }
@@ -111,6 +114,7 @@ func NewCamera(width int, height int, texSize int, mapObj Map, tex TextureHandle
 	c.SetFovAngle(fovDegrees, fovDepth)
 
 	// defaults for lighting and distant shadow
+	c.SetRenderDistance(-1)
 	c.SetLightFalloff(-100)
 	c.SetGlobalIllumination(300)
 	c.SetLightRGB(color.NRGBA{R: 0, G: 0, B: 0}, color.NRGBA{R: 255, G: 255, B: 255})
@@ -181,6 +185,15 @@ func (c *Camera) SetSkyTexture(sky *ebiten.Image) {
 	c.sky = sky
 }
 
+// SetRenderDistance sets maximum distance to render raycasted objects (-1 for practically inf)
+func (c *Camera) SetRenderDistance(distance float64) {
+	if distance < 0 {
+		c.renderDistance = math.MaxFloat64
+	} else {
+		c.renderDistance = distance
+	}
+}
+
 // SetLightFalloff sets value that simulates torch light, as if player was carrying a radial light.
 // Lower values make torch dimmer.
 func (c *Camera) SetLightFalloff(falloff float64) {
@@ -234,7 +247,7 @@ func (c *Camera) raycast() {
 	for i := 0; i < numSprites; i++ {
 		sprite := c.sprites[i]
 		c.spriteOrder[i] = i
-		c.spriteDistance[i] = (math.Pow(c.pos.X-sprite.Pos().X, 2) + math.Pow(c.pos.Y-sprite.Pos().Y, 2))
+		c.spriteDistance[i] = math.Sqrt(math.Pow(c.pos.X-sprite.Pos().X, 2) + math.Pow(c.pos.Y-sprite.Pos().Y, 2))
 	}
 	combSort(c.spriteOrder, c.spriteDistance, numSprites)
 
@@ -337,22 +350,23 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *level, levelNum int, wg *sy
 			side = 1
 		}
 
+		//Calculate distance of perpendicular ray (oblique distance will give fisheye effect!)
+		if side == 0 {
+			perpWallDist = sideDistX - deltaDistX
+		} else {
+			perpWallDist = sideDistY - deltaDistY
+		}
+
 		//Check if ray has hit a wall
 		if mapX >= 0 && mapY >= 0 && mapX < c.mapWidth && mapY < c.mapHeight {
-			if grid[mapX][mapY] > 0 {
+			if perpWallDist <= c.renderDistance && grid[mapX][mapY] > 0 {
+				// only render walls within render distance
 				hit = 1
 			}
 		} else {
 			//hit grid boundary
 			hit = 2
 		}
-	}
-
-	//Calculate distance of perpendicular ray (oblique distance will give fisheye effect!)
-	if side == 0 {
-		perpWallDist = sideDistX - deltaDistX
-	} else {
-		perpWallDist = sideDistY - deltaDistY
 	}
 
 	//Calculate height of line to draw on screen
@@ -366,6 +380,15 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *level, levelNum int, wg *sy
 	// if drawStart < 0 { drawStart = 0 }
 	// if drawEnd >= c.h { drawEnd = c.h - 1 }
 
+	//calculate value of wallX
+	var wallX float64 //where exactly the wall/boundary was hit
+	if side == 0 {
+		wallX = rayPosY + perpWallDist*rayDirY
+	} else {
+		wallX = rayPosX + perpWallDist*rayDirX
+	}
+	wallX -= math.Floor(wallX)
+
 	//texturing calculations
 	var texture *ebiten.Image
 	if mapX >= 0 && mapY >= 0 && mapX < c.mapWidth && mapY < c.mapHeight {
@@ -374,49 +397,41 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *level, levelNum int, wg *sy
 
 	c.levels[levelNum].CurrTex[x] = texture
 
-	//calculate value of wallX
-	var wallX float64 //where exactly the wall was hit
-	if side == 0 {
-		wallX = rayPosY + perpWallDist*rayDirY
-	} else {
-		wallX = rayPosX + perpWallDist*rayDirX
-	}
-	wallX -= math.Floor(wallX)
+	if texture != nil {
+		//x coordinate on the texture
+		texX := int(wallX * float64(c.texSize))
+		if side == 0 && rayDirX > 0 {
+			texX = c.texSize - texX - 1
+		}
 
-	//x coordinate on the texture
-	texX := int(wallX * float64(c.texSize))
-	if side == 0 && rayDirX > 0 {
-		texX = c.texSize - texX - 1
-	}
+		if side == 1 && rayDirY < 0 {
+			texX = c.texSize - texX - 1
+		}
 
-	if side == 1 && rayDirY < 0 {
-		texX = c.texSize - texX - 1
-	}
+		//--set current texture slice to be slice x--//
+		_cts[x] = c.slices[texX]
 
-	//--set current texture slice to be slice x--//
-	_cts[x] = c.slices[texX]
+		//--set height of slice--//
+		_sv[x].Min.Y = drawStart
 
-	//--set height of slice--//
-	_sv[x].Min.Y = drawStart
+		//--set draw start of slice--//
+		_sv[x].Max.Y = drawEnd
 
-	//--set draw start of slice--//
-	_sv[x].Max.Y = drawEnd
+		//// LIGHTING ////
+		//--distance based dimming of light--//
+		shadowDepth := math.Sqrt(perpWallDist) * c.lightFalloff
+		_st[x] = &color.RGBA{255, 255, 255, 255}
+		_st[x].R = byte(geom.ClampInt(int(float64(_st[x].R)+shadowDepth+c.globalIllumination), int(c.minLightRGB.R), int(c.maxLightRGB.R)))
+		_st[x].G = byte(geom.ClampInt(int(float64(_st[x].G)+shadowDepth+c.globalIllumination), int(c.minLightRGB.G), int(c.maxLightRGB.G)))
+		_st[x].B = byte(geom.ClampInt(int(float64(_st[x].B)+shadowDepth+c.globalIllumination), int(c.minLightRGB.B), int(c.maxLightRGB.B)))
 
-	//// LIGHTING ////
-	//--distance based dimming of light--//
-	var shadowDepth float64
-	shadowDepth = math.Sqrt(perpWallDist) * c.lightFalloff
-	_st[x] = &color.RGBA{255, 255, 255, 255}
-	_st[x].R = byte(geom.ClampInt(int(float64(_st[x].R)+shadowDepth+c.globalIllumination), int(c.minLightRGB.R), int(c.maxLightRGB.R)))
-	_st[x].G = byte(geom.ClampInt(int(float64(_st[x].G)+shadowDepth+c.globalIllumination), int(c.minLightRGB.G), int(c.maxLightRGB.G)))
-	_st[x].B = byte(geom.ClampInt(int(float64(_st[x].B)+shadowDepth+c.globalIllumination), int(c.minLightRGB.B), int(c.maxLightRGB.B)))
-
-	//--add a bit of tint to differentiate between walls of a corner--//
-	if side == 0 {
-		wallDiff := 12
-		_st[x].R = byte(geom.ClampInt(int(_st[x].R)-wallDiff, 0, 255))
-		_st[x].G = byte(geom.ClampInt(int(_st[x].G)-wallDiff, 0, 255))
-		_st[x].B = byte(geom.ClampInt(int(_st[x].B)-wallDiff, 0, 255))
+		//--add a bit of tint to differentiate between walls of a corner--//
+		if side == 0 {
+			wallDiff := 12
+			_st[x].R = byte(geom.ClampInt(int(_st[x].R)-wallDiff, 0, 255))
+			_st[x].G = byte(geom.ClampInt(int(_st[x].G)-wallDiff, 0, 255))
+			_st[x].B = byte(geom.ClampInt(int(_st[x].B)-wallDiff, 0, 255))
+		}
 	}
 
 	//SET THE ZBUFFER FOR THE SPRITE CASTING
@@ -461,6 +476,9 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *level, levelNum int, wg *sy
 			//draw the floor from drawEnd to the bottom of the screen
 			for y := drawEnd; y < c.h; y++ {
 				currentDist = (float64(c.h) + (2.0 * c.posZ)) / (2.0*float64(y-c.pitch) - float64(c.h))
+				if currentDist > c.renderDistance {
+					continue
+				}
 
 				weight := (currentDist - distPlayer) / (distWall - distPlayer)
 
@@ -489,7 +507,7 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *level, levelNum int, wg *sy
 
 				// lighting
 				pixelSt := &color.RGBA{255, 255, 255, 255}
-				shadowDepth = math.Sqrt(currentDist) * c.lightFalloff
+				shadowDepth := math.Sqrt(currentDist) * c.lightFalloff
 				pixelSt.R = byte(geom.ClampInt(int(float64(pixelSt.R)+shadowDepth+c.globalIllumination), int(c.minLightRGB.R), int(c.maxLightRGB.R)))
 				pixelSt.G = byte(geom.ClampInt(int(float64(pixelSt.G)+shadowDepth+c.globalIllumination), int(c.minLightRGB.G), int(c.maxLightRGB.G)))
 				pixelSt.B = byte(geom.ClampInt(int(float64(pixelSt.B)+shadowDepth+c.globalIllumination), int(c.minLightRGB.B), int(c.maxLightRGB.B)))
@@ -511,6 +529,11 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *level, levelNum int, wg *sy
 func (c *Camera) castSprite(spriteOrdIndex int) {
 	// the sprite
 	sprite := c.sprites[c.spriteOrder[spriteOrdIndex]]
+
+	spriteDist := c.spriteDistance[spriteOrdIndex]
+	if spriteDist > c.renderDistance {
+		return
+	}
 
 	// track whether the sprite actually needs to draw
 	renderSprite := false

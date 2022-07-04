@@ -165,6 +165,10 @@ and make the function calls needed to update and draw during your game loop.
 
 ### Optional camera functions
 
+`camera.SetRenderDistance(distance float64)`
+- Sets maximum distance to render raycasted floors, walls, and objects (-1 for practically inf)
+- Default: `-1`
+
 `camera.SetLightFalloff(falloff float64)`
 - Sets value that simulates "torch" light, lower values make torch dimmer.
 - Default: `-100`
