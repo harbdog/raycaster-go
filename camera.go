@@ -359,7 +359,10 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *level, levelNum int, wg *sy
 
 		//Check if ray has hit a wall
 		if mapX >= 0 && mapY >= 0 && mapX < c.mapWidth && mapY < c.mapHeight {
-			if perpWallDist <= c.renderDistance && grid[mapX][mapY] > 0 {
+			if perpWallDist > c.renderDistance {
+				// hit render distance bounds
+				hit = 2
+			} else if perpWallDist <= c.renderDistance && grid[mapX][mapY] > 0 {
 				// only render walls within render distance
 				hit = 1
 			}
