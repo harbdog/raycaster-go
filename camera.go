@@ -51,7 +51,7 @@ type Camera struct {
 	mapWidth  int
 	mapHeight int
 
-	//--test texture--//
+	//--floor box, sky box textures--//
 	floor *ebiten.Image
 	sky   *ebiten.Image
 
@@ -394,7 +394,7 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *level, levelNum int, wg *sy
 
 	//texturing calculations
 	var texture *ebiten.Image
-	if mapX >= 0 && mapY >= 0 && mapX < c.mapWidth && mapY < c.mapHeight {
+	if hit == 1 && mapX >= 0 && mapY >= 0 && mapX < c.mapWidth && mapY < c.mapHeight {
 		texture = c.tex.TextureAt(mapX, mapY, levelNum, side)
 	}
 
