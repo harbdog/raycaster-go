@@ -81,8 +81,9 @@ Interface functions required for rendering texture images for the walls and floo
 - The size of the texture image returned will need to match the texture size (`texSize`) provided
   to the `NewCamera` function. For example `texSize: 256` requires all wall textures to be `256x256` pixels in size.
 
-`FloorTexture() *image.RGBA`
-- Used to return an [image.RGBA](https://pkg.go.dev/image#RGBA) to be used as the repeating floor texture.
+`FloorTextureAt(x, y int) *image.RGBA`
+- Used to return an [image.RGBA](https://pkg.go.dev/image#RGBA) to be used as the repeating floor texture
+  at the indicated X/Y map coordinate.
 - It can also return `nil` to only render the non-repeating floor texture provided to
   the `camera.SetFloorTexture` function.
 
