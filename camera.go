@@ -441,8 +441,7 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *level, levelNum int, wg *sy
 	}
 
 	//// FLOOR CASTING ////
-	floorTex := c.tex.FloorTexture()
-	if levelNum == 0 && floorTex != nil {
+	if levelNum == 0 {
 		// for now only rendering floor on first level
 		if drawEnd < 0 {
 			drawEnd = c.h //becomes < 0 when the integer overflows
@@ -485,11 +484,12 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *level, levelNum int, wg *sy
 				currentFloorX := weight*floorXWall + (1.0-weight)*rayPosX
 				currentFloorY := weight*floorYWall + (1.0-weight)*rayPosY
 
-				var floorTexX, floorTexY int
-				floorTexX = int(currentFloorX*float64(c.texSize)) % c.texSize
-				floorTexY = int(currentFloorY*float64(c.texSize)) % c.texSize
+				//floor texture for map coordinate being rendered
+				floorTex := c.tex.FloorTextureAt(int(currentFloorX), int(currentFloorY))
 
-				//floor
+				floorTexX := int(currentFloorX*float64(c.texSize)) % c.texSize
+				floorTexY := int(currentFloorY*float64(c.texSize)) % c.texSize
+
 				// buffer[y][x] = (texture[3][texWidth * floorTexY + floorTexX] >> 1) & 8355711;
 				// the same vertical slice method cannot be used for floor rendering
 				// floorTexNum := 0
