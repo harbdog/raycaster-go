@@ -489,6 +489,9 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *level, levelNum int, wg *sy
 
 				//floor texture for map coordinate being rendered
 				floorTex := c.tex.FloorTextureAt(int(currentFloorX), int(currentFloorY))
+				if floorTex == nil {
+					continue
+				}
 
 				floorTexX := int(currentFloorX*float64(c.texSize)) % c.texSize
 				floorTexY := int(currentFloorY*float64(c.texSize)) % c.texSize
