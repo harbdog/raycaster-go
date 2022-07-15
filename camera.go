@@ -487,6 +487,11 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *level, levelNum int, wg *sy
 				currentFloorX := weight*floorXWall + (1.0-weight)*rayPosX
 				currentFloorY := weight*floorYWall + (1.0-weight)*rayPosY
 
+				// do not call FloorTextureAt interface if X/Y is outside of map bounds
+				if currentFloorX < 0 || currentFloorY < 0 || int(currentFloorX) >= c.mapWidth || int(currentFloorY) >= c.mapHeight {
+					continue
+				}
+
 				//floor texture for map coordinate being rendered
 				floorTex := c.tex.FloorTextureAt(int(currentFloorX), int(currentFloorY))
 				if floorTex == nil {
