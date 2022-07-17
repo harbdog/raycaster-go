@@ -101,13 +101,15 @@ Interface functions required to determine sprite images and positions to render 
 `Scale() float64`
 - Needs to return the scale factor of the sprite.
 - A value of `1.0` indicates no scaling.
-- Note that scaling below or above `1.0 ` will likely require also providing a non-zero value from `VerticalOffset()`.
+- Note that scaling below or above `1.0 ` will likely require `VerticalAnchor()` to return desired position
+  since the centered scaling point is at the vertical center of the screen.
 
-`VerticalOffset() float64`
-- Needs to return the vertical offset to displace the sprite image.
-- A value of `0.0` indicates no offset.
-- Typically only needs to provide a non-zero value when `Scale()` returns a value other than `1.0`,
-  if you find the sprite image is floating above or sinking below the floor when scaled.
+`VerticalAnchor() raycaster.SpriteAnchor`
+- Needs to return the vertical anchor for positioning a scaled sprite image.
+- It is only used when `Scale()` returns a value other than `1.0`. If not scaling images just make it return any one.
+- `raycaster.AnchorBottom`: makes a scaled image shift to the bottom of the level.
+- `raycaster.AnchorCenter`: keeps a scaled image centered to the level.
+- `raycaster.AnchorTop`: makes a scaled image shift to the top of the level.
 
 `Texture() *ebiten.Image`
 - Needs to return the current image to render.
