@@ -17,12 +17,39 @@ type Sprite interface {
 	// Scale returns the scale factor (for no scaling, default to 1.0)
 	Scale() float64
 
-	// VerticalOffset returns the vertical offset needed (often needed when scaling, default to 0.0)
-	VerticalOffset() float64
+	// VerticalAnchor returns the vertical anchor position (only used when scaling image)
+	VerticalAnchor() SpriteAnchor
 
 	// Texture needs to return the current image to render
 	Texture() *ebiten.Image
 
 	// TextureRect needs to return the rectangle of the texture coordinates to draw
 	TextureRect() image.Rectangle
+}
+
+type SpriteAnchor int
+
+const (
+	AnchorBottom SpriteAnchor = iota
+	AnchorCenter
+	AnchorTop
+)
+
+func getAnchorVerticalOffset(anchor SpriteAnchor, spriteScale float64, cameraHeight int) float64 {
+	if spriteScale == 1.0 {
+		return 0
+	}
+
+	switch anchor {
+	case AnchorBottom:
+		halfHeight := float64(cameraHeight) / 2
+		return halfHeight - (spriteScale * halfHeight)
+	case AnchorCenter:
+		return 0
+	case AnchorTop:
+		halfHeight := float64(cameraHeight) / 2
+		return -(spriteScale * halfHeight)
+	}
+
+	return 0
 }
