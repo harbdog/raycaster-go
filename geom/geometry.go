@@ -1,6 +1,8 @@
 package geom
 
-import "math"
+import (
+	"math"
+)
 
 const (
 	Pi2    = math.Pi * 2
@@ -101,6 +103,11 @@ type Line struct {
 // Angle gets the angle of the line
 func (l *Line) Angle() float64 {
 	return math.Atan2(l.Y2-l.Y1, l.X2-l.X1)
+}
+
+// Distance gets the distance between the two endpoints of the line
+func (l *Line) Distance() float64 {
+	return Distance(l.X1, l.Y1, l.X2, l.Y2)
 }
 
 // Distance returns the distance between two points
