@@ -22,7 +22,7 @@ To get started with your own project using the raycaster-go engine as a Go modul
 2. Setup your project to use go modules: `go mod init github.com/yourname/yourgame` 
 3. Download the raycaster-go module: `go get github.com/harbdog/raycaster-go`
 
-**NOTE**: Depending on the OS, the Ebiten game library may have
+**NOTE**: Depending on the OS, the Ebitengine game library may have
 [additional dependencies to install](https://ebiten.org/documents/install.html).
 
 ## Creating your own raycaster project

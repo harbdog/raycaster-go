@@ -605,6 +605,13 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 		drawEndX = c.w - 1
 	}
 
+	// modify tex startY and endY based on distance
+	d := (drawStartY-vMoveScreen)*256 - c.h*128 + spriteHeight*128 //256 and 128 factors to avoid floats
+	texStartY := ((d * spriteTexHeight) / spriteHeight) / 256
+
+	d = (drawEndY-1-vMoveScreen)*256 - c.h*128 + spriteHeight*128
+	texEndY := ((d * spriteTexHeight) / spriteHeight) / 256
+
 	var spriteSlices []*image.Rectangle
 
 	//loop through every vertical stripe of the sprite on screen
@@ -625,19 +632,7 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 			}
 
 			texX := int(256*(stripe-(-spriteWidth/2+spriteScreenX))*spriteTexWidth/spriteWidth) / 256
-
 			if texX < 0 || texX >= cap(spriteSlices) {
-				continue
-			}
-
-			// modify tex startY and endY based on distance
-			d := (drawStartY-vMoveScreen)*256 - c.h*128 + spriteHeight*128 //256 and 128 factors to avoid floats
-			texStartY := ((d * spriteTexWidth) / spriteHeight) / 256
-
-			d = (drawEndY-1-vMoveScreen)*256 - c.h*128 + spriteHeight*128
-			texEndY := ((d * spriteTexWidth) / spriteHeight) / 256
-
-			if texStartY < 0 || texStartY >= texEndY || texEndY >= spriteTexWidth {
 				continue
 			}
 
