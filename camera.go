@@ -583,6 +583,10 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 
 	//calculate height of the sprite on screen
 	spriteHeight := int(math.Abs(float64(c.h)/transformY) / vDiv) //using "transformY" instead of the real distance prevents fisheye
+	if spriteHeight == 0 {
+		return
+	}
+
 	//calculate lowest and highest pixel to fill in current stripe
 	drawStartY := -spriteHeight/2 + c.h/2 + vMoveScreen
 	if drawStartY < 0 {
@@ -595,6 +599,10 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 
 	//calculate width of the sprite
 	spriteWidth := int(math.Abs(float64(c.h)/transformY) / uDiv)
+	if spriteWidth == 0 {
+		return
+	}
+
 	drawStartX := -spriteWidth/2 + spriteScreenX
 	drawEndX := spriteWidth/2 + spriteScreenX
 
