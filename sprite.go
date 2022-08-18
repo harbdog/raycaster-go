@@ -25,6 +25,9 @@ type Sprite interface {
 
 	// TextureRect needs to return the rectangle of the texture coordinates to draw
 	TextureRect() image.Rectangle
+
+	// SetScreenRect accepts the raycasted rectangle of the screen coordinates to be rendered (nil if not on screen)
+	SetScreenRect(rect *image.Rectangle)
 }
 
 type SpriteAnchor int

@@ -543,6 +543,7 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 
 	spriteDist := c.spriteDistance[spriteOrdIndex]
 	if spriteDist > c.renderDistance {
+		sprite.SetScreenRect(nil)
 		return
 	}
 
@@ -583,9 +584,6 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 
 	//calculate height of the sprite on screen
 	spriteHeight := int(math.Abs(float64(c.h)/transformY) / vDiv) //using "transformY" instead of the real distance prevents fisheye
-	if spriteHeight == 0 {
-		return
-	}
 
 	//calculate lowest and highest pixel to fill in current stripe
 	drawStartY := -spriteHeight/2 + c.h/2 + vMoveScreen
@@ -599,9 +597,6 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 
 	//calculate width of the sprite
 	spriteWidth := int(math.Abs(float64(c.h)/transformY) / uDiv)
-	if spriteWidth == 0 {
-		return
-	}
 
 	drawStartX := -spriteWidth/2 + spriteScreenX
 	drawEndX := spriteWidth/2 + spriteScreenX
@@ -611,6 +606,11 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 	}
 	if drawEndX >= c.w {
 		drawEndX = c.w - 1
+	}
+
+	if spriteWidth == 0 || spriteHeight == 0 {
+		sprite.SetScreenRect(nil)
+		return
 	}
 
 	// modify tex startY and endY based on distance
@@ -665,8 +665,13 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 		}
 	}
 
-	if !renderSprite {
+	if renderSprite {
+		// store raycasted sprite x/y view bounds so they can be retrieved by consumers
+		spriteCastRect := image.Rect(drawStartX, drawStartY, drawEndX, drawEndY)
+		sprite.SetScreenRect(&spriteCastRect)
+	} else {
 		c.clearSpriteLevel(spriteOrdIndex)
+		sprite.SetScreenRect(nil)
 	}
 }
 
@@ -910,24 +915,4 @@ func (c *Camera) RotateCamera(rSpeed float64) {
 func (c *Camera) PitchCamera(pDelta int) {
 	newPitch := geom.ClampInt(c.pitch+pDelta, -c.h/2, c.h/2)
 	c.pitch = newPitch
-}
-
-// Stand camera position
-func (c *Camera) StandCamera() {
-	c.posZ = 0.0
-}
-
-// Crouch camera position
-func (c *Camera) CrouchCamera() {
-	c.posZ = -150.0
-}
-
-// Prone camera position
-func (c *Camera) ProneCamera() {
-	c.posZ = -280.0
-}
-
-// Jump camera position
-func (c *Camera) JumpCamera() {
-	c.posZ = 200.0
 }

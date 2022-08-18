@@ -127,6 +127,12 @@ Interface functions required to determine sprite images and positions to render 
   return image.Rect(0, 0, imageWidth, imageHeight)
   ```
 
+`SetScreenRect(rect *image.Rectangle)`
+- Needs to accept an [*image.Rectangle](https://pkg.go.dev/image#Rectangle) pointer representing the screen
+  position that the sprite will be getting rendered at.
+- If the sprite is off-camera or completely obscured by a wall, it will be provided as `nil`.
+- Can be useful for rendering custom user interfaces at raycasted sprite positions.
+
 ## Raycaster-go camera
 
 After implementing all required interface functions, the last step is to initialize an instance of `raycaster.Camera`
