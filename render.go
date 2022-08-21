@@ -1,13 +1,11 @@
 package raycaster
 
 import (
-	"fmt"
 	"image"
 	"image/color"
 	"log"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 )
 
 // Draw the raycasted camera view to the screen.
@@ -56,10 +54,6 @@ func (c *Camera) Draw(screen *ebiten.Image) {
 			}
 		}
 	}
-
-	// FPS/TPS counter
-	fps := fmt.Sprintf("FPS: %f\nTPS: %f/%v", ebiten.CurrentFPS(), ebiten.CurrentTPS(), ebiten.MaxTPS())
-	ebitenutil.DebugPrint(screen, fps)
 }
 
 func drawTexture(screen *ebiten.Image, texture *ebiten.Image, destinationRectangle *image.Rectangle, sourceRectangle *image.Rectangle, color *color.RGBA) {
