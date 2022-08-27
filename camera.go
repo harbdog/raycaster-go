@@ -849,11 +849,12 @@ func (c *Camera) SetHeadingAngle(heading float64) {
 
 // Set camera pitch view from given pitch angle
 func (c *Camera) SetPitchAngle(pitch float64) {
-	cameraPitch := geom.GetOppositeTriangleLeg(pitch, float64(c.h/2))
-	c.pitch = int(cameraPitch)
+	cameraPitch := geom.GetOppositeTriangleLeg(pitch, float64(c.h))
+	// clamping it since looking down too far causes floor texture glitches
+	c.pitch = geom.ClampInt(int(cameraPitch), -c.h/2, c.h)
 }
 
-// Move camera by move speed (does not alter player model position)
+// Move camera by move speed (consumers should instead use SetPosition)
 func (c *Camera) MoveCamera(mSpeed float64) {
 	mx := c.pos.X + (c.dir.X * mSpeed)
 	my := c.pos.Y + (c.dir.Y * mSpeed)
@@ -893,14 +894,14 @@ func (c *Camera) getVecForFov(dir *geom.Vector2) *geom.Vector2 {
 	return dir.Copy().Sub(c.getVecForAngleLength(angle+c.fovAngle/2, hypotenuse))
 }
 
-// Strafe camera by strafe speed (does not alter player model position)
+// Strafe camera by strafe speed (consumers should instead use SetPosition)
 func (c *Camera) StrafeCamera(sSpeed float64) {
 	sx := c.pos.X + (c.plane.X * sSpeed)
 	sy := c.pos.Y + (c.plane.Y * sSpeed)
 	c.pos.X, c.pos.Y = c.getValidCameraMove(sx, sy, true)
 }
 
-// Rotate camera by rotate speed (does not alter player model orientation)
+// Rotate camera by rotate speed (consumers should instead use SetHeadingAngle)
 func (c *Camera) RotateCamera(rSpeed float64) {
 	//both camera direction and camera plane must be rotated
 	oldDirX := c.dir.X
@@ -911,8 +912,8 @@ func (c *Camera) RotateCamera(rSpeed float64) {
 	c.plane.Y = (oldPlaneX*math.Sin(rSpeed) + c.plane.Y*math.Cos(rSpeed))
 }
 
-// Pitch camera by pitch delta (does not alter player model orientation)
+// Pitch camera by pitch delta (consumers should instead use SetPitchAngle)
 func (c *Camera) PitchCamera(pDelta int) {
-	newPitch := geom.ClampInt(c.pitch+pDelta, -c.h/2, c.h/2)
-	c.pitch = newPitch
+	// clamping it since looking down too far causes floor texture glitches
+	c.pitch = geom.ClampInt(c.pitch+pDelta, -c.h/2, c.h)
 }
