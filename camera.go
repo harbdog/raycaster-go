@@ -566,7 +566,7 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 	invDet := 1.0 / (c.plane.X*c.dir.Y - c.dir.X*c.plane.Y) //required for correct matrix multiplication
 
 	transformX := invDet * (c.dir.Y*spriteX - c.dir.X*spriteY)
-	transformY := invDet * (-c.plane.Y*spriteX + c.plane.X*spriteY) //this is actually the depth inside the screen, that what Z is in 3D
+	transformY := invDet * (-c.plane.Y*spriteX + c.plane.X*spriteY)
 
 	spriteScreenX := int(float64(c.w) / 2 * (1 + transformX/transformY))
 
@@ -578,7 +578,7 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 	var vDiv float64 = 1 / spriteScale
 	var vOffset float64 = getAnchorVerticalOffset(spriteAnchor, spriteScale, c.h)
 
-	var vMove float64 = -(sprite.PosZ()-0.5)*float64(c.texSize)*2 + vOffset
+	var vMove float64 = -(sprite.PosZ()-0.5)*float64(c.h) + vOffset
 
 	vMoveScreen := int(vMove/transformY) + c.pitch + int(c.posZ/transformY)
 
@@ -873,14 +873,6 @@ func (c *Camera) getVecForAngleLength(angle, length float64) *geom.Vector2 {
 
 func (c *Camera) getVecForAngle(angle float64) *geom.Vector2 {
 	return &geom.Vector2{X: c.fovDepth * math.Cos(angle), Y: c.fovDepth * math.Sin(angle)}
-}
-
-// Get the FOV from the dir+-plane vectors
-func (c *Camera) getFovFromVec(dir, plane *geom.Vector2) float64 {
-	pov1 := dir.Copy().Add(plane)
-	pov2 := dir.Copy().Sub(plane)
-	fovAngle := math.Atan2(pov2.Y, pov2.X) - math.Atan2(pov1.Y, pov1.X)
-	return fovAngle
 }
 
 // Get the plane vector from FOV based on dir vector
