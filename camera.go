@@ -849,9 +849,9 @@ func (c *Camera) SetHeadingAngle(heading float64) {
 
 // Set camera pitch view from given pitch angle
 func (c *Camera) SetPitchAngle(pitch float64) {
-	cameraPitch := geom.GetOppositeTriangleLeg(pitch, float64(c.h))
-	// clamping it since looking down too far causes floor texture glitches
-	c.pitch = geom.ClampInt(int(cameraPitch), -c.h/2, c.h)
+	cameraPitch := geom.GetOppositeTriangleLeg(pitch, float64(c.h)*c.fovDepth)
+	// clamping it since looking down or up too far causes floor texture glitches and wall warping
+	c.pitch = geom.ClampInt(int(cameraPitch), -c.h/2, int(float64(c.h)*c.fovDepth))
 }
 
 // Move camera by move speed (consumers should instead use SetPosition)
