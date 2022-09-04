@@ -570,7 +570,7 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 
 	spriteScreenX := int(float64(c.w) / 2 * (1 + transformX/transformY))
 
-	//parameters for scaling and moving the sprites
+	//parameters for scaling and translating the sprites
 	spriteScale := sprite.Scale()
 	spriteAnchor := sprite.VerticalAnchor()
 
@@ -578,7 +578,7 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 	var vDiv float64 = 1 / spriteScale
 	var vOffset float64 = getAnchorVerticalOffset(spriteAnchor, spriteScale, c.h)
 
-	var vMove float64 = -(sprite.PosZ()-0.5)*float64(c.h) + vOffset
+	var vMove float64 = -sprite.PosZ()*float64(c.h) + vOffset
 
 	vMoveScreen := int(vMove/transformY) + c.pitch + int(c.posZ/transformY)
 
@@ -831,8 +831,9 @@ func (c *Camera) GetPosition() *geom.Vector2 {
 }
 
 // Set camera Z-plane position
-func (c *Camera) SetPositionZ(posZ float64) {
-	c.posZ = posZ
+func (c *Camera) SetPositionZ(gridPosZ float64) {
+	// convert grid position to camera position
+	c.posZ = (gridPosZ - 0.5) * float64(c.h)
 }
 
 // Get camera Z-plane position

@@ -96,20 +96,20 @@ Interface functions required to determine sprite images and positions to render 
 
 `PosZ() float64`
 - Needs to return the Z-position of the sprite.
-- A value of `0.5` represents positioning the center of the sprite at the center of the first elevation level.
+- A value of `0.0` represents the very bottom of the floor on the first elevation level.
+- The `VerticalAnchor()` value will be used to determine rendered sprite orientation about the Z-position.
+
+`VerticalAnchor() raycaster.SpriteAnchor`
+- Needs to return the vertical anchor for positioning a sprite image.
+- `raycaster.AnchorBottom`: makes an image shift to the bottom of its Z-position.
+- `raycaster.AnchorCenter`: keeps an image centered to its Z-position.
+- `raycaster.AnchorTop`: makes an image shift to the top of its Z-position.
 
 `Scale() float64`
 - Needs to return the scale factor of the sprite.
 - A value of `1.0` indicates no scaling.
 - Note that scaling below or above `1.0 ` will likely require `VerticalAnchor()` to return desired position
   since the centered scaling point is at the vertical center of the screen.
-
-`VerticalAnchor() raycaster.SpriteAnchor`
-- Needs to return the vertical anchor for positioning a scaled sprite image.
-- It is only used when `Scale()` returns a value other than `1.0`. If not scaling images just make it return any one.
-- `raycaster.AnchorBottom`: makes a scaled image shift to the bottom of the level.
-- `raycaster.AnchorCenter`: keeps a scaled image centered to the level.
-- `raycaster.AnchorTop`: makes a scaled image shift to the top of the level.
 
 `Texture() *ebiten.Image`
 - Needs to return the current image to render.

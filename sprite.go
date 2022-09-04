@@ -33,25 +33,24 @@ type Sprite interface {
 type SpriteAnchor int
 
 const (
+	// AnchorBottom anchors the bottom of the sprite to its Z-position
 	AnchorBottom SpriteAnchor = iota
+	// AnchorCenter anchors the center of the sprite to its Z-position
 	AnchorCenter
+	// AnchorTop anchors the top of the sprite to its Z-position
 	AnchorTop
 )
 
 func getAnchorVerticalOffset(anchor SpriteAnchor, spriteScale float64, cameraHeight int) float64 {
-	if spriteScale == 1.0 {
-		return 0
-	}
+	halfHeight := float64(cameraHeight) / 2
 
 	switch anchor {
 	case AnchorBottom:
-		halfHeight := float64(cameraHeight) / 2
 		return halfHeight - (spriteScale * halfHeight)
 	case AnchorCenter:
-		return 0
+		return halfHeight
 	case AnchorTop:
-		halfHeight := float64(cameraHeight) / 2
-		return -(spriteScale * halfHeight)
+		return halfHeight + (spriteScale * halfHeight)
 	}
 
 	return 0
