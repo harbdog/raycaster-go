@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/harbdog/raycaster-go/geom"
+	"github.com/harbdog/raycaster-go/geom3d"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -28,10 +29,12 @@ type Camera struct {
 	pos *geom.Vector2
 
 	// vertical camera strafing up/down, for jumping/crouching
+	camZ float64
 	posZ float64
 
 	//--current facing direction, init to values coresponding to FOV--//
-	dir *geom.Vector2
+	dir          *geom.Vector2
+	headingAngle float64
 
 	//--the 2d raycaster version of camera plane, adjust y component to change FOV (ratio between this and dir x resizes FOV)--//
 	plane *geom.Vector2
@@ -41,7 +44,8 @@ type Camera struct {
 	h int
 
 	// camera pitch
-	pitch int
+	pitch      int
+	pitchAngle float64
 
 	// camera fov angle and depth
 	fovAngle, fovDepth float64
@@ -87,6 +91,10 @@ type Camera struct {
 	// maximum distance to render raycasted objects
 	renderDistance float64
 
+	// point at which the center of the screen converges (for reticle use)
+	convergenceDistance float64
+	convergencePoint    *geom3d.Vector3
+
 	// used for concurrency
 	semaphore chan struct{}
 }
@@ -106,8 +114,9 @@ func NewCamera(width int, height int, texSize int, mapObj Map, tex TextureHandle
 
 	//--camera position, init to some start position--//
 	c.pos = &geom.Vector2{X: 1.0, Y: 1.0}
-	c.posZ = 0.0
-	c.pitch = 0
+	c.camZ = 0.0
+	c.SetHeadingAngle(0)
+	c.SetPitchAngle(0)
 
 	fovDegrees := 70.0
 	fovDepth := 1.0
@@ -129,6 +138,9 @@ func NewCamera(width int, height int, texSize int, mapObj Map, tex TextureHandle
 	// initialize a pool of channels to limit concurrent floor and sprite casting
 	// from https://pocketgophers.com/limit-concurrent-use/
 	c.semaphore = make(chan struct{}, maxConcurrent)
+
+	c.convergenceDistance = 0
+	c.convergencePoint = &geom3d.Vector3{X: c.pos.X, Y: c.pos.Y, Z: c.posZ}
 
 	//do an initial raycast
 	c.raycast()
@@ -215,6 +227,10 @@ func (c *Camera) SetLightRGB(min, max color.NRGBA) {
 func (c *Camera) Update(sprites []Sprite) {
 	// clear horizontal buffer by making a new one
 	c.floorLvl.clear(c.w, c.h)
+
+	// reset convergence point
+	c.convergenceDistance = 0
+	c.convergencePoint = &geom3d.Vector3{X: c.pos.X, Y: c.pos.Y, Z: c.camZ}
 
 	if len(sprites) != len(c.sprites) {
 		// sprite buffer may need to be increased in size
@@ -376,7 +392,7 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *level, levelNum int, wg *sy
 	lineHeight := int(float64(c.h) / perpWallDist)
 
 	//calculate lowest and highest pixel to fill in current stripe
-	drawStart := (-lineHeight/2 + c.h/2) + c.pitch + int(c.posZ/perpWallDist) - lineHeight*levelNum
+	drawStart := (-lineHeight/2 + c.h/2) + c.pitch + int(c.camZ/perpWallDist) - lineHeight*levelNum
 	drawEnd := drawStart + lineHeight
 
 	//--due to modern way of drawing using quads this is removed to avoid glitches at the edges--//
@@ -437,6 +453,20 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *level, levelNum int, wg *sy
 		}
 	}
 
+	// determine if is convergence point that hit a wall
+	convergenceCol, convergenceRow := c.w/2-1, c.h/2-1
+	if x == convergenceCol && drawStart <= convergenceRow && convergenceRow <= drawEnd {
+		// use pitch angle and perpendicular distance (adjusted for fov zoom) to find Z point of convergence
+		convergencePerpDist := perpWallDist * c.fovDepth
+		convergenceLine3d := geom3d.Line3dFromBaseAngle(c.pos.X, c.pos.Y, c.posZ, c.headingAngle, c.pitchAngle, convergencePerpDist)
+		convergenceDistance := convergenceLine3d.Distance()
+
+		if c.convergenceDistance == 0 || convergenceDistance < c.convergenceDistance {
+			c.convergenceDistance = convergenceDistance
+			c.convergencePoint = &geom3d.Vector3{X: convergenceLine3d.X2, Y: convergenceLine3d.Y2, Z: convergenceLine3d.Z2}
+		}
+	}
+
 	//SET THE ZBUFFER FOR THE SPRITE CASTING
 	if levelNum == 0 {
 		// for now only rendering sprites on first level
@@ -477,7 +507,7 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *level, levelNum int, wg *sy
 
 			//draw the floor from drawEnd to the bottom of the screen
 			for y := drawEnd; y < c.h; y++ {
-				currentDist = (float64(c.h) + (2.0 * c.posZ)) / (2.0*float64(y-c.pitch) - float64(c.h))
+				currentDist = (float64(c.h) + (2.0 * c.camZ)) / (2.0*float64(y-c.pitch) - float64(c.h))
 				if currentDist > c.renderDistance {
 					continue
 				}
@@ -490,6 +520,18 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *level, levelNum int, wg *sy
 				// do not call FloorTextureAt interface if X/Y is outside of map bounds
 				if currentFloorX < 0 || currentFloorY < 0 || int(currentFloorX) >= c.mapWidth || int(currentFloorY) >= c.mapHeight {
 					continue
+				}
+
+				if x == convergenceCol && y == convergenceRow {
+					// use pitch angle and perpendicular distance (adjusted for fov zoom) to find Z point of convergence
+					convergencePerpDist := currentDist * c.fovDepth
+					convergenceLine3d := geom3d.Line3dFromBaseAngle(c.pos.X, c.pos.Y, c.posZ, c.headingAngle, c.pitchAngle, convergencePerpDist)
+					convergenceDistance := convergenceLine3d.Distance()
+
+					if c.convergenceDistance == 0 || convergenceDistance < c.convergenceDistance {
+						c.convergenceDistance = convergenceDistance
+						c.convergencePoint = &geom3d.Vector3{X: convergenceLine3d.X2, Y: convergenceLine3d.Y2, Z: convergenceLine3d.Z2}
+					}
 				}
 
 				//floor texture for map coordinate being rendered
@@ -580,7 +622,7 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 
 	var vMove float64 = -sprite.PosZ()*float64(c.h) + vOffset
 
-	vMoveScreen := int(vMove/transformY) + c.pitch + int(c.posZ/transformY)
+	vMoveScreen := int(vMove/transformY) + c.pitch + int(c.camZ/transformY)
 
 	//calculate height of the sprite on screen
 	spriteHeight := int(math.Abs(float64(c.h)/transformY) / vDiv) //using "transformY" instead of the real distance prevents fisheye
@@ -613,6 +655,9 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 		return
 	}
 
+	// used to determine if is convergence point that hit a sprite
+	convergenceCol, convergenceRow := c.w/2-1, c.h/2-1
+
 	// modify tex startY and endY based on distance
 	d := (drawStartY-vMoveScreen)*256 - c.h*128 + spriteHeight*128 //256 and 128 factors to avoid floats
 	texStartY := ((d * spriteTexHeight) / spriteHeight) / 256
@@ -644,15 +689,27 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 				continue
 			}
 
+			if stripe == convergenceCol && drawStartY <= convergenceRow && convergenceRow <= drawEndY {
+				// use pitch angle and perpendicular distance (adjusted for fov zoom) to find Z point of convergence
+				convergencePerpDist := spriteDist * c.fovDepth
+				convergenceLine3d := geom3d.Line3dFromBaseAngle(c.pos.X, c.pos.Y, c.posZ, c.headingAngle, c.pitchAngle, convergencePerpDist)
+				convergenceDistance := convergenceLine3d.Distance()
+
+				if c.convergenceDistance == 0 || convergenceDistance < c.convergenceDistance {
+					c.convergenceDistance = convergenceDistance
+					c.convergencePoint = &geom3d.Vector3{X: convergenceLine3d.X2, Y: convergenceLine3d.Y2, Z: convergenceLine3d.Z2}
+				}
+			}
+
 			//--set current texture slice--//
 			spriteLvl.Cts[stripe] = spriteSlices[texX]
-			spriteLvl.Cts[stripe].Min.Y = spriteTexRect.Min.Y + texStartY + 1
+			spriteLvl.Cts[stripe].Min.Y = spriteTexRect.Min.Y + texStartY
 			spriteLvl.Cts[stripe].Max.Y = spriteTexRect.Min.Y + texEndY
 
 			spriteLvl.CurrTex[stripe] = spriteTex
 
 			//--set draw start and height of slice--//
-			spriteLvl.Sv[stripe].Min.Y = drawStartY + 1
+			spriteLvl.Sv[stripe].Min.Y = drawStartY
 			spriteLvl.Sv[stripe].Max.Y = drawEndY
 
 			//// LIGHTING ////
@@ -778,48 +835,6 @@ func combSort(order []int, dist []float64, amount int) {
 	}
 }
 
-// checks for valid move for the camera (not player model) from current position, returns valid (x, y) position
-func (c *Camera) getValidCameraMove(moveX, moveY float64, checkAlternate bool) (float64, float64) {
-	posX := c.pos.X
-	posY := c.pos.Y
-	newX := moveX
-	newY := moveY
-
-	if posX == newX && posY == moveY {
-		return posX, posY
-	}
-
-	ix := int(newX)
-	iy := int(newY)
-
-	// prevent index out of bounds errors
-	switch {
-	case ix < 0 || newX < 0:
-		newX = edgeDistance
-		ix = 0
-	case ix >= c.mapWidth:
-		newX = float64(c.mapWidth) - edgeDistance
-		ix = int(newX)
-	}
-
-	switch {
-	case iy < 0 || newY < 0:
-		newY = edgeDistance
-		iy = 0
-	case iy >= c.mapHeight:
-		newY = float64(c.mapHeight) - edgeDistance
-		iy = int(newY)
-	}
-
-	firstLevel := c.mapObj.Level(0)
-	if firstLevel[ix][iy] <= 0 {
-		posX = newX
-		posY = newY
-	}
-
-	return posX, posY
-}
-
 // Set camera position vector
 func (c *Camera) SetPosition(pos *geom.Vector2) {
 	c.pos = pos
@@ -833,7 +848,8 @@ func (c *Camera) GetPosition() *geom.Vector2 {
 // Set camera Z-plane position
 func (c *Camera) SetPositionZ(gridPosZ float64) {
 	// convert grid position to camera position
-	c.posZ = (gridPosZ - 0.5) * float64(c.h)
+	c.posZ = gridPosZ
+	c.camZ = (gridPosZ - 0.5) * float64(c.h)
 }
 
 // Get camera Z-plane position
@@ -842,24 +858,19 @@ func (c *Camera) GetPositionZ() float64 {
 }
 
 // Set camera direction and plane vectors from given heading angle
-func (c *Camera) SetHeadingAngle(heading float64) {
-	cameraDir := c.getVecForAngle(heading)
+func (c *Camera) SetHeadingAngle(headingAngle float64) {
+	c.headingAngle = headingAngle
+	cameraDir := c.getVecForAngle(headingAngle)
 	c.dir = cameraDir
 	c.plane = c.getVecForFov(cameraDir)
 }
 
 // Set camera pitch view from given pitch angle
-func (c *Camera) SetPitchAngle(pitch float64) {
-	cameraPitch := geom.GetOppositeTriangleLeg(pitch, float64(c.h)*c.fovDepth)
+func (c *Camera) SetPitchAngle(pitchAngle float64) {
+	c.pitchAngle = pitchAngle
+	cameraPitch := geom.GetOppositeTriangleLeg(pitchAngle, float64(c.h)*c.fovDepth)
 	// clamping it since looking down or up too far causes floor texture glitches and wall warping
 	c.pitch = geom.ClampInt(int(cameraPitch), -c.h/2, int(float64(c.h)*c.fovDepth))
-}
-
-// Move camera by move speed (consumers should instead use SetPosition)
-func (c *Camera) MoveCamera(mSpeed float64) {
-	mx := c.pos.X + (c.dir.X * mSpeed)
-	my := c.pos.Y + (c.dir.Y * mSpeed)
-	c.pos.X, c.pos.Y = c.getValidCameraMove(mx, my, true)
 }
 
 // Get the angle from the dir vectors
@@ -887,26 +898,12 @@ func (c *Camera) getVecForFov(dir *geom.Vector2) *geom.Vector2 {
 	return dir.Copy().Sub(c.getVecForAngleLength(angle+c.fovAngle/2, hypotenuse))
 }
 
-// Strafe camera by strafe speed (consumers should instead use SetPosition)
-func (c *Camera) StrafeCamera(sSpeed float64) {
-	sx := c.pos.X + (c.plane.X * sSpeed)
-	sy := c.pos.Y + (c.plane.Y * sSpeed)
-	c.pos.X, c.pos.Y = c.getValidCameraMove(sx, sy, true)
+// Get the distance to the point of convergence raycasted from the center of the camera view
+func (c *Camera) GetConvergenceDistance() float64 {
+	return c.convergenceDistance
 }
 
-// Rotate camera by rotate speed (consumers should instead use SetHeadingAngle)
-func (c *Camera) RotateCamera(rSpeed float64) {
-	//both camera direction and camera plane must be rotated
-	oldDirX := c.dir.X
-	c.dir.X = (c.dir.X*math.Cos(rSpeed) - c.dir.Y*math.Sin(rSpeed))
-	c.dir.Y = (oldDirX*math.Sin(rSpeed) + c.dir.Y*math.Cos(rSpeed))
-	oldPlaneX := c.plane.X
-	c.plane.X = (c.plane.X*math.Cos(rSpeed) - c.plane.Y*math.Sin(rSpeed))
-	c.plane.Y = (oldPlaneX*math.Sin(rSpeed) + c.plane.Y*math.Cos(rSpeed))
-}
-
-// Pitch camera by pitch delta (consumers should instead use SetPitchAngle)
-func (c *Camera) PitchCamera(pDelta int) {
-	// clamping it since looking down too far causes floor texture glitches
-	c.pitch = geom.ClampInt(c.pitch+pDelta, -c.h/2, c.h)
+// Get the 3-Dimensional point of convergence raycasted from the center of the camera view
+func (c *Camera) GetConvergencePoint() *geom3d.Vector3 {
+	return c.convergencePoint
 }
