@@ -16,9 +16,6 @@ import (
 const (
 	// maximum number of concurrent tasks for large task sets (e.g. floor and sprite casting)
 	maxConcurrent = 100
-
-	// distance to keep camera away from edge of game world to avoid index exception
-	edgeDistance = 0.1
 )
 
 // Camera Class that represents a camera in terms of raycasting.
