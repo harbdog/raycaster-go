@@ -227,7 +227,7 @@ func (c *Camera) Update(sprites []Sprite) {
 
 	// reset convergence point
 	c.convergenceDistance = 0
-	c.convergencePoint = &geom3d.Vector3{X: c.pos.X, Y: c.pos.Y, Z: c.camZ}
+	c.convergencePoint = &geom3d.Vector3{X: c.pos.X, Y: c.pos.Y, Z: c.posZ}
 
 	if len(sprites) != len(c.sprites) {
 		// sprite buffer may need to be increased in size
@@ -653,6 +653,7 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 	}
 
 	// used to determine if is convergence point that hit a sprite
+	canConverge := sprite.IsFocusable()
 	convergenceCol, convergenceRow := c.w/2-1, c.h/2-1
 
 	// modify tex startY and endY based on distance
@@ -686,7 +687,7 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 				continue
 			}
 
-			if stripe == convergenceCol && drawStartY <= convergenceRow && convergenceRow <= drawEndY {
+			if canConverge && stripe == convergenceCol && drawStartY <= convergenceRow && convergenceRow <= drawEndY {
 				// use pitch angle and perpendicular distance (adjusted for fov zoom) to find Z point of convergence
 				convergencePerpDist := spriteDist * c.fovDepth
 				convergenceLine3d := geom3d.Line3dFromBaseAngle(c.pos.X, c.pos.Y, c.posZ, c.headingAngle, c.pitchAngle, convergencePerpDist)

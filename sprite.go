@@ -28,6 +28,9 @@ type Sprite interface {
 
 	// SetScreenRect accepts the raycasted rectangle of the screen coordinates to be rendered (nil if not on screen)
 	SetScreenRect(rect *image.Rectangle)
+
+	// IsFocusable should return true only if the convergence point can focus on the sprite
+	IsFocusable() bool
 }
 
 type SpriteAnchor int
