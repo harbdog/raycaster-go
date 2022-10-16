@@ -49,7 +49,7 @@ func ClampInt(value int, min int, max int) int {
 	return value
 }
 
-// Vector2 converted struct from C#
+// 2-Dimensional point
 type Vector2 struct {
 	X, Y float64
 }
