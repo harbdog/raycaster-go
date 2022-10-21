@@ -136,8 +136,8 @@ func NewCamera(width int, height int, texSize int, mapObj Map, tex TextureHandle
 	// from https://pocketgophers.com/limit-concurrent-use/
 	c.semaphore = make(chan struct{}, maxConcurrent)
 
-	c.convergenceDistance = 0
-	c.convergencePoint = &geom3d.Vector3{X: c.pos.X, Y: c.pos.Y, Z: c.posZ}
+	c.convergenceDistance = -1
+	c.convergencePoint = nil
 
 	//do an initial raycast
 	c.raycast()
@@ -226,8 +226,8 @@ func (c *Camera) Update(sprites []Sprite) {
 	c.floorLvl.clear(c.w, c.h)
 
 	// reset convergence point
-	c.convergenceDistance = 0
-	c.convergencePoint = &geom3d.Vector3{X: c.pos.X, Y: c.pos.Y, Z: c.posZ}
+	c.convergenceDistance = -1
+	c.convergencePoint = nil
 
 	if len(sprites) != len(c.sprites) {
 		// sprite buffer may need to be increased in size
@@ -458,7 +458,7 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *level, levelNum int, wg *sy
 		convergenceLine3d := geom3d.Line3dFromBaseAngle(c.pos.X, c.pos.Y, c.posZ, c.headingAngle, c.pitchAngle, convergencePerpDist)
 		convergenceDistance := convergenceLine3d.Distance()
 
-		if c.convergenceDistance == 0 || convergenceDistance < c.convergenceDistance {
+		if c.convergenceDistance == -1 || convergenceDistance < c.convergenceDistance {
 			c.convergenceDistance = convergenceDistance
 			c.convergencePoint = &geom3d.Vector3{X: convergenceLine3d.X2, Y: convergenceLine3d.Y2, Z: convergenceLine3d.Z2}
 		}
@@ -693,7 +693,7 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 				convergenceLine3d := geom3d.Line3dFromBaseAngle(c.pos.X, c.pos.Y, c.posZ, c.headingAngle, c.pitchAngle, convergencePerpDist)
 				convergenceDistance := convergenceLine3d.Distance()
 
-				if c.convergenceDistance == 0 || convergenceDistance < c.convergenceDistance {
+				if c.convergenceDistance == -1 || convergenceDistance < c.convergenceDistance {
 					c.convergenceDistance = convergenceDistance
 					c.convergencePoint = &geom3d.Vector3{X: convergenceLine3d.X2, Y: convergenceLine3d.Y2, Z: convergenceLine3d.Z2}
 				}
