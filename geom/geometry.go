@@ -5,19 +5,20 @@ import (
 )
 
 const (
-	Pi2    = math.Pi * 2
-	HalfPi = math.Pi / 2
+	Pi     = 3.14159
+	Pi2    = Pi * 2
+	HalfPi = Pi / 2
 	eps    = 1e-14
 )
 
 func sq(x float64) float64 { return x * x }
 
 func Degrees(radians float64) float64 {
-	return radians * 180 / math.Pi
+	return radians * 180 / Pi
 }
 
 func Radians(degrees float64) float64 {
-	return degrees * math.Pi / 180
+	return degrees * Pi / 180
 }
 
 func MaxInt(x, y int) int {
