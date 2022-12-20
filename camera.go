@@ -91,9 +91,6 @@ type Camera struct {
 	// point at which the center of the screen converges (for reticle use)
 	convergenceDistance float64
 	convergencePoint    *geom3d.Vector3
-
-	// used for concurrency
-	semaphore chan struct{}
 }
 
 // NewCamera initalizes a Camera object
@@ -131,10 +128,6 @@ func NewCamera(width int, height int, texSize int, mapObj Map, tex TextureHandle
 
 	c.sprites = []Sprite{}
 	c.updateSpriteLevels(16)
-
-	// initialize a pool of channels to limit concurrent floor and sprite casting
-	// from https://pocketgophers.com/limit-concurrent-use/
-	c.semaphore = make(chan struct{}, maxConcurrent)
 
 	c.convergenceDistance = -1
 	c.convergencePoint = nil
@@ -222,9 +215,6 @@ func (c *Camera) SetLightRGB(min, max color.NRGBA) {
 
 // Update - updates the camera view
 func (c *Camera) Update(sprites []Sprite) {
-	// clear horizontal buffer by making a new one
-	c.floorLvl.clear(c.w, c.h)
-
 	// reset convergence point
 	c.convergenceDistance = -1
 	c.convergencePoint = nil
@@ -242,12 +232,12 @@ func (c *Camera) Update(sprites []Sprite) {
 }
 
 func (c *Camera) raycast() {
+	var wg sync.WaitGroup
+
 	// cast level
 	numLevels := c.mapObj.NumLevels()
-	var wg sync.WaitGroup
 	for i := 0; i < numLevels; i++ {
-		wg.Add(1)
-		go c.asyncCastLevel(i, &wg)
+		c.asyncCastLevel(i, &wg)
 	}
 
 	wg.Wait()
@@ -265,38 +255,66 @@ func (c *Camera) raycast() {
 	combSort(c.spriteOrder, c.spriteDistance, numSprites)
 
 	//after sorting the sprites, do the projection and draw them
-	for i := 0; i < numSprites; i++ {
-		wg.Add(1)
-		go c.asyncCastSprite(i, &wg)
-	}
+	c.asyncCastSprites(numSprites, &wg)
 
 	wg.Wait()
 }
 
 func (c *Camera) asyncCastLevel(levelNum int, wg *sync.WaitGroup) {
-	defer wg.Done()
-
 	rMap := c.mapObj.Level(levelNum)
+	stride := c.w / 100
+	if stride < 1 {
+		stride = 1
+	}
 
-	for x := 0; x < c.w; x++ {
-		c.castLevel(x, rMap, c.levels[levelNum], levelNum, wg)
+	for i := 0; i < c.w; i += stride {
+		wg.Add(1)
+
+		go func(start int) {
+			end := start + stride
+			if end > c.w {
+				end = c.w
+			}
+
+			for x := start; x < end; x++ {
+				c.castLevel(x, rMap, c.levels[levelNum], levelNum)
+			}
+
+			wg.Done()
+		}(i)
 	}
 }
 
-func (c *Camera) asyncCastSprite(spriteNum int, wg *sync.WaitGroup) {
+func (c *Camera) asyncCastSprites(numSprites int, wg *sync.WaitGroup) {
 	defer wg.Done()
+	wg.Add(1)
 
-	c.semaphore <- struct{}{} // Lock
-	defer func() {
-		<-c.semaphore // Unlock
-	}()
+	stride := numSprites / 32
+	if stride < 1 {
+		stride = 1
+	}
 
-	c.castSprite(spriteNum)
+	for i := 0; i < numSprites; i++ {
+		wg.Add(1)
+
+		go func(start int) {
+			end := start + stride
+			if end > numSprites {
+				end = numSprites
+			}
+
+			for s := start; s < end; s++ {
+				c.castSprite(s)
+			}
+
+			wg.Done()
+		}(i)
+	}
 }
 
 // credit : Raycast loop and setting up of vectors for matrix calculations
 // courtesy - http://lodev.org/cgtutor/raycasting.html
-func (c *Camera) castLevel(x int, grid [][]int, lvl *level, levelNum int, wg *sync.WaitGroup) {
+func (c *Camera) castLevel(x int, grid [][]int, lvl *level, levelNum int) {
 	var _cts, _sv []*image.Rectangle
 	var _st []*color.RGBA
 
@@ -476,103 +494,99 @@ func (c *Camera) castLevel(x int, grid [][]int, lvl *level, levelNum int, wg *sy
 		if drawEnd < 0 {
 			drawEnd = c.h //becomes < 0 when the integer overflows
 		}
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
 
-			var floorXWall, floorYWall float64
+		var floorXWall, floorYWall float64
 
-			//4 different wall directions possible
-			if side == 0 && rayDirX > 0 {
-				floorXWall = float64(mapX)
-				floorYWall = float64(mapY) + wallX
-			} else if side == 0 && rayDirX < 0 {
-				floorXWall = float64(mapX) + 1.0
-				floorYWall = float64(mapY) + wallX
-			} else if side == 1 && rayDirY > 0 {
-				floorXWall = float64(mapX) + wallX
-				floorYWall = float64(mapY)
-			} else {
-				floorXWall = float64(mapX) + wallX
-				floorYWall = float64(mapY) + 1.0
+		//4 different wall directions possible
+		if side == 0 && rayDirX > 0 {
+			floorXWall = float64(mapX)
+			floorYWall = float64(mapY) + wallX
+		} else if side == 0 && rayDirX < 0 {
+			floorXWall = float64(mapX) + 1.0
+			floorYWall = float64(mapY) + wallX
+		} else if side == 1 && rayDirY > 0 {
+			floorXWall = float64(mapX) + wallX
+			floorYWall = float64(mapY)
+		} else {
+			floorXWall = float64(mapX) + wallX
+			floorYWall = float64(mapY) + 1.0
+		}
+
+		var distWall, distPlayer, currentDist float64
+
+		distWall = perpWallDist
+		distPlayer = 0.0
+
+		//draw the floor from drawEnd to the bottom of the screen
+		for y := drawEnd; y < c.h; y++ {
+			currentDist = (float64(c.h) + (2.0 * c.camZ)) / (2.0*float64(y-c.pitch) - float64(c.h))
+			if currentDist > c.renderDistance {
+				continue
 			}
 
-			var distWall, distPlayer, currentDist float64
+			weight := (currentDist - distPlayer) / (distWall - distPlayer)
 
-			distWall = perpWallDist
-			distPlayer = 0.0
+			currentFloorX := weight*floorXWall + (1.0-weight)*rayPosX
+			currentFloorY := weight*floorYWall + (1.0-weight)*rayPosY
 
-			//draw the floor from drawEnd to the bottom of the screen
-			for y := drawEnd; y < c.h; y++ {
-				currentDist = (float64(c.h) + (2.0 * c.camZ)) / (2.0*float64(y-c.pitch) - float64(c.h))
-				if currentDist > c.renderDistance {
-					continue
-				}
-
-				weight := (currentDist - distPlayer) / (distWall - distPlayer)
-
-				currentFloorX := weight*floorXWall + (1.0-weight)*rayPosX
-				currentFloorY := weight*floorYWall + (1.0-weight)*rayPosY
-
-				// do not call FloorTextureAt interface if X/Y is outside of map bounds
-				if currentFloorX < 0 || currentFloorY < 0 || int(currentFloorX) >= c.mapWidth || int(currentFloorY) >= c.mapHeight {
-					continue
-				}
-
-				if x == convergenceCol && y == convergenceRow {
-					// use pitch angle and perpendicular distance (adjusted for fov zoom) to find Z point of convergence
-					convergencePerpDist := currentDist * c.fovDepth
-					convergenceLine3d := geom3d.Line3dFromBaseAngle(c.pos.X, c.pos.Y, c.posZ, c.headingAngle, c.pitchAngle, convergencePerpDist)
-					convergenceDistance := convergenceLine3d.Distance()
-
-					if c.convergenceDistance == 0 || convergenceDistance < c.convergenceDistance {
-						c.convergenceDistance = convergenceDistance
-						c.convergencePoint = &geom3d.Vector3{X: convergenceLine3d.X2, Y: convergenceLine3d.Y2, Z: convergenceLine3d.Z2}
-					}
-				}
-
-				//floor texture for map coordinate being rendered
-				floorTex := c.tex.FloorTextureAt(int(currentFloorX), int(currentFloorY))
-				if floorTex == nil {
-					continue
-				}
-
-				floorTexX := int(currentFloorX*float64(c.texSize)) % c.texSize
-				floorTexY := int(currentFloorY*float64(c.texSize)) % c.texSize
-
-				// buffer[y][x] = (texture[3][texWidth * floorTexY + floorTexX] >> 1) & 8355711;
-				// the same vertical slice method cannot be used for floor rendering
-				// floorTexNum := 0
-				// floorTex := c.floorLvl.texRGBA[floorTexNum]
-
-				//pixel := floorTex.RGBAAt(floorTexX, floorTexY)
-				pxOffset := floorTex.PixOffset(floorTexX, floorTexY)
-				if pxOffset < 0 {
-					continue
-				}
-				pixel := color.RGBA{floorTex.Pix[pxOffset],
-					floorTex.Pix[pxOffset+1],
-					floorTex.Pix[pxOffset+2],
-					floorTex.Pix[pxOffset+3]}
-
-				// lighting
-				pixelSt := &color.RGBA{255, 255, 255, 255}
-				shadowDepth := math.Sqrt(currentDist) * c.lightFalloff
-				pixelSt.R = byte(geom.ClampInt(int(float64(pixelSt.R)+shadowDepth+c.globalIllumination), int(c.minLightRGB.R), int(c.maxLightRGB.R)))
-				pixelSt.G = byte(geom.ClampInt(int(float64(pixelSt.G)+shadowDepth+c.globalIllumination), int(c.minLightRGB.G), int(c.maxLightRGB.G)))
-				pixelSt.B = byte(geom.ClampInt(int(float64(pixelSt.B)+shadowDepth+c.globalIllumination), int(c.minLightRGB.B), int(c.maxLightRGB.B)))
-				pixel.R = uint8(float64(pixel.R) * float64(pixelSt.R) / 256)
-				pixel.G = uint8(float64(pixel.G) * float64(pixelSt.G) / 256)
-				pixel.B = uint8(float64(pixel.B) * float64(pixelSt.B) / 256)
-
-				//c.horLvl.HorBuffer.SetRGBA(x, y, pixel)
-				pxOffset = c.floorLvl.horBuffer.PixOffset(x, y)
-				c.floorLvl.horBuffer.Pix[pxOffset] = pixel.R
-				c.floorLvl.horBuffer.Pix[pxOffset+1] = pixel.G
-				c.floorLvl.horBuffer.Pix[pxOffset+2] = pixel.B
-				c.floorLvl.horBuffer.Pix[pxOffset+3] = pixel.A
+			// do not call FloorTextureAt interface if X/Y is outside of map bounds
+			if currentFloorX < 0 || currentFloorY < 0 || int(currentFloorX) >= c.mapWidth || int(currentFloorY) >= c.mapHeight {
+				continue
 			}
-		}()
+
+			if x == convergenceCol && y == convergenceRow {
+				// use pitch angle and perpendicular distance (adjusted for fov zoom) to find Z point of convergence
+				convergencePerpDist := currentDist * c.fovDepth
+				convergenceLine3d := geom3d.Line3dFromBaseAngle(c.pos.X, c.pos.Y, c.posZ, c.headingAngle, c.pitchAngle, convergencePerpDist)
+				convergenceDistance := convergenceLine3d.Distance()
+
+				if c.convergenceDistance == 0 || convergenceDistance < c.convergenceDistance {
+					c.convergenceDistance = convergenceDistance
+					c.convergencePoint = &geom3d.Vector3{X: convergenceLine3d.X2, Y: convergenceLine3d.Y2, Z: convergenceLine3d.Z2}
+				}
+			}
+
+			//floor texture for map coordinate being rendered
+			floorTex := c.tex.FloorTextureAt(int(currentFloorX), int(currentFloorY))
+			if floorTex == nil {
+				continue
+			}
+
+			floorTexX := int(currentFloorX*float64(c.texSize)) % c.texSize
+			floorTexY := int(currentFloorY*float64(c.texSize)) % c.texSize
+
+			// buffer[y][x] = (texture[3][texWidth * floorTexY + floorTexX] >> 1) & 8355711;
+			// the same vertical slice method cannot be used for floor rendering
+			// floorTexNum := 0
+			// floorTex := c.floorLvl.texRGBA[floorTexNum]
+
+			//pixel := floorTex.RGBAAt(floorTexX, floorTexY)
+			pxOffset := floorTex.PixOffset(floorTexX, floorTexY)
+			if pxOffset < 0 {
+				continue
+			}
+			pixel := color.RGBA{floorTex.Pix[pxOffset],
+				floorTex.Pix[pxOffset+1],
+				floorTex.Pix[pxOffset+2],
+				floorTex.Pix[pxOffset+3]}
+
+			// lighting
+			pixelSt := &color.RGBA{255, 255, 255, 255}
+			shadowDepth := math.Sqrt(currentDist) * c.lightFalloff
+			pixelSt.R = byte(geom.ClampInt(int(float64(pixelSt.R)+shadowDepth+c.globalIllumination), int(c.minLightRGB.R), int(c.maxLightRGB.R)))
+			pixelSt.G = byte(geom.ClampInt(int(float64(pixelSt.G)+shadowDepth+c.globalIllumination), int(c.minLightRGB.G), int(c.maxLightRGB.G)))
+			pixelSt.B = byte(geom.ClampInt(int(float64(pixelSt.B)+shadowDepth+c.globalIllumination), int(c.minLightRGB.B), int(c.maxLightRGB.B)))
+			pixel.R = uint8(float64(pixel.R) * float64(pixelSt.R) / 256)
+			pixel.G = uint8(float64(pixel.G) * float64(pixelSt.G) / 256)
+			pixel.B = uint8(float64(pixel.B) * float64(pixelSt.B) / 256)
+
+			//c.horLvl.HorBuffer.SetRGBA(x, y, pixel)
+			pxOffset = c.floorLvl.horBuffer.PixOffset(x, y)
+			c.floorLvl.horBuffer.Pix[pxOffset] = pixel.R
+			c.floorLvl.horBuffer.Pix[pxOffset+1] = pixel.G
+			c.floorLvl.horBuffer.Pix[pxOffset+2] = pixel.B
+			c.floorLvl.horBuffer.Pix[pxOffset+3] = pixel.A
+		}
 	}
 }
 
@@ -761,7 +775,7 @@ func (c *Camera) createLevels(numLevels int) []*level {
 // creates floor slices for raycasting floor
 func (c *Camera) createFloorLevel() *horLevel {
 	horizontalLevel := new(horLevel)
-	horizontalLevel.clear(c.w, c.h)
+	horizontalLevel.initialize(c.w, c.h)
 	return horizontalLevel
 }
 
@@ -806,7 +820,7 @@ func (c *Camera) clearSpriteLevel(spriteOrdIndex int) {
 	c.spriteLvls[spriteOrdIndex] = nil
 }
 
-//sort algorithm
+// sort algorithm
 func combSort(order []int, dist []float64, amount int) {
 	gap := amount
 	swapped := false

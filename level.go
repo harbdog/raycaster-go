@@ -40,6 +40,6 @@ type horLevel struct {
 	horBuffer *image.RGBA
 }
 
-func (h *horLevel) clear(width, height int) {
+func (h *horLevel) initialize(width, height int) {
 	h.horBuffer = image.NewRGBA(image.Rect(0, 0, width, height))
 }

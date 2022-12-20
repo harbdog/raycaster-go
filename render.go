@@ -3,7 +3,6 @@ package raycaster
 import (
 	"image"
 	"image/color"
-	"log"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -11,6 +10,9 @@ import (
 // Draw the raycasted camera view to the screen.
 func (c *Camera) Draw(screen *ebiten.Image) {
 	screen.Clear()
+
+	// draw textured floor
+	screen.ReplacePixels(c.floorLvl.horBuffer.Pix)
 
 	//--draw basic sky and floor--//
 	texRect := image.Rect(0, 0, c.texSize, c.texSize)
@@ -28,16 +30,6 @@ func (c *Camera) Draw(screen *ebiten.Image) {
 		for i := cap(c.levels) - 1; i >= 0; i-- {
 			drawTexture(screen, c.levels[i].CurrTex[x], c.levels[i].Sv[x], c.levels[i].Cts[x], c.levels[i].St[x])
 		}
-	}
-
-	// draw textured floor
-	floorImg := ebiten.NewImageFromImage(c.floorLvl.horBuffer)
-	if floorImg == nil {
-		log.Fatal("floorImg is nil")
-	} else {
-		op := &ebiten.DrawImageOptions{}
-		op.Filter = ebiten.FilterNearest
-		screen.DrawImage(floorImg, op)
 	}
 
 	// draw sprites
