@@ -38,8 +38,13 @@ func sliceView(width, height int) []*image.Rectangle {
 type horLevel struct {
 	// horBuffer is the image representing the pixels to render during the update
 	horBuffer *image.RGBA
+	// image is the ebitengine image object rendering the horBuffer during draw
+	image *ebiten.Image
 }
 
-func (h *horLevel) clear(width, height int) {
+func (h *horLevel) initialize(width, height int) {
 	h.horBuffer = image.NewRGBA(image.Rect(0, 0, width, height))
+	if h.image == nil {
+		h.image = ebiten.NewImage(width, height)
+	}
 }

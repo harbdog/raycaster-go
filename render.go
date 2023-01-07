@@ -3,7 +3,6 @@ package raycaster
 import (
 	"image"
 	"image/color"
-	"log"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -31,13 +30,12 @@ func (c *Camera) Draw(screen *ebiten.Image) {
 	}
 
 	// draw textured floor
-	floorImg := ebiten.NewImageFromImage(c.floorLvl.horBuffer)
-	if floorImg == nil {
-		log.Fatal("floorImg is nil")
-	} else {
+	if c.floorLvl != nil && c.floorLvl.image != nil {
+		c.floorLvl.image.WritePixels(c.floorLvl.horBuffer.Pix)
+
 		op := &ebiten.DrawImageOptions{}
 		op.Filter = ebiten.FilterNearest
-		screen.DrawImage(floorImg, op)
+		screen.DrawImage(c.floorLvl.image, op)
 	}
 
 	// draw sprites

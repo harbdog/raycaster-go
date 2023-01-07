@@ -223,7 +223,7 @@ func (c *Camera) SetLightRGB(min, max color.NRGBA) {
 // Update - updates the camera view
 func (c *Camera) Update(sprites []Sprite) {
 	// clear horizontal buffer by making a new one
-	c.floorLvl.clear(c.w, c.h)
+	c.floorLvl.initialize(c.w, c.h)
 
 	// reset convergence point
 	c.convergenceDistance = -1
@@ -761,7 +761,7 @@ func (c *Camera) createLevels(numLevels int) []*level {
 // creates floor slices for raycasting floor
 func (c *Camera) createFloorLevel() *horLevel {
 	horizontalLevel := new(horLevel)
-	horizontalLevel.clear(c.w, c.h)
+	horizontalLevel.initialize(c.w, c.h)
 	return horizontalLevel
 }
 
