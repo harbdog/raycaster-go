@@ -9,8 +9,6 @@ import (
 
 // Draw the raycasted camera view to the screen.
 func (c *Camera) Draw(screen *ebiten.Image) {
-	screen.Clear()
-
 	//--draw basic sky and floor--//
 	texRect := image.Rect(0, 0, c.texSize, c.texSize)
 	lightingRGBA := &color.RGBA{R: c.maxLightRGB.R, G: c.maxLightRGB.G, B: c.maxLightRGB.B, A: 255}
