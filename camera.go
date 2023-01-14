@@ -689,7 +689,7 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 
 			if canConverge && stripe == convergenceCol && drawStartY <= convergenceRow && convergenceRow <= drawEndY {
 				// use pitch angle and perpendicular distance (adjusted for fov zoom) to find Z point of convergence
-				convergencePerpDist := spriteDist * c.fovDepth
+				convergencePerpDist := spriteDist
 				convergenceLine3d := geom3d.Line3dFromBaseAngle(c.pos.X, c.pos.Y, c.posZ, c.headingAngle, c.pitchAngle, convergencePerpDist)
 				convergenceDistance := convergenceLine3d.Distance()
 
