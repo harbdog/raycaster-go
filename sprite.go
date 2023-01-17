@@ -26,6 +26,9 @@ type Sprite interface {
 	// TextureRect needs to return the rectangle of the texture coordinates to draw
 	TextureRect() image.Rectangle
 
+	// Illumination needs to return sprite specific illumination offset (for normal illumination, default to 0)
+	Illumination() float64
+
 	// SetScreenRect accepts the raycasted rectangle of the screen coordinates to be rendered (nil if not on screen)
 	SetScreenRect(rect *image.Rectangle)
 
