@@ -596,6 +596,7 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 	spriteTex := sprite.Texture()
 	spriteTexRect := sprite.TextureRect()
 	spriteTexWidth, spriteTexHeight := spriteTex.Size()
+	spriteIllumination := sprite.Illumination()
 
 	//transform sprite with the inverse camera matrix
 	// [ planeX   dirX ] -1                                       [ dirY      -dirX ]
@@ -714,9 +715,9 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 			// distance based lighting/shading
 			shadowDepth := math.Sqrt(transformY) * c.lightFalloff
 			spriteLvl.St[stripe] = &color.RGBA{255, 255, 255, 255}
-			spriteLvl.St[stripe].R = byte(geom.ClampInt(int(float64(spriteLvl.St[stripe].R)+shadowDepth+c.globalIllumination), int(c.minLightRGB.R), int(c.maxLightRGB.R)))
-			spriteLvl.St[stripe].G = byte(geom.ClampInt(int(float64(spriteLvl.St[stripe].G)+shadowDepth+c.globalIllumination), int(c.minLightRGB.G), int(c.maxLightRGB.G)))
-			spriteLvl.St[stripe].B = byte(geom.ClampInt(int(float64(spriteLvl.St[stripe].B)+shadowDepth+c.globalIllumination), int(c.minLightRGB.B), int(c.maxLightRGB.B)))
+			spriteLvl.St[stripe].R = byte(geom.ClampInt(int(float64(spriteLvl.St[stripe].R)+shadowDepth+c.globalIllumination+spriteIllumination), int(c.minLightRGB.R), int(c.maxLightRGB.R)))
+			spriteLvl.St[stripe].G = byte(geom.ClampInt(int(float64(spriteLvl.St[stripe].G)+shadowDepth+c.globalIllumination+spriteIllumination), int(c.minLightRGB.G), int(c.maxLightRGB.G)))
+			spriteLvl.St[stripe].B = byte(geom.ClampInt(int(float64(spriteLvl.St[stripe].B)+shadowDepth+c.globalIllumination+spriteIllumination), int(c.minLightRGB.B), int(c.maxLightRGB.B)))
 		}
 	}
 
