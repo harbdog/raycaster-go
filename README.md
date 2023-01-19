@@ -133,6 +133,16 @@ Interface functions required to determine sprite images and positions to render 
 - If the sprite is off-camera or completely obscured by a wall, it will be provided as `nil`.
 - Can be useful for rendering custom user interfaces at raycasted sprite positions.
 
+`Illumination() float64`
+- Needs to return a value representing additional illumination provided by the sprite.
+- A value of `0.0` is used for normal sprite illumination.
+- A high positive value, for example `5000.0`, can be used to have a sprite illuminate itself even in dark environments.
+- Currently, it does not illuminate anything around the sprite, just the sprite itself.
+
+`IsFocusable() bool`
+- Needs to return `true` only if the Sprite object needs to be converged upon by the center point
+  (used with `camera.GetConvergenceDistance()` and `camera.GetConvergencePoint()`).
+
 ## Raycaster-go camera
 
 After implementing all required interface functions, the last step is to initialize an instance of `raycaster.Camera`
@@ -189,6 +199,12 @@ and make the function calls needed to update and draw during your game loop.
 `camera.SetLightRGB(min, max color.NRGBA)`
 - Sets the min/max color tinting of the textures when fully shadowed (min) or lighted (max).
 - Default: min=NRGBA{0, 0, 0}, max=NRGBA{255, 255, 255}
+
+`camera.GetConvergencePoint() *geom3d.Vector3`
+- Gets the point of convergence to a raycasted point from where the center of the camera screen is located.
+
+`camera.GetConvergenceDistance() float64`
+- Gets the distance to the point of convergence from where the center of the camera screen is located.
 
 ## Limitations
 
