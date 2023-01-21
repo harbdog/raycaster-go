@@ -91,6 +91,7 @@ type Camera struct {
 	// point at which the center of the screen converges (for reticle use)
 	convergenceDistance float64
 	convergencePoint    *geom3d.Vector3
+	convergenceSprite   Sprite
 
 	// used for concurrency
 	semaphore chan struct{}
@@ -138,6 +139,7 @@ func NewCamera(width int, height int, texSize int, mapObj Map, tex TextureHandle
 
 	c.convergenceDistance = -1
 	c.convergencePoint = nil
+	c.convergenceSprite = nil
 
 	//do an initial raycast
 	c.raycast()
@@ -228,6 +230,7 @@ func (c *Camera) Update(sprites []Sprite) {
 	// reset convergence point
 	c.convergenceDistance = -1
 	c.convergencePoint = nil
+	c.convergenceSprite = nil
 
 	if len(sprites) != len(c.sprites) {
 		// sprite buffer may need to be increased in size
@@ -697,6 +700,7 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 				if c.convergenceDistance == -1 || convergenceDistance < c.convergenceDistance {
 					c.convergenceDistance = convergenceDistance
 					c.convergencePoint = &geom3d.Vector3{X: convergenceLine3d.X2, Y: convergenceLine3d.Y2, Z: convergenceLine3d.Z2}
+					c.convergenceSprite = sprite
 				}
 			}
 
@@ -905,4 +909,9 @@ func (c *Camera) GetConvergenceDistance() float64 {
 // Get the 3-Dimensional point of convergence raycasted from the center of the camera view
 func (c *Camera) GetConvergencePoint() *geom3d.Vector3 {
 	return c.convergencePoint
+}
+
+// Get the Sprite (or nil if no sprite) at the point of convergence raycasted from the center of the camera view
+func (c *Camera) GetConvergenceSprite() Sprite {
+	return c.convergenceSprite
 }
