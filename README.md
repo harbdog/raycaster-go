@@ -206,6 +206,10 @@ and make the function calls needed to update and draw during your game loop.
 `camera.GetConvergenceDistance() float64`
 - Gets the distance to the point of convergence from where the center of the camera screen is located.
 
+`camera.GetConvergenceSprite() Sprite`
+- Gets the Sprite at the point of convergence from where the center of the camera screen is located.
+- Returns `nil` if the point of convergence is not a Sprite but wall, floor, or ceiling.
+
 ## Limitations
 
 - Raycasting is not raytracing.
