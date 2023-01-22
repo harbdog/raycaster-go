@@ -93,6 +93,9 @@ type Camera struct {
 	convergencePoint    *geom3d.Vector3
 	convergenceSprite   Sprite
 
+	// advanced option to always provide sprite screen rect bounds even when sprite is not being rendered
+	alwaysSetSpriteScreenRect bool
+
 	// used for concurrency
 	semaphore chan struct{}
 }
@@ -220,6 +223,11 @@ func (c *Camera) SetGlobalIllumination(illumination float64) {
 func (c *Camera) SetLightRGB(min, max color.NRGBA) {
 	c.minLightRGB = min
 	c.maxLightRGB = max
+}
+
+// SetAlwaysSetSpriteScreenRect if set true will always set the sprite screen rect bounds even if behind a wall
+func (c *Camera) SetAlwaysSetSpriteScreenRect(b bool) {
+	c.alwaysSetSpriteScreenRect = b
 }
 
 // Update - updates the camera view
@@ -584,7 +592,7 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 	sprite := c.sprites[c.spriteOrder[spriteOrdIndex]]
 
 	spriteDist := c.spriteDistance[spriteOrdIndex]
-	if spriteDist > c.renderDistance {
+	if spriteDist > c.renderDistance && !c.alwaysSetSpriteScreenRect {
 		sprite.SetScreenRect(nil)
 		return
 	}
@@ -644,16 +652,20 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 	drawStartX := -spriteWidth/2 + spriteScreenX
 	drawEndX := spriteWidth/2 + spriteScreenX
 
+	if spriteWidth == 0 || spriteHeight == 0 || transformY <= 0 || drawStartX < -spriteWidth || drawEndX >= c.w+spriteWidth {
+		// nothing to render if sprite is:
+		// 1) too small to render
+		// 2) behind camera
+		// 3) too far off left/right of camera
+		sprite.SetScreenRect(nil)
+		return
+	}
+
 	if drawStartX < 0 {
 		drawStartX = 0
 	}
 	if drawEndX >= c.w {
 		drawEndX = c.w - 1
-	}
-
-	if spriteWidth == 0 || spriteHeight == 0 {
-		sprite.SetScreenRect(nil)
-		return
 	}
 
 	// used to determine if is convergence point that hit a sprite
@@ -669,63 +681,65 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 
 	var spriteSlices []*image.Rectangle
 
-	//loop through every vertical stripe of the sprite on screen
-	for stripe := drawStartX; stripe < drawEndX; stripe++ {
-		//the conditions in the if are:
-		//1) it's in front of camera plane so you don't see things behind you
-		//2) it's on the screen (left)
-		//3) it's on the screen (right)
-		//4) ZBuffer, with perpendicular distance
-		if transformY > 0 && stripe > 0 && stripe < c.w && transformY < c.zBuffer[stripe] {
-			var spriteLvl *level
-			if !renderSprite {
-				renderSprite = true
-				spriteLvl = c.makeSpriteLevel(spriteOrdIndex)
-				spriteSlices = makeSlices(spriteTexWidth, spriteTexHeight, spriteTexRect.Min.X, spriteTexRect.Min.Y)
-			} else {
-				spriteLvl = c.spriteLvls[spriteOrdIndex]
-			}
-
-			texX := int(256*(stripe-(-spriteWidth/2+spriteScreenX))*spriteTexWidth/spriteWidth) / 256
-			if texX < 0 || texX >= cap(spriteSlices) {
-				continue
-			}
-
-			if canConverge && stripe == convergenceCol && drawStartY <= convergenceRow && convergenceRow <= drawEndY {
-				// use pitch angle and perpendicular distance (adjusted for fov zoom) to find Z point of convergence
-				convergencePerpDist := spriteDist
-				convergenceLine3d := geom3d.Line3dFromBaseAngle(c.pos.X, c.pos.Y, c.posZ, c.headingAngle, c.pitchAngle, convergencePerpDist)
-				convergenceDistance := convergenceLine3d.Distance()
-
-				if c.convergenceDistance == -1 || convergenceDistance < c.convergenceDistance {
-					c.convergenceDistance = convergenceDistance
-					c.convergencePoint = &geom3d.Vector3{X: convergenceLine3d.X2, Y: convergenceLine3d.Y2, Z: convergenceLine3d.Z2}
-					c.convergenceSprite = sprite
+	if !c.alwaysSetSpriteScreenRect || spriteDist <= c.renderDistance {
+		//loop through every vertical stripe of the sprite on screen
+		for stripe := drawStartX; stripe < drawEndX; stripe++ {
+			//the conditions in the if are:
+			//1) it's in front of camera plane so you don't see things behind you
+			//2) it's on the screen (left)
+			//3) it's on the screen (right)
+			//4) ZBuffer, with perpendicular distance
+			if transformY > 0 && stripe > 0 && stripe < c.w && transformY < c.zBuffer[stripe] {
+				var spriteLvl *level
+				if !renderSprite {
+					renderSprite = true
+					spriteLvl = c.makeSpriteLevel(spriteOrdIndex)
+					spriteSlices = makeSlices(spriteTexWidth, spriteTexHeight, spriteTexRect.Min.X, spriteTexRect.Min.Y)
+				} else {
+					spriteLvl = c.spriteLvls[spriteOrdIndex]
 				}
+
+				texX := int(256*(stripe-(-spriteWidth/2+spriteScreenX))*spriteTexWidth/spriteWidth) / 256
+				if texX < 0 || texX >= cap(spriteSlices) {
+					continue
+				}
+
+				if canConverge && stripe == convergenceCol && drawStartY <= convergenceRow && convergenceRow <= drawEndY {
+					// use pitch angle and perpendicular distance (adjusted for fov zoom) to find Z point of convergence
+					convergencePerpDist := spriteDist
+					convergenceLine3d := geom3d.Line3dFromBaseAngle(c.pos.X, c.pos.Y, c.posZ, c.headingAngle, c.pitchAngle, convergencePerpDist)
+					convergenceDistance := convergenceLine3d.Distance()
+
+					if c.convergenceDistance == -1 || convergenceDistance < c.convergenceDistance {
+						c.convergenceDistance = convergenceDistance
+						c.convergencePoint = &geom3d.Vector3{X: convergenceLine3d.X2, Y: convergenceLine3d.Y2, Z: convergenceLine3d.Z2}
+						c.convergenceSprite = sprite
+					}
+				}
+
+				//--set current texture slice--//
+				spriteLvl.Cts[stripe] = spriteSlices[texX]
+				spriteLvl.Cts[stripe].Min.Y = spriteTexRect.Min.Y + texStartY
+				spriteLvl.Cts[stripe].Max.Y = spriteTexRect.Min.Y + texEndY
+
+				spriteLvl.CurrTex[stripe] = spriteTex
+
+				//--set draw start and height of slice--//
+				spriteLvl.Sv[stripe].Min.Y = drawStartY
+				spriteLvl.Sv[stripe].Max.Y = drawEndY
+
+				//// LIGHTING ////
+				// distance based lighting/shading
+				shadowDepth := math.Sqrt(transformY) * c.lightFalloff
+				spriteLvl.St[stripe] = &color.RGBA{255, 255, 255, 255}
+				spriteLvl.St[stripe].R = byte(geom.ClampInt(int(float64(spriteLvl.St[stripe].R)+shadowDepth+c.globalIllumination+spriteIllumination), int(c.minLightRGB.R), int(c.maxLightRGB.R)))
+				spriteLvl.St[stripe].G = byte(geom.ClampInt(int(float64(spriteLvl.St[stripe].G)+shadowDepth+c.globalIllumination+spriteIllumination), int(c.minLightRGB.G), int(c.maxLightRGB.G)))
+				spriteLvl.St[stripe].B = byte(geom.ClampInt(int(float64(spriteLvl.St[stripe].B)+shadowDepth+c.globalIllumination+spriteIllumination), int(c.minLightRGB.B), int(c.maxLightRGB.B)))
 			}
-
-			//--set current texture slice--//
-			spriteLvl.Cts[stripe] = spriteSlices[texX]
-			spriteLvl.Cts[stripe].Min.Y = spriteTexRect.Min.Y + texStartY
-			spriteLvl.Cts[stripe].Max.Y = spriteTexRect.Min.Y + texEndY
-
-			spriteLvl.CurrTex[stripe] = spriteTex
-
-			//--set draw start and height of slice--//
-			spriteLvl.Sv[stripe].Min.Y = drawStartY
-			spriteLvl.Sv[stripe].Max.Y = drawEndY
-
-			//// LIGHTING ////
-			// distance based lighting/shading
-			shadowDepth := math.Sqrt(transformY) * c.lightFalloff
-			spriteLvl.St[stripe] = &color.RGBA{255, 255, 255, 255}
-			spriteLvl.St[stripe].R = byte(geom.ClampInt(int(float64(spriteLvl.St[stripe].R)+shadowDepth+c.globalIllumination+spriteIllumination), int(c.minLightRGB.R), int(c.maxLightRGB.R)))
-			spriteLvl.St[stripe].G = byte(geom.ClampInt(int(float64(spriteLvl.St[stripe].G)+shadowDepth+c.globalIllumination+spriteIllumination), int(c.minLightRGB.G), int(c.maxLightRGB.G)))
-			spriteLvl.St[stripe].B = byte(geom.ClampInt(int(float64(spriteLvl.St[stripe].B)+shadowDepth+c.globalIllumination+spriteIllumination), int(c.minLightRGB.B), int(c.maxLightRGB.B)))
 		}
 	}
 
-	if renderSprite {
+	if renderSprite || c.alwaysSetSpriteScreenRect {
 		// store raycasted sprite x/y view bounds so they can be retrieved by consumers
 		spriteCastRect := image.Rect(drawStartX, drawStartY, drawEndX, drawEndY)
 		sprite.SetScreenRect(&spriteCastRect)

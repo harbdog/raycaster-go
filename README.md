@@ -210,6 +210,9 @@ and make the function calls needed to update and draw during your game loop.
 - Gets the Sprite at the point of convergence from where the center of the camera screen is located.
 - Returns `nil` if the point of convergence is not a Sprite but wall, floor, or ceiling.
 
+`camera.SetAlwaysSetSpriteScreenRect(b bool)`
+- Set true to always set the sprite screen rect bounds even if behind a wall or beyond camera draw distance.
+
 ## Limitations
 
 - Raycasting is not raytracing.
