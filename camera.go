@@ -607,6 +607,7 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 	spriteTex := sprite.Texture()
 	spriteTexRect := sprite.TextureRect()
 	spriteTexWidth, spriteTexHeight := spriteTex.Size()
+	spriteTexRatioWH := float64(spriteTexWidth) / float64(spriteTexHeight)
 	spriteIllumination := sprite.Illumination()
 
 	//transform sprite with the inverse camera matrix
@@ -625,7 +626,7 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 	spriteScale := sprite.Scale()
 	spriteAnchor := sprite.VerticalAnchor()
 
-	var uDiv float64 = 1 / spriteScale
+	var uDiv float64 = 1 / (spriteScale * spriteTexRatioWH)
 	var vDiv float64 = 1 / spriteScale
 	var vOffset float64 = getAnchorVerticalOffset(spriteAnchor, spriteScale, c.h)
 
