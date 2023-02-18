@@ -721,7 +721,7 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 				//--set current texture slice--//
 				spriteLvl.Cts[stripe] = spriteSlices[texX]
 				spriteLvl.Cts[stripe].Min.Y = spriteTexRect.Min.Y + texStartY
-				spriteLvl.Cts[stripe].Max.Y = spriteTexRect.Min.Y + texEndY
+				spriteLvl.Cts[stripe].Max.Y = spriteTexRect.Min.Y + texEndY + 1
 
 				spriteLvl.CurrTex[stripe] = spriteTex
 
