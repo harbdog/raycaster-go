@@ -1,7 +1,6 @@
 package raycaster
 
 import (
-	"fmt"
 	"image"
 	"image/color"
 	"math"
@@ -102,8 +101,6 @@ type Camera struct {
 
 // NewCamera initalizes a Camera object
 func NewCamera(width int, height int, texSize int, mapObj Map, tex TextureHandler) *Camera {
-
-	fmt.Printf("Initializing Camera\n")
 
 	c := &Camera{}
 
@@ -826,7 +823,7 @@ func (c *Camera) clearSpriteLevel(spriteOrdIndex int) {
 	c.spriteLvls[spriteOrdIndex] = nil
 }
 
-//sort algorithm
+// sort algorithm
 func combSort(order []int, dist []float64, amount int) {
 	gap := amount
 	swapped := false
