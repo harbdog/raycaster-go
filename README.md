@@ -222,7 +222,6 @@ and make the function calls needed to update and draw during your game loop.
   or differing heights in elevation levels.
 - Multiple elevation levels can be rendered, however camera and sprite positions need to be limited
   to the ground level (Z-position `> 0.0 && <= 1.0`).
-- Only a single repeating floor texture can currently be set for the entire map.
 - [Ceiling textures](https://lodev.org/cgtutor/raycasting2.html) are not currently implemented.
   Skybox texture is currently the only option, so going indoors from outdoors in the same map is not currently possible.
   Feel free to help figure it out and contribute as a Pull Request!
