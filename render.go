@@ -77,7 +77,7 @@ func drawTexture(screen *ebiten.Image, texture *ebiten.Image, destinationRectang
 
 	if color != nil {
 		// color channel modulation/tinting
-		op.ColorM.Scale(float64(color.R)/255, float64(color.G)/255, float64(color.B)/255, float64(color.A)/255)
+		op.ColorScale.Scale(float32(color.R)/255, float32(color.G)/255, float32(color.B)/255, float32(color.A)/255)
 	}
 
 	screen.DrawImage(destTexture, op)

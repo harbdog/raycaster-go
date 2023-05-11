@@ -603,7 +603,7 @@ func (c *Camera) castSprite(spriteOrdIndex int) {
 
 	spriteTex := sprite.Texture()
 	spriteTexRect := sprite.TextureRect()
-	spriteTexWidth, spriteTexHeight := spriteTex.Size()
+	spriteTexWidth, spriteTexHeight := spriteTex.Bounds().Dx(), spriteTex.Bounds().Dy()
 	spriteTexRatioWH := float64(spriteTexWidth) / float64(spriteTexHeight)
 	spriteIllumination := sprite.Illumination()
 
