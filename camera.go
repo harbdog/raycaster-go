@@ -178,10 +178,27 @@ func (c *Camera) SetFovAngle(fovDegrees, fovDepth float64) {
 	c.plane = c.getVecForFov(c.dir)
 }
 
+// FovRadians returns the current FOV angle (radians)
+func (c *Camera) FovRadians() float64 {
+	return c.fovAngle
+}
+
+// FovAngle returns the current FOV angle (degrees)
 func (c *Camera) FovAngle() float64 {
 	return geom.Degrees(c.fovAngle)
 }
 
+// FovRadiansVertical calculates the current Vertical FOV angle (radians)
+func (c *Camera) FovRadiansVertical() float64 {
+	return 2 * math.Atan(math.Tan(c.fovAngle/2)*(float64(c.h)/float64(c.w)))
+}
+
+// FovAngleVertical calculates the current Vertical FOV angle (degrees)
+func (c *Camera) FovAngleVertical() float64 {
+	return geom.Degrees(c.FovRadiansVertical())
+}
+
+// FovDepth returns the current FOV depth
 func (c *Camera) FovDepth() float64 {
 	return c.fovDepth
 }
