@@ -1,6 +1,7 @@
 package geom
 
 import (
+	"fmt"
 	"math"
 )
 
@@ -55,6 +56,10 @@ type Vector2 struct {
 	X, Y float64
 }
 
+func (v *Vector2) String() string {
+	return fmt.Sprintf("{%0.3f,%0.3f}", v.X, v.Y)
+}
+
 func (v *Vector2) Add(v2 *Vector2) *Vector2 {
 	v.X += v2.X
 	v.Y += v2.Y
@@ -99,6 +104,10 @@ func NearlyEqual(a, b, epsilon float64) bool {
 // Line implementation for Geometry applications
 type Line struct {
 	X1, Y1, X2, Y2 float64
+}
+
+func (l *Line) String() string {
+	return fmt.Sprintf("{%0.3f,%0.3f->%0.3f,%0.3f}", l.X1, l.Y1, l.X2, l.Y2)
 }
 
 // Angle gets the angle of the line

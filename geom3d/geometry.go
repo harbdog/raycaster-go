@@ -1,6 +1,7 @@
 package geom3d
 
 import (
+	"fmt"
 	"math"
 )
 
@@ -9,6 +10,10 @@ func sq(x float64) float64 { return x * x }
 // 3-Dimensional point
 type Vector3 struct {
 	X, Y, Z float64
+}
+
+func (v *Vector3) String() string {
+	return fmt.Sprintf("{%0.3f,%0.3f,%0.3f}", v.X, v.Y, v.Z)
 }
 
 func (v *Vector3) Add(v3 *Vector3) *Vector3 {
@@ -36,6 +41,10 @@ func (v *Vector3) Equals(v3 *Vector3) bool {
 // Line implementation for 3-Dimensional Geometry applications
 type Line3d struct {
 	X1, Y1, Z1, X2, Y2, Z2 float64
+}
+
+func (l *Line3d) String() string {
+	return fmt.Sprintf("{%0.3f,%0.3f,%0.3f->%0.3f,%0.3f,%0.3f}", l.X1, l.Y1, l.Z1, l.X2, l.Y2, l.Z2)
 }
 
 // Heading gets the XY axis angle of the 3-dimensional line
