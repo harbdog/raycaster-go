@@ -9,21 +9,21 @@ import (
 
 // Draw the raycasted camera view to the screen.
 func (c *Camera) Draw(screen *ebiten.Image) {
-	//--draw basic sky and floor--//
+	//--draw basic sky and floor using linear scale filter for less pixelation--//
 	texRect := image.Rect(0, 0, c.texSize, c.texSize)
 	lightingRGBA := &color.RGBA{R: c.maxLightRGB.R, G: c.maxLightRGB.G, B: c.maxLightRGB.B, A: 255}
 
 	floorRect := image.Rect(0, int(float64(c.h)*0.5)+c.pitch,
 		c.w, c.h)
-	drawTexture(screen, c.floor, &floorRect, &texRect, lightingRGBA)
+	drawTexture(screen, c.floor, &floorRect, &texRect, lightingRGBA, ebiten.FilterLinear)
 
 	skyRect := image.Rect(0, 0, c.w, int(float64(c.h)*0.5)+c.pitch)
-	drawTexture(screen, c.sky, &skyRect, &texRect, lightingRGBA)
+	drawTexture(screen, c.sky, &skyRect, &texRect, lightingRGBA, ebiten.FilterLinear)
 
 	//--draw walls--//
 	for x := 0; x < c.w; x++ {
 		for i := cap(c.levels) - 1; i >= 0; i-- {
-			drawTexture(screen, c.levels[i].CurrTex[x], c.levels[i].Sv[x], c.levels[i].Cts[x], c.levels[i].St[x])
+			drawTexture(screen, c.levels[i].CurrTex[x], c.levels[i].Sv[x], c.levels[i].Cts[x], c.levels[i].St[x], ebiten.FilterNearest)
 		}
 	}
 
@@ -46,13 +46,13 @@ func (c *Camera) Draw(screen *ebiten.Image) {
 
 			texture := spriteLvl.CurrTex[x]
 			if texture != nil {
-				drawTexture(screen, texture, spriteLvl.Sv[x], spriteLvl.Cts[x], spriteLvl.St[x])
+				drawTexture(screen, texture, spriteLvl.Sv[x], spriteLvl.Cts[x], spriteLvl.St[x], ebiten.FilterNearest)
 			}
 		}
 	}
 }
 
-func drawTexture(screen *ebiten.Image, texture *ebiten.Image, destinationRectangle *image.Rectangle, sourceRectangle *image.Rectangle, color *color.RGBA) {
+func drawTexture(screen *ebiten.Image, texture *ebiten.Image, destinationRectangle *image.Rectangle, sourceRectangle *image.Rectangle, color *color.RGBA, filter ebiten.Filter) {
 	if texture == nil || destinationRectangle == nil || sourceRectangle == nil {
 		return
 	}
@@ -68,8 +68,7 @@ func drawTexture(screen *ebiten.Image, texture *ebiten.Image, destinationRectang
 	}
 
 	op := &ebiten.DrawImageOptions{}
-	op.Filter = ebiten.FilterNearest
-
+	op.Filter = filter
 	op.GeoM.Scale(scaleX, scaleY)
 	op.GeoM.Translate(float64(destinationRectangle.Min.X), float64(destinationRectangle.Min.Y))
 
